@@ -15,30 +15,41 @@ public class ModConfig {
 	private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
 	private static ModConfig instance;
 
-	/** Maximum number of floor tiles a single pen may contain. */
-	public int scanMaxCells = 2048;
-	/** Maximum horizontal distance a pen may extend away from the scarecrow. */
-	public int scanMaxRadius = 32;
-	/**
-	 * Fallback interval for re-scanning the pen shape, in ticks. Player block changes near the pen
-	 * trigger a scan on the next tick regardless, so this only catches pistons, explosions and the like.
-	 */
-	public int rescanIntervalTicks = 20;
-	/** How often the scarecrow tries to feed animals, in ticks. */
+	/** Whether the rancher feeds animals to breed them. Independent of {@link #enableCulling}. */
+	public boolean enableBreeding = true;
+	/** Whether the rancher slaughters surplus animals. Independent of {@link #enableBreeding}. */
+	public boolean enableCulling = true;
+	/** Let the rancher work fence gates, shutting them behind itself so the herd stays put. */
+	public boolean openFenceGates = true;
+	/** Horizontal reach of the work area, measured out from the station block. */
+	public int workRadius = 8;
+	/** How far the work area reaches above and below the station block. */
+	public int workHeight = 4;
+	/** How often the rancher looks around for its next job, in ticks. */
+	public int workIntervalTicks = 20;
+	/** Ticks the rancher waits after feeding one animal before feeding another. */
 	public int breedIntervalTicks = 60;
+	/** Ticks the rancher waits after finishing one animal off before starting on the next. */
+	public int cullIntervalTicks = 100;
 	/**
-	 * When true the scarecrow only breeds animals as long as matching feed has been put in it by hand,
-	 * and every pairing spends two items. When false it breeds for free and needs no feed at all.
+	 * When true feeding spends matching items out of the station inventory, so the ranch only runs
+	 * as long as you keep it stocked. When false the rancher breeds for free.
 	 */
 	public boolean requireFeedItems = true;
-	/** Animals of one species allowed inside the pen before breeding stops. */
+	/** Adults of one species kept as breeding stock. Anything above this gets slaughtered. */
+	public int keepAdultsPerType = 4;
+	/** Animals of one species allowed inside the area before breeding pauses. */
 	public int maxAnimalsPerType = 16;
-	/** Couples fed per breeding attempt. */
-	public int maxPairsPerCycle = 2;
 	/** Also feed babies to speed up their growth. Off by default because it eats through feed quickly. */
 	public boolean feedBabies = false;
-	/** Show the pen highlight without holding a scarecrow. */
+	/** Play the eating sound every time an animal is fed. Off by default since a busy ranch gets noisy. */
+	public boolean playFeedSound = false;
+	/** Ticks the station waits before replacing a rancher that died or went missing. */
+	public int workerRespawnTicks = 200;
+	/** Show the work area highlight without holding the station block. */
 	public boolean highlightAlwaysOn = false;
+	/** Print the rancher's current state over its head, for working out why it is idle. */
+	public boolean showWorkerState = true;
 
 	public static ModConfig get() {
 		if (instance == null) {
@@ -68,21 +79,25 @@ public class ModConfig {
 			}
 		}
 
-		config.clamp();
 		config.save();
 		return config;
 	}
 
 	private void clamp() {
-		scanMaxCells = MathHelper.clamp(scanMaxCells, 1, 16384);
-		scanMaxRadius = MathHelper.clamp(scanMaxRadius, 1, 128);
-		rescanIntervalTicks = MathHelper.clamp(rescanIntervalTicks, 1, 12000);
-		breedIntervalTicks = MathHelper.clamp(breedIntervalTicks, 20, 12000);
-		maxAnimalsPerType = MathHelper.clamp(maxAnimalsPerType, 2, 512);
-		maxPairsPerCycle = MathHelper.clamp(maxPairsPerCycle, 1, 32);
+		workRadius = MathHelper.clamp(workRadius, 1, 64);
+		workHeight = MathHelper.clamp(workHeight, 1, 32);
+		workIntervalTicks = MathHelper.clamp(workIntervalTicks, 1, 1200);
+		breedIntervalTicks = MathHelper.clamp(breedIntervalTicks, 1, 12000);
+		cullIntervalTicks = MathHelper.clamp(cullIntervalTicks, 1, 12000);
+		keepAdultsPerType = MathHelper.clamp(keepAdultsPerType, 2, 128);
+		maxAnimalsPerType = MathHelper.clamp(maxAnimalsPerType, keepAdultsPerType, 512);
+		workerRespawnTicks = MathHelper.clamp(workerRespawnTicks, 20, 24000);
 	}
 
-	private void save() {
+	/** Clamps the current values back into range and writes them out. */
+	public void save() {
+		clamp();
+
 		try {
 			Files.writeString(path(), GSON.toJson(this));
 		} catch (Exception exception) {

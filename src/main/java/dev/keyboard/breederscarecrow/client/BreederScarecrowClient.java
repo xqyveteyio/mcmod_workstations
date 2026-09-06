@@ -5,6 +5,7 @@ import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
 import net.fabricmc.fabric.api.client.rendering.v1.BlockEntityRendererRegistry;
+import net.fabricmc.fabric.api.client.rendering.v1.EntityRendererRegistry;
 import net.minecraft.client.option.KeyBinding;
 import net.minecraft.client.util.InputUtil;
 import net.minecraft.text.Text;
@@ -19,7 +20,8 @@ public class BreederScarecrowClient implements ClientModInitializer {
 
 	@Override
 	public void onInitializeClient() {
-		BlockEntityRendererRegistry.register(BreederScarecrowMod.SCARECROW_BLOCK_ENTITY, PenHighlightRenderer::new);
+		BlockEntityRendererRegistry.register(BreederScarecrowMod.SCARECROW_BLOCK_ENTITY, WorkAreaHighlightRenderer::new);
+		EntityRendererRegistry.register(BreederScarecrowMod.RANCHER, RancherEntityRenderer::new);
 
 		ClientTickEvents.END_CLIENT_TICK.register(client -> {
 			while (TOGGLE_HIGHLIGHT.wasPressed()) {

@@ -20,6 +20,11 @@ public final class HighlightState {
 		return forced;
 	}
 
+	/** Drops the manual toggle so the value from the config screen takes effect right away. */
+	public static void applyConfig() {
+		forced = ModConfig.get().highlightAlwaysOn;
+	}
+
 	public static boolean shouldRender() {
 		if (isForced()) {
 			return true;

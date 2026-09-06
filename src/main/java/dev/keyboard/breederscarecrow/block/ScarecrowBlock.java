@@ -1,7 +1,7 @@
 package dev.keyboard.breederscarecrow.block;
 
 import dev.keyboard.breederscarecrow.BreederScarecrowMod;
-import dev.keyboard.breederscarecrow.pen.PenRegion;
+import dev.keyboard.breederscarecrow.entity.RancherEntity;
 import net.minecraft.block.Block;
 import net.minecraft.block.BlockRenderType;
 import net.minecraft.block.BlockState;
@@ -16,6 +16,7 @@ import net.minecraft.item.ItemPlacementContext;
 import net.minecraft.item.ItemStack;
 import net.minecraft.screen.NamedScreenHandlerFactory;
 import net.minecraft.screen.ScreenHandler;
+import net.minecraft.server.world.ServerWorld;
 import net.minecraft.state.StateManager;
 import net.minecraft.state.property.DirectionProperty;
 import net.minecraft.state.property.Properties;
@@ -93,14 +94,17 @@ public class ScarecrowBlock extends BlockWithEntity {
 	public void onPlaced(World world, BlockPos pos, BlockState state, @Nullable LivingEntity placer, ItemStack itemStack) {
 		super.onPlaced(world, pos, state, placer, itemStack);
 
-		if (world.isClient || !(world.getBlockEntity(pos) instanceof ScarecrowBlockEntity scarecrow)) {
+		if (!(world instanceof ServerWorld serverWorld)
+				|| !(world.getBlockEntity(pos) instanceof ScarecrowBlockEntity station)) {
 			return;
 		}
 
-		PenRegion region = scarecrow.rescan();
+		// Summoned here rather than waiting on the tick timer, so placing the block visibly does something.
+		station.summonWorker(serverWorld);
 
 		if (placer instanceof PlayerEntity player) {
-			reportScan(player, region);
+			player.sendMessage(Text.translatable("message.breeder_scarecrow.station_placed",
+					station.getWorkArea().getRadius()), true);
 		}
 	}
 
@@ -110,13 +114,14 @@ public class ScarecrowBlock extends BlockWithEntity {
 			return ActionResult.SUCCESS;
 		}
 
-		if (!(world.getBlockEntity(pos) instanceof ScarecrowBlockEntity scarecrow)) {
+		if (!(world.getBlockEntity(pos) instanceof ScarecrowBlockEntity station)) {
 			return ActionResult.PASS;
 		}
 
-		// Sneaking re-scans the pen instead of opening the feed storage, which is handy while fixing gaps.
-		if (player.isSneaking()) {
-			reportScan(player, scarecrow.rescan());
+		// Sneaking reports on the worker instead of opening storage, which is how you tell whether
+		// a ranch that is doing nothing has lost its rancher.
+		if (player.isSneaking() && world instanceof ServerWorld serverWorld) {
+			reportWorker(player, station, serverWorld);
 			return ActionResult.SUCCESS;
 		}
 
@@ -131,8 +136,12 @@ public class ScarecrowBlock extends BlockWithEntity {
 
 	@Override
 	public void onStateReplaced(BlockState state, World world, BlockPos pos, BlockState newState, boolean moved) {
-		if (!state.isOf(newState.getBlock()) && world.getBlockEntity(pos) instanceof ScarecrowBlockEntity scarecrow) {
-			ItemScatterer.spawn(world, pos, scarecrow);
+		if (!state.isOf(newState.getBlock()) && world.getBlockEntity(pos) instanceof ScarecrowBlockEntity station) {
+			if (world instanceof ServerWorld serverWorld) {
+				station.dismissWorker(serverWorld);
+			}
+
+			ItemScatterer.spawn(world, pos, station);
 			world.updateComparators(pos, this);
 		}
 
@@ -149,11 +158,18 @@ public class ScarecrowBlock extends BlockWithEntity {
 		return ScreenHandler.calculateComparatorOutput(world.getBlockEntity(pos));
 	}
 
-	private static void reportScan(PlayerEntity player, PenRegion region) {
-		if (region.isEnclosed()) {
-			player.sendMessage(Text.translatable("message.breeder_scarecrow.pen_closed", region.size()), true);
-		} else {
-			player.sendMessage(Text.translatable("message.breeder_scarecrow.pen_open", region.size()), true);
+	private static void reportWorker(PlayerEntity player, ScarecrowBlockEntity station, ServerWorld world) {
+		RancherEntity worker = station.getWorker(world);
+
+		if (worker != null) {
+			player.sendMessage(Text.translatable("message.breeder_scarecrow.worker_ready",
+					(int) worker.getHealth(), station.getWorkArea().getRadius()), true);
+			return;
 		}
+
+		station.summonWorker(world);
+		player.sendMessage(Text.translatable(station.getWorker(world) != null
+				? "message.breeder_scarecrow.worker_summoned"
+				: "message.breeder_scarecrow.worker_no_room"), true);
 	}
 }

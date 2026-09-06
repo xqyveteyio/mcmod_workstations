@@ -1,5 +1,7 @@
 # Gradle
 .gradle/
+# Building from a terminal while the IDE holds the lock on .gradle needs its own cache dir.
+.gradle-agent/
 build/
 out/
 classes/
@@ -8,6 +10,7 @@ classes/
 remappedSrc/
 .fabric/
 run/
+.testrun/
 
 # IDEA
 .idea/
