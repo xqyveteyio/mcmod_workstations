@@ -1,0 +1,10 @@
+{
+	"block.breeder_scarecrow.scarecrow": "繁殖稻草人",
+	"container.breeder_scarecrow.scarecrow": "繁殖稻草人",
+	"category.breeder_scarecrow": "繁殖稻草人",
+	"key.breeder_scarecrow.toggle_highlight": "切换围栏范围高亮",
+	"message.breeder_scarecrow.pen_closed": "已检测到围栏范围：%s 格，完全封闭",
+	"message.breeder_scarecrow.pen_open": "范围未封闭（已扫描 %s 格）——请检查围栏缺口或地面空洞",
+	"message.breeder_scarecrow.highlight_on": "范围高亮：常显",
+	"message.breeder_scarecrow.highlight_off": "范围高亮：仅手持稻草人时显示"
+}

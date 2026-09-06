@@ -1,0 +1,26 @@
+{
+	"schemaVersion": 1,
+	"id": "breeder_scarecrow",
+	"version": "${version}",
+	"name": "Breeder Scarecrow",
+	"description": "A scarecrow that detects the fenced pen around it, highlights it for debugging, and automatically feeds and pairs the animals inside so they breed.",
+	"authors": [
+		"keyboard"
+	],
+	"license": "MIT",
+	"environment": "*",
+	"entrypoints": {
+		"main": [
+			"dev.keyboard.breederscarecrow.BreederScarecrowMod"
+		],
+		"client": [
+			"dev.keyboard.breederscarecrow.client.BreederScarecrowClient"
+		]
+	},
+	"depends": {
+		"fabricloader": ">=0.15.0",
+		"minecraft": "~1.20.1",
+		"java": ">=17",
+		"fabric-api": "*"
+	}
+}

@@ -1,0 +1,10 @@
+{
+	"block.breeder_scarecrow.scarecrow": "Breeder Scarecrow",
+	"container.breeder_scarecrow.scarecrow": "Breeder Scarecrow",
+	"category.breeder_scarecrow": "Breeder Scarecrow",
+	"key.breeder_scarecrow.toggle_highlight": "Toggle pen highlight",
+	"message.breeder_scarecrow.pen_closed": "Pen detected: %s tiles, fully enclosed",
+	"message.breeder_scarecrow.pen_open": "Pen is not enclosed (%s tiles scanned) - check for gaps or holes",
+	"message.breeder_scarecrow.highlight_on": "Pen highlight: on",
+	"message.breeder_scarecrow.highlight_off": "Pen highlight: only while holding a scarecrow"
+}

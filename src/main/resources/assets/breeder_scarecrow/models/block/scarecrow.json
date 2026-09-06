@@ -1,0 +1,52 @@
+{
+	"parent": "block/block",
+	"ambientocclusion": false,
+	"textures": {
+		"particle": "minecraft:block/hay_block_side",
+		"post": "minecraft:block/oak_log",
+		"plank": "minecraft:block/oak_planks",
+		"hay_side": "minecraft:block/hay_block_side",
+		"hay_top": "minecraft:block/hay_block_top"
+	},
+	"elements": [
+		{
+			"name": "post",
+			"from": [7, 0, 7],
+			"to": [9, 12, 9],
+			"faces": {
+				"north": {"texture": "#post"},
+				"east": {"texture": "#post"},
+				"south": {"texture": "#post"},
+				"west": {"texture": "#post"},
+				"up": {"texture": "#post"},
+				"down": {"texture": "#post"}
+			}
+		},
+		{
+			"name": "arms",
+			"from": [1, 8, 7],
+			"to": [15, 10, 9],
+			"faces": {
+				"north": {"texture": "#plank"},
+				"east": {"texture": "#plank"},
+				"south": {"texture": "#plank"},
+				"west": {"texture": "#plank"},
+				"up": {"texture": "#plank"},
+				"down": {"texture": "#plank"}
+			}
+		},
+		{
+			"name": "head",
+			"from": [4, 11, 4],
+			"to": [12, 16, 12],
+			"faces": {
+				"north": {"texture": "#hay_side"},
+				"east": {"texture": "#hay_side"},
+				"south": {"texture": "#hay_side"},
+				"west": {"texture": "#hay_side"},
+				"up": {"texture": "#hay_top"},
+				"down": {"texture": "#hay_top"}
+			}
+		}
+	]
+}

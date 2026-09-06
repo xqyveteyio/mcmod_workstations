@@ -1,0 +1,23 @@
+{
+	"type": "minecraft:crafting_shaped",
+	"pattern": [
+		" H ",
+		"SPS",
+		" S "
+	],
+	"key": {
+		"H": {
+			"item": "minecraft:hay_block"
+		},
+		"P": {
+			"item": "minecraft:oak_planks"
+		},
+		"S": {
+			"item": "minecraft:stick"
+		}
+	},
+	"result": {
+		"item": "breeder_scarecrow:scarecrow",
+		"count": 1
+	}
+}
