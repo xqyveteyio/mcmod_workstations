@@ -1,6 +1,6 @@
 package dev.keyboard.breederscarecrow.entity.ai;
 
-import dev.keyboard.breederscarecrow.ModConfig;
+import dev.keyboard.breederscarecrow.work.StationSettings;
 import dev.keyboard.breederscarecrow.block.ScarecrowBlockEntity;
 import dev.keyboard.breederscarecrow.entity.RancherEntity;
 import dev.keyboard.breederscarecrow.work.HerdSurvey;
@@ -212,7 +212,7 @@ public class RancherBrain {
 		if (scanCooldown > 0) {
 			scanCooldown--;
 		} else {
-			scanCooldown = ModConfig.get().workIntervalTicks;
+			scanCooldown = station.getSettings().workIntervalTicks;
 
 			if (chooseJob(rancher, world, area, station)) {
 				timeout = JOB_TIMEOUT;
@@ -439,7 +439,7 @@ public class RancherBrain {
 	}
 
 	private boolean chooseJob(RancherEntity rancher, ServerWorld world, WorkArea area, ScarecrowBlockEntity station) {
-		ModConfig config = ModConfig.get();
+		StationSettings config = station.getSettings();
 		note = "";
 
 		// A full pack first, otherwise the rancher would keep killing animals it cannot carry.
@@ -526,7 +526,7 @@ public class RancherBrain {
 	 */
 	@Nullable
 	private HerdSurvey.FeedPlan nearestPlan(RancherEntity rancher, ServerWorld world,
-			List<HerdSurvey.FeedPlan> plans, Inventory station, ModConfig config) {
+			List<HerdSurvey.FeedPlan> plans, Inventory station, StationSettings config) {
 		List<AnimalEntity> heads = new ArrayList<>(plans.size());
 
 		for (HerdSurvey.FeedPlan plan : plans) {
@@ -551,7 +551,7 @@ public class RancherBrain {
 	}
 
 	/** Whether the station holds a portion for every animal in the plan. */
-	private static boolean affordable(HerdSurvey.FeedPlan plan, Inventory station, ModConfig config) {
+	private static boolean affordable(HerdSurvey.FeedPlan plan, Inventory station, StationSettings config) {
 		if (!config.requireFeedItems) {
 			return true;
 		}
@@ -638,7 +638,7 @@ public class RancherBrain {
 			return true;
 		}
 
-		ModConfig config = ModConfig.get();
+		StationSettings config = station.getSettings();
 
 		if (config.requireFeedItems) {
 			int slot = findFeedSlot(station, animal);
@@ -871,7 +871,7 @@ public class RancherBrain {
 			return;
 		}
 
-		if (ModConfig.get().playFeedSound) {
+		if (rancher.getSettings().playFeedSound) {
 			world.playSound(null, animal.getBlockPos(), SoundEvents.ENTITY_GENERIC_EAT, SoundCategory.NEUTRAL, 0.5F,
 					world.random.nextFloat() * 0.2F + 0.9F);
 		}
@@ -880,7 +880,7 @@ public class RancherBrain {
 		world.spawnParticles(ParticleTypes.HAPPY_VILLAGER, center.x, center.y, center.z, 4, 0.3, 0.3, 0.3, 0.0);
 	}
 
-	private static List<AnimalEntity> filterFeedable(List<AnimalEntity> animals, Inventory station, ModConfig config) {
+	private static List<AnimalEntity> filterFeedable(List<AnimalEntity> animals, Inventory station, StationSettings config) {
 		if (!config.requireFeedItems) {
 			return animals;
 		}

@@ -1,8 +1,8 @@
 package dev.keyboard.breederscarecrow.block;
 
 import dev.keyboard.breederscarecrow.BreederScarecrowMod;
-import dev.keyboard.breederscarecrow.ModConfig;
 import dev.keyboard.breederscarecrow.entity.RancherEntity;
+import dev.keyboard.breederscarecrow.work.StationSettings;
 import dev.keyboard.breederscarecrow.work.WorkArea;
 import net.minecraft.block.Block;
 import net.minecraft.block.BlockState;
@@ -38,19 +38,21 @@ public class ScarecrowBlockEntity extends LootableContainerBlockEntity {
 	public static final int INVENTORY_SIZE = 27;
 
 	private static final String WORKER_KEY = "Worker";
-	private static final String RADIUS_KEY = "Radius";
-	private static final String HEIGHT_KEY = "Height";
+	private static final String SETTINGS_KEY = "Settings";
+	/** Where the area size lived before stations had settings of their own. */
+	private static final String LEGACY_RADIUS_KEY = "Radius";
+	private static final String LEGACY_HEIGHT_KEY = "Height";
 
 	private DefaultedList<ItemStack> inventory = DefaultedList.ofSize(INVENTORY_SIZE, ItemStack.EMPTY);
 	@Nullable
 	private UUID workerUuid;
 	private int respawnTimer;
 	/**
-	 * Copies of the configured area size. Held here rather than read from the config on demand so
-	 * the client can draw the highlight at the size the server actually works with.
+	 * This station's orders, started off from the config file's values and edited in game from the
+	 * settings screen. Sent to the client in full: it needs the area size to draw the highlight,
+	 * and the screen reads the rest straight off the block rather than asking the server for it.
 	 */
-	private int radius = ModConfig.get().workRadius;
-	private int height = ModConfig.get().workHeight;
+	private final StationSettings settings = new StationSettings();
 
 	public ScarecrowBlockEntity(BlockPos pos, BlockState state) {
 		super(BreederScarecrowMod.SCARECROW_BLOCK_ENTITY, pos, state);
@@ -61,26 +63,41 @@ public class ScarecrowBlockEntity extends LootableContainerBlockEntity {
 			return;
 		}
 
-		ModConfig config = ModConfig.get();
-		station.updateAreaSize(config);
-
 		RancherEntity worker = station.getWorker(serverWorld);
 
 		if (worker != null) {
 			// Refreshed every tick so a worker restored from disk finds its way home again.
 			worker.setStation(pos);
-			station.respawnTimer = config.workerRespawnTicks;
+			station.respawnTimer = station.settings.workerRespawnTicks;
 			return;
 		}
 
 		if (--station.respawnTimer <= 0) {
-			station.respawnTimer = config.workerRespawnTicks;
+			station.respawnTimer = station.settings.workerRespawnTicks;
 			station.summonWorker(serverWorld);
 		}
 	}
 
 	public WorkArea getWorkArea() {
-		return new WorkArea(pos, radius, height);
+		return new WorkArea(pos, settings.workRadius, settings.workHeight);
+	}
+
+	public StationSettings getSettings() {
+		return settings;
+	}
+
+	/**
+	 * Takes on a set of settings from the screen. Listeners are told even though only the area size
+	 * is drawn, because that size is what the highlight is built from and a resize that never
+	 * reached the client would leave the box lying about where the rancher works.
+	 */
+	public void applySettings(StationSettings incoming) {
+		settings.copyFrom(incoming);
+		markDirty();
+
+		if (world != null) {
+			world.updateListeners(pos, getCachedState(), getCachedState(), Block.NOTIFY_LISTENERS);
+		}
 	}
 
 	/** The rancher belonging to this station, or {@code null} if it died or is not loaded. */
@@ -177,20 +194,6 @@ public class ScarecrowBlockEntity extends LootableContainerBlockEntity {
 				&& world.getBlockState(pos.up()).getCollisionShape(world, pos.up()).isEmpty();
 	}
 
-	private void updateAreaSize(ModConfig config) {
-		if (radius == config.workRadius && height == config.workHeight) {
-			return;
-		}
-
-		radius = config.workRadius;
-		height = config.workHeight;
-		markDirty();
-
-		if (world != null) {
-			world.updateListeners(pos, getCachedState(), getCachedState(), Block.NOTIFY_LISTENERS);
-		}
-	}
-
 	@Override
 	public int size() {
 		return INVENTORY_SIZE;
@@ -228,8 +231,7 @@ public class ScarecrowBlockEntity extends LootableContainerBlockEntity {
 			nbt.putUuid(WORKER_KEY, workerUuid);
 		}
 
-		nbt.putInt(RADIUS_KEY, radius);
-		nbt.putInt(HEIGHT_KEY, height);
+		nbt.put(SETTINGS_KEY, settingsNbt());
 	}
 
 	@Override
@@ -243,18 +245,29 @@ public class ScarecrowBlockEntity extends LootableContainerBlockEntity {
 
 		workerUuid = nbt.containsUuid(WORKER_KEY) ? nbt.getUuid(WORKER_KEY) : null;
 
-		if (nbt.contains(RADIUS_KEY, NbtElement.INT_TYPE)) {
-			radius = nbt.getInt(RADIUS_KEY);
-			height = nbt.getInt(HEIGHT_KEY);
+		if (nbt.contains(SETTINGS_KEY, NbtElement.COMPOUND_TYPE)) {
+			settings.readNbt(nbt.getCompound(SETTINGS_KEY));
+		}
+
+		// Stations saved before settings were per block only recorded the area size.
+		if (nbt.contains(LEGACY_RADIUS_KEY, NbtElement.INT_TYPE)) {
+			settings.workRadius = nbt.getInt(LEGACY_RADIUS_KEY);
+			settings.workHeight = nbt.getInt(LEGACY_HEIGHT_KEY);
+			settings.clamp();
 		}
 	}
 
-	/** Clients only need the area size for the highlight, not the contents. */
+	private NbtCompound settingsNbt() {
+		NbtCompound nbt = new NbtCompound();
+		settings.writeNbt(nbt);
+		return nbt;
+	}
+
+	/** Clients get the settings, which the highlight and the settings screen read, but no contents. */
 	@Override
 	public NbtCompound toInitialChunkDataNbt() {
 		NbtCompound nbt = new NbtCompound();
-		nbt.putInt(RADIUS_KEY, radius);
-		nbt.putInt(HEIGHT_KEY, height);
+		nbt.put(SETTINGS_KEY, settingsNbt());
 		return nbt;
 	}
 

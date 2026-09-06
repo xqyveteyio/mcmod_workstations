@@ -1,10 +1,10 @@
 package dev.keyboard.breederscarecrow.entity;
 
-import dev.keyboard.breederscarecrow.ModConfig;
 import dev.keyboard.breederscarecrow.block.ScarecrowBlockEntity;
 import dev.keyboard.breederscarecrow.entity.ai.GateOperator;
 import dev.keyboard.breederscarecrow.entity.ai.RancherBrain;
 import dev.keyboard.breederscarecrow.entity.ai.RancherNavigation;
+import dev.keyboard.breederscarecrow.work.StationSettings;
 import dev.keyboard.breederscarecrow.work.WorkArea;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityType;
@@ -67,6 +67,9 @@ public class RancherEntity extends PathAwareEntity {
 	private int homelessTicks;
 	private int feedCooldown;
 	private int cullCooldown;
+	/** Stand in orders for a rancher that has outlived its station. */
+	@Nullable
+	private StationSettings orphanedSettings;
 
 	public RancherEntity(EntityType<? extends RancherEntity> type, World world) {
 		super(type, world);
@@ -141,7 +144,7 @@ public class RancherEntity extends PathAwareEntity {
 	 * through the gap the rancher is heading for.
 	 */
 	private void shoveBlockers() {
-		if (!ModConfig.get().shoveBlockers || getNavigation().isIdle()) {
+		if (!getSettings().shoveBlockers || getNavigation().isIdle()) {
 			return;
 		}
 
@@ -199,7 +202,7 @@ public class RancherEntity extends PathAwareEntity {
 	 * label ticks every tick, so writing it straight through would mean a packet per tick.
 	 */
 	private void updateStateLabel() {
-		if (!ModConfig.get().showWorkerState) {
+		if (!getSettings().showWorkerState) {
 			if (stateLabel != null) {
 				stateLabel = null;
 				setCustomName(null);
@@ -258,12 +261,29 @@ public class RancherEntity extends PathAwareEntity {
 
 	@Nullable
 	public WorkArea getWorkArea() {
-		if (stationPos == null) {
-			return null;
+		ScarecrowBlockEntity station = getStation();
+		return station == null ? null : station.getWorkArea();
+	}
+
+	/**
+	 * The orders this rancher works to, which belong to its own station rather than to the mod as a
+	 * whole, so neighbouring ranches can be set up differently.
+	 *
+	 * <p>A rancher whose station is gone is on its way to being discarded, and falls back on the
+	 * config file's values so the few ticks it has left need no null checking.
+	 */
+	public StationSettings getSettings() {
+		ScarecrowBlockEntity station = getStation();
+
+		if (station != null) {
+			return station.getSettings();
 		}
 
-		ModConfig config = ModConfig.get();
-		return new WorkArea(stationPos, config.workRadius, config.workHeight);
+		if (orphanedSettings == null) {
+			orphanedSettings = new StationSettings();
+		}
+
+		return orphanedSettings;
 	}
 
 	public SimpleInventory getCarried() {
@@ -279,11 +299,11 @@ public class RancherEntity extends PathAwareEntity {
 	}
 
 	public void startFeedCooldown() {
-		feedCooldown = ModConfig.get().breedIntervalTicks;
+		feedCooldown = getSettings().breedIntervalTicks;
 	}
 
 	public void startCullCooldown() {
-		cullCooldown = ModConfig.get().cullIntervalTicks;
+		cullCooldown = getSettings().cullIntervalTicks;
 	}
 
 	/** The station is responsible for summoning replacements, so natural despawning must not apply. */

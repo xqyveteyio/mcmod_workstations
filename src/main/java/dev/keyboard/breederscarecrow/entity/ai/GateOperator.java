@@ -1,6 +1,5 @@
 package dev.keyboard.breederscarecrow.entity.ai;
 
-import dev.keyboard.breederscarecrow.ModConfig;
 import dev.keyboard.breederscarecrow.entity.RancherEntity;
 import net.minecraft.block.Block;
 import net.minecraft.block.BlockState;
@@ -58,7 +57,7 @@ public class GateOperator {
 	private int cooldown;
 
 	public void tick(RancherEntity rancher) {
-		if (!ModConfig.get().openFenceGates) {
+		if (!rancher.getSettings().openFenceGates) {
 			shut(rancher);
 			return;
 		}

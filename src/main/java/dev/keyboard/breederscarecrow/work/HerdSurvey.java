@@ -1,6 +1,5 @@
 package dev.keyboard.breederscarecrow.work;
 
-import dev.keyboard.breederscarecrow.ModConfig;
 import net.minecraft.entity.EntityType;
 import net.minecraft.entity.passive.AbstractHorseEntity;
 import net.minecraft.entity.passive.AnimalEntity;
@@ -68,7 +67,7 @@ public final class HerdSurvey {
 	 * <p>Pairings are only ever counted in twos, so three cows standing together yield one plan and
 	 * the odd one out waits for the next round rather than falling in love with nobody left over.
 	 */
-	public List<FeedPlan> feedPlans(ModConfig config) {
+	public List<FeedPlan> feedPlans(StationSettings config) {
 		List<FeedPlan> plans = new ArrayList<>();
 
 		for (Herd herd : herds.values()) {
@@ -186,12 +185,12 @@ public final class HerdSurvey {
 	}
 
 	/** Every pairing adds one baby, so a herd near its limit only starts as many as still fit. */
-	private static int roomForPairings(ModConfig config, Herd herd, int courting) {
+	private static int roomForPairings(StationSettings config, Herd herd, int courting) {
 		return Math.max(0, (config.maxAnimalsPerType - herd.total()) * 2 - courting);
 	}
 
 	/** Adults above the configured breeding stock, oldest pairings spared so the herd keeps going. */
-	public List<AnimalEntity> cullCandidates(ModConfig config) {
+	public List<AnimalEntity> cullCandidates(StationSettings config) {
 		List<AnimalEntity> candidates = new ArrayList<>();
 
 		for (Herd herd : herds.values()) {

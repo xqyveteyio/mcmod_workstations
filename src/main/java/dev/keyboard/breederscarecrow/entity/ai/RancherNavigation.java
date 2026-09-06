@@ -1,6 +1,6 @@
 package dev.keyboard.breederscarecrow.entity.ai;
 
-import dev.keyboard.breederscarecrow.ModConfig;
+import dev.keyboard.breederscarecrow.entity.RancherEntity;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.FenceGateBlock;
 import net.minecraft.entity.ai.pathing.LandPathNodeMaker;
@@ -25,8 +25,15 @@ import net.minecraft.world.World;
  * the rancher may walk changes.
  */
 public class RancherNavigation extends MobNavigation {
+	/**
+	 * Kept for the node maker below. Assigned after {@code super}, which is where the node maker is
+	 * built, but the node maker only reads it once a path is actually being worked out.
+	 */
+	private MobEntity navigator;
+
 	public RancherNavigation(MobEntity mob, World world) {
 		super(mob, world);
+		navigator = mob;
 	}
 
 	/** A shut gate, as opposed to the walls and fence posts that also come back as FENCE. */
@@ -41,18 +48,26 @@ public class RancherNavigation extends MobNavigation {
 		return new PathNodeNavigator(nodeMaker, range);
 	}
 
-	private static class GateAwareNodeMaker extends LandPathNodeMaker {
+	/**
+	 * Inner rather than static so it can read the navigating mob, whose station says whether gates
+	 * are in play at this ranch.
+	 */
+	private class GateAwareNodeMaker extends LandPathNodeMaker {
 		@Override
 		public PathNodeType getDefaultNodeType(BlockView world, int x, int y, int z) {
 			PathNodeType type = super.getDefaultNodeType(world, x, y, z);
 
-			if (type != PathNodeType.FENCE || !ModConfig.get().openFenceGates) {
+			if (type != PathNodeType.FENCE || !gatesAllowed()) {
 				return type;
 			}
 
 			return isClosedGate(world.getBlockState(new BlockPos(x, y, z)))
 					? PathNodeType.WALKABLE_DOOR
 					: type;
+		}
+
+		private boolean gatesAllowed() {
+			return navigator instanceof RancherEntity rancher && rancher.getSettings().openFenceGates;
 		}
 	}
 }
