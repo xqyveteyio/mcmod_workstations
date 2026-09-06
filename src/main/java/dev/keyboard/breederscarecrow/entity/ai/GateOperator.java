@@ -44,6 +44,12 @@ public class GateOperator {
 	 */
 	private static final int MAX_OPEN_TICKS = 60;
 	private static final int REOPEN_COOLDOWN = 20;
+	/**
+	 * Hard ceiling that applies even when shutting the gate would close it on the rancher, which
+	 * otherwise holds it open with no limit at all. A gate standing open is the one outcome worth
+	 * avoiding, and the rancher only gets nudged clear of the gateway rather than harmed.
+	 */
+	private static final int NEVER_OPEN_LONGER_THAN = 200;
 
 	@Nullable
 	private BlockPos gate;
@@ -80,6 +86,15 @@ public class GateOperator {
 		}
 	}
 
+	/**
+	 * Whether a gate is currently being worked, including the pause after giving up on a blocked
+	 * one. Waiting your turn at a gate is not the same as being unable to get anywhere, so the
+	 * brain must not read it as a target it should write off.
+	 */
+	public boolean isBusy() {
+		return gate != null || cooldown > 0;
+	}
+
 	/** Shuts whatever is still open, for a rancher that died or was dismissed mid gateway. */
 	public void shut(RancherEntity rancher) {
 		if (gate != null) {
@@ -106,7 +121,7 @@ public class GateOperator {
 		openTicks++;
 		boolean wouldTrap = wouldTrap(rancher, current, state);
 
-		if (!wouldTrap && openTicks > MAX_OPEN_TICKS) {
+		if ((!wouldTrap && openTicks > MAX_OPEN_TICKS) || openTicks > NEVER_OPEN_LONGER_THAN) {
 			setOpen(rancher, current, false);
 			gate = null;
 			cooldown = REOPEN_COOLDOWN;

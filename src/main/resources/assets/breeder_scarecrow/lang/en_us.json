@@ -43,6 +43,8 @@
 	"config.breeder_scarecrow.worker_respawn_ticks.tooltip": "How long the station waits before summoning a replacement for a rancher that died or went missing.",
 	"config.breeder_scarecrow.open_fence_gates": "Use fence gates",
 	"config.breeder_scarecrow.open_fence_gates.tooltip": "Let the rancher open a fence gate that is in its way and shut it again once through, so the herd stays put. Off: gates count as solid wall, same as for any other mob.",
+	"config.breeder_scarecrow.shove_blockers": "Push past livestock",
+	"config.breeder_scarecrow.shove_blockers.tooltip": "Let the rancher shoulder animals in front of it out of the way while walking, instead of pathing the long way round or giving up. Animals are only nudged sideways, never through a gateway, and players are left alone.",
 	"config.breeder_scarecrow.highlight_always_on": "Always show highlight",
 	"config.breeder_scarecrow.highlight_always_on.tooltip": "On: the work area highlight is always visible.\nOff: it only shows while holding a ranch station. The hotkey toggles this at any time.",
 	"config.breeder_scarecrow.show_worker_state": "Show rancher state",

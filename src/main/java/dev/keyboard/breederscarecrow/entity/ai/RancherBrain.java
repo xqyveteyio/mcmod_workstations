@@ -49,7 +49,6 @@ public class RancherBrain {
 		NO_STATION,
 		SWIMMING,
 		IDLE,
-		STROLLING,
 		RETURNING,
 		WALKING,
 		WORKING
@@ -68,6 +67,47 @@ public class RancherBrain {
 
 	/** Two blocks, which is roughly a player's reach. */
 	private static final double REACH_SQUARED = 4.0;
+	/**
+	 * How near a path has to get a drop to count as reaching it, in blocks.
+	 *
+	 * <p>Not zero, because {@code findPathTo} aims at the target's own block and a drop that rolled
+	 * up against a fence does not sit on a block anything can stand on. Wedged in the fence it gets
+	 * squeezed about, so its centre lands either inside the fence itself or, once it settles a
+	 * fraction below ground level, inside the solid block holding the fence up. Both are impossible
+	 * to path into, which is why those drops were written off as unreachable.
+	 *
+	 * <p>Only drops get this. An animal stands on ground the rancher could stand on too, so its own
+	 * block is a perfectly good target, and loosening it there causes a deadlock: pathfinding calls
+	 * the walk finished while the animal is still further away than {@link #REACH_SQUARED} allows
+	 * feeding, leaving the rancher stood next to a cow it will not close the last stride on.
+	 */
+	private static final int COLLECT_PATH_DISTANCE = 2;
+	/** An animal's own block is always somewhere the rancher can stand, so aim right at it. */
+	private static final int ANIMAL_PATH_DISTANCE = 0;
+	/**
+	 * Reach for picking things up: enough for a drop in a neighbouring cell wherever in that cell it
+	 * has settled, and no further. Diagonally that is 1.41 blocks between centres plus up to 0.7
+	 * across the cell, so 2.5.
+	 *
+	 * <p>Longer than {@link #REACH_SQUARED} because a drop wedged against a fence can only ever be
+	 * approached from the cell next door, and the last stretch of that walk is not always available
+	 * either, which is what left those drops lying there.
+	 *
+	 * <p>Deliberately not longer than that. At three blocks the rancher could stand outside a pen
+	 * and lean over the fence for drops two cells in, so it never had reason to go through the gate
+	 * at all. Anything further away has to be walked to.
+	 */
+	private static final double COLLECT_REACH_SQUARED = 6.25;
+	/**
+	 * Ticks without getting meaningfully closer before a target is given up on.
+	 *
+	 * <p>Progress is the signal, not whether a path exists. A rancher can hold a perfectly good
+	 * looking path whose last node it is never able to enter, and sit there the full
+	 * {@link #JOB_TIMEOUT} without moving an inch.
+	 */
+	private static final int STALL_LIMIT = 60;
+	/** Blocks of closing distance that count as progress rather than jitter. */
+	private static final double STALL_PROGRESS = 0.25;
 	private static final double STATION_REACH_SQUARED = 6.25;
 	private static final int REPATH_INTERVAL = 10;
 	/** How long the rancher chases one target before writing it off, in ticks. */
@@ -76,10 +116,33 @@ public class RancherBrain {
 	private static final int BLOCKED_COOLDOWN = 200;
 	/** Paths tried per scan before the rancher gives up and waits for the next one. */
 	private static final int MAX_PATH_CHECKS = 3;
+	/**
+	 * How far off something may be before it is walked at in stages rather than pathed to directly,
+	 * in blocks.
+	 *
+	 * <p>Pathfinding cannot see beyond the mob's follow range: the search stops expanding at nodes
+	 * further from the rancher than that, so a request for anything past it comes back as a path
+	 * that does not reach, exactly as if a wall were in the way. Follow range is 32 while the work
+	 * radius goes up to 64, which quietly wrote off everything in the outer ring of a wide area
+	 * however open the ground was. Standing at its post the rancher measures from the middle, so
+	 * the ring started at 32 blocks out, or nearer than that towards the corners.
+	 *
+	 * <p>Raising follow range instead is a trap, because it is also the search bound: one genuinely
+	 * unreachable drop in a wide area would then have the search exhaust every node within tens of
+	 * blocks before admitting defeat, on a scan that repeats. Walked in hops, each search stays the
+	 * size it has always been no matter how large the area is.
+	 */
+	private static final double PATH_RADIUS = 24.0;
+	/** How far ahead each hop of a staged approach aims, in blocks. */
+	private static final double APPROACH_STEP = 16.0;
 	private static final int ATTACK_INTERVAL = 12;
-	private static final int STROLL_CHANCE_TICKS = 160;
+	/**
+	 * How near the station counts as being at its post, squared. Loose enough that the rancher is
+	 * not forever correcting its footing after being jostled, tight enough to be beside the block.
+	 */
+	private static final double POST_REACH_SQUARED = 4.0;
 	private static final double WALK_SPEED = 0.6;
-	private static final double STROLL_SPEED = 0.45;
+	private static final double RETURN_SPEED = 0.45;
 
 	/**
 	 * Targets that turned out to be unreachable, by entity id, each held until the world time it
@@ -105,6 +168,10 @@ public class RancherBrain {
 	private int repathCooldown;
 	private int actionCooldown;
 	private int timeout;
+	/** Consecutive ticks of getting no closer to the target. */
+	private int stalled;
+	/** Closest the rancher has been to the current target, for spotting a walk going nowhere. */
+	private double closest = Double.MAX_VALUE;
 
 	public void tick(RancherEntity rancher) {
 		if (!(rancher.getWorld() instanceof ServerWorld world)) {
@@ -151,6 +218,8 @@ public class RancherBrain {
 				timeout = JOB_TIMEOUT;
 				repathCooldown = 0;
 				actionCooldown = 0;
+				stalled = 0;
+				closest = Double.MAX_VALUE;
 				state = State.WALKING;
 				navigate(rancher);
 				return;
@@ -166,7 +235,6 @@ public class RancherBrain {
 			case NO_STATION -> "no station";
 			case SWIMMING -> "swimming";
 			case IDLE -> "idle";
-			case STROLLING -> "strolling";
 			case RETURNING -> "heading back";
 			case WALKING -> "walking";
 			case WORKING -> "working";
@@ -182,6 +250,13 @@ public class RancherBrain {
 
 		if (state == State.WALKING) {
 			text.append(String.format(Locale.ROOT, " %.1fm t%d", distanceToTarget(rancher), timeout));
+
+			// Which node of the path it is on: a target accepted as reachable but a walk that never
+			// starts looks identical to plain sluggishness without this.
+			Path path = rancher.getNavigation().getCurrentPath();
+			text.append(path == null
+					? " nopath"
+					: String.format(Locale.ROOT, " n%d/%d", path.getCurrentNodeIndex(), path.getLength()));
 		}
 
 		if (job == null && !note.isEmpty()) {
@@ -258,6 +333,32 @@ public class RancherBrain {
 			repathCooldown = REPATH_INTERVAL;
 			navigate(rancher);
 		}
+
+		// Time spent waiting on a gate is not the target's fault. The gate gives up on a blocked
+		// doorway and pauses before trying again, which on its own outlasts STALL_LIMIT, and
+		// counting that was enough to make the rancher write off the animal it was walking to.
+		if (rancher.isWorkingGate()) {
+			return;
+		}
+
+		// Getting no closer means as close as the world allows, which is the point to give up rather
+		// than stand there for the rest of the timeout.
+		double distance = distanceToTarget(rancher);
+
+		if (distance < closest - STALL_PROGRESS) {
+			closest = distance;
+			stalled = 0;
+			return;
+		}
+
+		if (++stalled > STALL_LIMIT) {
+			if (target != null) {
+				block(world, target);
+			}
+
+			note = "out of reach";
+			clearJob(rancher);
+		}
 	}
 
 	private boolean jobValid(WorkArea area) {
@@ -305,33 +406,36 @@ public class RancherBrain {
 		}
 	}
 
+	/**
+	 * With no work to do the rancher waits at its station rather than wandering the work area.
+	 *
+	 * <p>Standing still is not just cosmetic. A worker drifting around looks busy while doing
+	 * nothing, it will not be in the same place twice when you go looking for it, and every stroll
+	 * pushes livestock about, which for animals in love means being nudged away from the partner
+	 * they were walking to.
+	 */
 	private void idle(RancherEntity rancher, WorkArea area) {
-		if (!rancher.getNavigation().isIdle()) {
+		BlockPos post = area.getCenter();
+
+		if (rancher.squaredDistanceTo(Vec3d.ofCenter(post)) <= POST_REACH_SQUARED) {
+			state = State.IDLE;
+
+			// Stopped explicitly, or the walk home would carry on pushing it past the station.
+			if (!rancher.getNavigation().isIdle()) {
+				rancher.getNavigation().stop();
+			}
+
 			return;
 		}
 
-		BlockPos center = area.getCenter();
+		state = State.RETURNING;
 
-		// A rancher that drifted out of its area walks home before it does anything else.
-		if (!area.contains(rancher)) {
-			state = State.RETURNING;
-			rancher.getNavigation().startMovingTo(center.getX() + 0.5, center.getY(), center.getZ() + 0.5, STROLL_SPEED);
-			return;
+		// Only issued once: reissuing every tick restarts the path and the rancher never sets off.
+		// A finished hop leaves navigation idle again, which is what advances a staged walk home.
+		if (rancher.getNavigation().isIdle()
+				&& !approach(rancher, Vec3d.ofCenter(post), RETURN_SPEED)) {
+			rancher.getNavigation().startMovingTo(post.getX() + 0.5, post.getY(), post.getZ() + 0.5, RETURN_SPEED);
 		}
-
-		state = State.IDLE;
-
-		if (rancher.getRandom().nextInt(STROLL_CHANCE_TICKS) != 0) {
-			return;
-		}
-
-		int span = area.getRadius() * 2 + 1;
-		state = State.STROLLING;
-		rancher.getNavigation().startMovingTo(
-				center.getX() + 0.5 + rancher.getRandom().nextInt(span) - area.getRadius(),
-				center.getY(),
-				center.getZ() + 0.5 + rancher.getRandom().nextInt(span) - area.getRadius(),
-				STROLL_SPEED);
 	}
 
 	private boolean chooseJob(RancherEntity rancher, ServerWorld world, WorkArea area, ScarecrowBlockEntity station) {
@@ -344,7 +448,8 @@ public class RancherBrain {
 		}
 
 		ItemEntity drop = nearestReachable(rancher, world, world.getEntitiesByClass(ItemEntity.class, area.getBox(),
-				item -> item.isAlive() && !item.cannotPickup() && rancher.getCarried().canInsert(item.getStack())));
+				item -> item.isAlive() && !item.cannotPickup() && rancher.getCarried().canInsert(item.getStack())),
+				COLLECT_PATH_DISTANCE);
 
 		if (drop != null) {
 			return take(Job.COLLECT, drop);
@@ -354,7 +459,8 @@ public class RancherBrain {
 			HerdSurvey survey = HerdSurvey.of(world, area);
 
 			if (config.enableCulling && rancher.canCullNow()) {
-				AnimalEntity victim = nearestReachable(rancher, world, survey.cullCandidates(config));
+				AnimalEntity victim = nearestReachable(rancher, world, survey.cullCandidates(config),
+						ANIMAL_PATH_DISTANCE);
 
 				if (victim != null) {
 					return take(Job.CULL, victim);
@@ -370,7 +476,7 @@ public class RancherBrain {
 
 				if (config.feedBabies) {
 					AnimalEntity baby = nearestReachable(rancher, world,
-							filterFeedable(survey.babyCandidates(), station, config));
+							filterFeedable(survey.babyCandidates(), station, config), ANIMAL_PATH_DISTANCE);
 
 					if (baby != null) {
 						return take(Job.GROW, baby);
@@ -429,7 +535,7 @@ public class RancherBrain {
 			}
 		}
 
-		AnimalEntity head = nearestReachable(rancher, world, heads);
+		AnimalEntity head = nearestReachable(rancher, world, heads, ANIMAL_PATH_DISTANCE);
 
 		if (head == null) {
 			return null;
@@ -470,7 +576,8 @@ public class RancherBrain {
 
 	/** Closest candidate the rancher can actually walk up to, nearest tried first. */
 	@Nullable
-	private <T extends Entity> T nearestReachable(RancherEntity rancher, ServerWorld world, List<T> candidates) {
+	private <T extends Entity> T nearestReachable(RancherEntity rancher, ServerWorld world, List<T> candidates,
+			int pathDistance) {
 		long now = world.getTime();
 		List<T> queue = new ArrayList<>(candidates.size());
 
@@ -490,7 +597,16 @@ public class RancherBrain {
 		// later. Anything ruled out goes on the blocked list, so the next scan starts further down.
 		for (int index = 0; index < Math.min(queue.size(), MAX_PATH_CHECKS); index++) {
 			T candidate = queue.get(index);
-			Path path = rancher.getNavigation().findPathTo(candidate, 0);
+
+			// Beyond pathfinding's reach the answer comes back "no" whatever the ground is like, so
+			// there is nothing worth asking. Such a candidate is accepted and walked at in stages;
+			// if it does turn out to be unreachable, the stall detector writes it off once the
+			// rancher is near enough for a refusal to actually mean something.
+			if (rancher.squaredDistanceTo(candidate) > PATH_RADIUS * PATH_RADIUS) {
+				return candidate;
+			}
+
+			Path path = rancher.getNavigation().findPathTo(candidate, pathDistance);
 
 			if (path == null) {
 				// Pathfinding declines to answer at all while the rancher is off the ground, which
@@ -566,6 +682,8 @@ public class RancherBrain {
 				timeout = JOB_TIMEOUT;
 				repathCooldown = 0;
 				actionCooldown = 0;
+				stalled = 0;
+				closest = Double.MAX_VALUE;
 				state = State.WALKING;
 				navigate(rancher);
 				return false;
@@ -652,18 +770,65 @@ public class RancherBrain {
 					&& rancher.squaredDistanceTo(Vec3d.ofCenter(targetPos)) <= STATION_REACH_SQUARED;
 		}
 
-		return target != null && rancher.squaredDistanceTo(target) <= REACH_SQUARED;
+		if (target == null) {
+			return false;
+		}
+
+		return rancher.squaredDistanceTo(target)
+				<= (job == Job.COLLECT ? COLLECT_REACH_SQUARED : REACH_SQUARED);
 	}
 
 	private void navigate(RancherEntity rancher) {
 		if (job == Job.DEPOSIT) {
-			if (targetPos != null) {
+			if (targetPos == null) {
+				return;
+			}
+
+			if (!approach(rancher, Vec3d.ofCenter(targetPos), WALK_SPEED)) {
+				// This overload already settles for a block next to the target, which it has to:
+				// the station itself is solid and can only ever be walked up to.
 				rancher.getNavigation().startMovingTo(targetPos.getX() + 0.5, targetPos.getY(),
 						targetPos.getZ() + 0.5, WALK_SPEED);
 			}
-		} else if (target != null) {
-			rancher.getNavigation().startMovingTo(target, WALK_SPEED);
+
+			return;
 		}
+
+		if (target == null || approach(rancher, target.getPos(), WALK_SPEED)) {
+			return;
+		}
+
+		// Pathed by hand rather than through startMovingTo(Entity, speed), which always asks for a
+		// path right onto the target's own block. For a drop resting against a fence that block is
+		// the fence, so the walk would silently never start, leaving the rancher stood still with a
+		// job it had already accepted as reachable.
+		Path path = rancher.getNavigation().findPathTo(target, pathDistance());
+
+		if (path != null) {
+			rancher.getNavigation().startMovingAlong(path, WALK_SPEED);
+		}
+	}
+
+	/**
+	 * Walks one hop towards a destination too far away to path to, aiming at a point on the straight
+	 * line to it. Called again on every repath, the hops carry the rancher along until the real
+	 * destination comes into range and normal pathing takes over.
+	 *
+	 * @return whether the destination was far enough to need this, and a hop was therefore started
+	 */
+	private boolean approach(RancherEntity rancher, Vec3d destination, double speed) {
+		if (rancher.squaredDistanceTo(destination) <= PATH_RADIUS * PATH_RADIUS) {
+			return false;
+		}
+
+		Vec3d hop = rancher.getPos()
+				.add(destination.subtract(rancher.getPos()).normalize().multiply(APPROACH_STEP));
+		rancher.getNavigation().startMovingTo(hop.x, hop.y, hop.z, speed);
+		return true;
+	}
+
+	private int pathDistance() {
+		return job == Job.COLLECT ? COLLECT_PATH_DISTANCE : ANIMAL_PATH_DISTANCE;
 	}
 
 	private double distanceToTarget(RancherEntity rancher) {

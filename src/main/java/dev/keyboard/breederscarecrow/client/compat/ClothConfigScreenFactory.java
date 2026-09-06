@@ -118,6 +118,12 @@ public final class ClothConfigScreenFactory {
 				.setSaveConsumer(value -> config.openFenceGates = value)
 				.build());
 
+		area.addEntry(entries.startBooleanToggle(text("shove_blockers"), config.shoveBlockers)
+				.setDefaultValue(defaults.shoveBlockers)
+				.setTooltip(text("shove_blockers.tooltip"))
+				.setSaveConsumer(value -> config.shoveBlockers = value)
+				.build());
+
 		display.addEntry(entries.startBooleanToggle(text("highlight_always_on"), config.highlightAlwaysOn)
 				.setDefaultValue(defaults.highlightAlwaysOn)
 				.setTooltip(text("highlight_always_on.tooltip"))

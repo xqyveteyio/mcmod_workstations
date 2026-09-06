@@ -43,6 +43,8 @@
 	"config.breeder_scarecrow.worker_respawn_ticks.tooltip": "牧场工死亡或失踪后，工作方块等多久再召唤一个新的。",
 	"config.breeder_scarecrow.open_fence_gates": "会开栅栏门",
 	"config.breeder_scarecrow.open_fence_gates.tooltip": "牧场工可以打开挡路的栅栏门，走过去之后自动关上，动物不会跑出去。关：栅栏门和实心墙一样，跟其它生物一个待遇。",
+	"config.breeder_scarecrow.shove_blockers": "推开挡路的动物",
+	"config.breeder_scarecrow.shove_blockers.tooltip": "牧场工走路时会把前方挡道的动物挤到一边，不再绕远路或者干脆放弃。只往侧面推，不会把动物顶着穿过门口，玩家不受影响。",
 	"config.breeder_scarecrow.highlight_always_on": "始终显示高亮",
 	"config.breeder_scarecrow.highlight_always_on.tooltip": "开：工作范围高亮一直显示。\n关：只在手持工作方块时显示。快捷键随时可以切换。",
 	"config.breeder_scarecrow.show_worker_state": "显示牧场工状态",

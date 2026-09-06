@@ -21,6 +21,8 @@ public class ModConfig {
 	public boolean enableCulling = true;
 	/** Let the rancher work fence gates, shutting them behind itself so the herd stays put. */
 	public boolean openFenceGates = true;
+	/** Let the rancher shoulder livestock out of its way instead of pathing around it. */
+	public boolean shoveBlockers = true;
 	/** Horizontal reach of the work area, measured out from the station block. */
 	public int workRadius = 8;
 	/** How far the work area reaches above and below the station block. */

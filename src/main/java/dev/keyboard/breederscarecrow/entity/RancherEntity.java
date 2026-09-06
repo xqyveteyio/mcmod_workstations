@@ -6,6 +6,7 @@ import dev.keyboard.breederscarecrow.entity.ai.GateOperator;
 import dev.keyboard.breederscarecrow.entity.ai.RancherBrain;
 import dev.keyboard.breederscarecrow.entity.ai.RancherNavigation;
 import dev.keyboard.breederscarecrow.work.WorkArea;
+import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityType;
 import net.minecraft.entity.attribute.DefaultAttributeContainer;
 import net.minecraft.entity.attribute.EntityAttributes;
@@ -26,6 +27,7 @@ import net.minecraft.sound.SoundEvents;
 import net.minecraft.text.Text;
 import net.minecraft.util.ItemScatterer;
 import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.World;
 import org.jetbrains.annotations.Nullable;
 
@@ -46,6 +48,12 @@ public class RancherEntity extends PathAwareEntity {
 	private static final int HOMELESS_LIMIT = 200;
 	/** How often the state label may be rewritten, in ticks. Four times a second reads fine. */
 	private static final int LABEL_INTERVAL = 5;
+	/** How far ahead blockers get shouldered aside, in blocks. */
+	private static final double SHOVE_RANGE = 1.8;
+	/** Velocity added per tick at point blank range, tapering to nothing at {@link #SHOVE_RANGE}. */
+	private static final double SHOVE_STRENGTH = 0.07;
+	/** Cosine of the cone in front of the rancher that counts as being in the way. */
+	private static final double SHOVE_CONE = 0.3;
 
 	private final SimpleInventory carried = new SimpleInventory(CARRY_SLOTS);
 	private final RancherBrain brain = new RancherBrain();
@@ -115,7 +123,61 @@ public class RancherEntity extends PathAwareEntity {
 		brain.tick(this);
 		// After the brain, so a gate on a path it just laid down is seen on this very tick.
 		gates.tick(this);
+		shoveBlockers();
 		updateStateLabel();
+	}
+
+	/**
+	 * Shoulders whatever is in the way aside while walking. Mobs only shove each other once their
+	 * hitboxes already overlap, which is too late to stop a cow stood in a doorway from sending the
+	 * rancher the long way round, or nowhere at all.
+	 *
+	 * <p>Only while actually navigating, and only for what is ahead. Jostling the herd while stood
+	 * still would keep animals in love from ever reaching each other, so nothing would breed.
+	 *
+	 * <p>The shove goes sideways rather than straight ahead on purpose: pushing a blocker along the
+	 * direction of travel would drive whatever stands in a gateway right through it, which for an
+	 * animal means out of the pen. Sideways clears the corridor without ever pushing anything
+	 * through the gap the rancher is heading for.
+	 */
+	private void shoveBlockers() {
+		if (!ModConfig.get().shoveBlockers || getNavigation().isIdle()) {
+			return;
+		}
+
+		Vec3d forward = Vec3d.fromPolar(0.0F, bodyYaw);
+
+		for (Entity other : getWorld().getOtherEntities(this,
+				getBoundingBox().expand(SHOVE_RANGE, 0.5, SHOVE_RANGE),
+				candidate -> candidate.isPushable() && !(candidate instanceof PlayerEntity))) {
+			double dx = other.getX() - getX();
+			double dz = other.getZ() - getZ();
+			double distance = Math.sqrt(dx * dx + dz * dz);
+
+			if (distance < 1.0E-4 || distance > SHOVE_RANGE) {
+				continue;
+			}
+
+			if ((forward.x * dx + forward.z * dz) / distance < SHOVE_CONE) {
+				continue;
+			}
+
+			double sideX = -forward.z;
+			double sideZ = forward.x;
+			double lean = sideX * dx + sideZ * dz;
+			// Pushed towards the side it already leans, so the two never disagree about which way
+			// it should go. Dead ahead there is no such side, so its id picks one and sticks to it.
+			boolean flip = Math.abs(lean) < 1.0E-3 ? (other.getId() & 1) == 0 : lean < 0.0;
+
+			if (flip) {
+				sideX = -sideX;
+				sideZ = -sideZ;
+			}
+
+			double push = SHOVE_STRENGTH * (1.0 - distance / SHOVE_RANGE);
+			other.addVelocity(sideX * push, 0.0, sideZ * push);
+			other.velocityModified = true;
+		}
 	}
 
 	/** A rancher that dies in a gateway must not leave the pen standing open behind it. */
@@ -159,6 +221,11 @@ public class RancherEntity extends PathAwareEntity {
 			setCustomName(Text.literal(label));
 			setCustomNameVisible(true);
 		}
+	}
+
+	/** Whether the rancher is queuing at a fence gate rather than getting nowhere on its own. */
+	public boolean isWorkingGate() {
+		return gates.isBusy();
 	}
 
 	public int getFeedCooldown() {
