@@ -71,7 +71,15 @@ public final class StationSettings {
 
 	/** The values a station starts life with, taken from the config file. */
 	public StationSettings() {
-		ModConfig config = ModConfig.get();
+		this(ModConfig.get());
+	}
+
+	/** The values the mod ships with, ignoring whatever the config file has been changed to. */
+	public static StationSettings builtInDefaults() {
+		return new StationSettings(new ModConfig());
+	}
+
+	public StationSettings(ModConfig config) {
 		enableBreeding = config.enableBreeding;
 		enableCulling = config.enableCulling;
 		requireFeedItems = config.requireFeedItems;
@@ -92,9 +100,12 @@ public final class StationSettings {
 	}
 
 	public StationSettings copy() {
-		StationSettings copy = new StationSettings();
-		copy.copyFrom(this);
+		StationSettings copy = new StationSettings(this);
 		return copy;
+	}
+
+	private StationSettings(StationSettings other) {
+		copyFrom(other);
 	}
 
 	public void copyFrom(StationSettings other) {

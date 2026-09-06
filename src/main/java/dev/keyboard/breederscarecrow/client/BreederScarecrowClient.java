@@ -1,6 +1,7 @@
 package dev.keyboard.breederscarecrow.client;
 
 import dev.keyboard.breederscarecrow.BreederScarecrowMod;
+import dev.keyboard.breederscarecrow.client.network.StationNetworkingClient;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
@@ -20,6 +21,8 @@ public class BreederScarecrowClient implements ClientModInitializer {
 
 	@Override
 	public void onInitializeClient() {
+		StationNetworkingClient.registerClientReceivers();
+
 		BlockEntityRendererRegistry.register(BreederScarecrowMod.SCARECROW_BLOCK_ENTITY, WorkAreaHighlightRenderer::new);
 		EntityRendererRegistry.register(BreederScarecrowMod.RANCHER, RancherEntityRenderer::new);
 

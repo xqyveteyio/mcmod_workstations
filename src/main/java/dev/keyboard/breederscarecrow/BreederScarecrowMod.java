@@ -3,6 +3,7 @@ package dev.keyboard.breederscarecrow;
 import dev.keyboard.breederscarecrow.block.ScarecrowBlock;
 import dev.keyboard.breederscarecrow.block.ScarecrowBlockEntity;
 import dev.keyboard.breederscarecrow.entity.RancherEntity;
+import dev.keyboard.breederscarecrow.network.StationNetworking;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.itemgroup.v1.ItemGroupEvents;
 import net.fabricmc.fabric.api.object.builder.v1.block.entity.FabricBlockEntityTypeBuilder;
@@ -60,6 +61,8 @@ public class BreederScarecrowMod implements ModInitializer {
 						.maxTrackingRange(10)
 						.build(RANCHER_ID.getPath()));
 		FabricDefaultAttributeRegistry.register(RANCHER, RancherEntity.createRancherAttributes());
+
+		StationNetworking.registerServerReceivers();
 
 		ItemGroupEvents.modifyEntriesEvent(ItemGroups.FUNCTIONAL).register(entries -> entries.add(SCARECROW_ITEM));
 

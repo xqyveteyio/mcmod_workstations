@@ -1,7 +1,7 @@
 package dev.keyboard.breederscarecrow.block;
 
 import dev.keyboard.breederscarecrow.BreederScarecrowMod;
-import dev.keyboard.breederscarecrow.entity.RancherEntity;
+import dev.keyboard.breederscarecrow.network.StationNetworking;
 import net.minecraft.block.Block;
 import net.minecraft.block.BlockRenderType;
 import net.minecraft.block.BlockState;
@@ -16,6 +16,7 @@ import net.minecraft.item.ItemPlacementContext;
 import net.minecraft.item.ItemStack;
 import net.minecraft.screen.NamedScreenHandlerFactory;
 import net.minecraft.screen.ScreenHandler;
+import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.state.StateManager;
 import net.minecraft.state.property.DirectionProperty;
@@ -118,10 +119,10 @@ public class ScarecrowBlock extends BlockWithEntity {
 			return ActionResult.PASS;
 		}
 
-		// Sneaking reports on the worker instead of opening storage, which is how you tell whether
-		// a ranch that is doing nothing has lost its rancher.
-		if (player.isSneaking() && world instanceof ServerWorld serverWorld) {
-			reportWorker(player, station, serverWorld);
+		// Sneaking opens this station's settings instead of its storage. The worker report that
+		// used to live on this click is a line inside that screen now, so nothing was lost.
+		if (player.isSneaking() && player instanceof ServerPlayerEntity serverPlayer) {
+			StationNetworking.openScreen(serverPlayer, pos, station);
 			return ActionResult.SUCCESS;
 		}
 
@@ -158,18 +159,4 @@ public class ScarecrowBlock extends BlockWithEntity {
 		return ScreenHandler.calculateComparatorOutput(world.getBlockEntity(pos));
 	}
 
-	private static void reportWorker(PlayerEntity player, ScarecrowBlockEntity station, ServerWorld world) {
-		RancherEntity worker = station.getWorker(world);
-
-		if (worker != null) {
-			player.sendMessage(Text.translatable("message.breeder_scarecrow.worker_ready",
-					(int) worker.getHealth(), station.getWorkArea().getRadius()), true);
-			return;
-		}
-
-		station.summonWorker(world);
-		player.sendMessage(Text.translatable(station.getWorker(world) != null
-				? "message.breeder_scarecrow.worker_summoned"
-				: "message.breeder_scarecrow.worker_no_room"), true);
-	}
 }
