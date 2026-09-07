@@ -10,6 +10,7 @@ import net.minecraft.block.entity.BlockEntity;
 import net.minecraft.block.entity.BlockEntityTicker;
 import net.minecraft.block.entity.BlockEntityType;
 import net.minecraft.entity.LivingEntity;
+import net.minecraft.entity.ai.pathing.NavigationType;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.item.ItemPlacementContext;
 import net.minecraft.item.ItemStack;
@@ -81,6 +82,18 @@ public class RanchBlock extends BlockWithEntity {
 	@Override
 	public VoxelShape getOutlineShape(BlockState state, BlockView world, BlockPos pos, ShapeContext context) {
 		return SHAPE;
+	}
+
+	/**
+	 * Kept out of every path the game plans. Vanilla decides a block may be walked through from
+	 * whether its collision box fills the cube, and a table standing on legs does not fill it, so
+	 * without this the station reads as open ground: the rancher coming home to unload is routed
+	 * straight through its own station and then stands wedged against the tabletop, which is solid
+	 * and is the one part of the shape the path never accounted for.
+	 */
+	@Override
+	public boolean canPathfindThrough(BlockState state, BlockView world, BlockPos pos, NavigationType type) {
+		return false;
 	}
 
 	@Override
