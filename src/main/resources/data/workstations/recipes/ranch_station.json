@@ -1,20 +1,15 @@
 {
 	"type": "minecraft:crafting_shaped",
 	"pattern": [
-		" H ",
-		"SPS",
-		" S "
+		" A ",
+		"BCB",
+		"BDB"
 	],
 	"key": {
-		"H": {
-			"item": "minecraft:hay_block"
-		},
-		"P": {
-			"item": "minecraft:oak_planks"
-		},
-		"S": {
-			"item": "minecraft:stick"
-		}
+		"A": { "item": "minecraft:hay_block" },
+		"B": { "tag": "minecraft:wooden_fences" },
+		"C": { "item": "minecraft:emerald_block" },
+		"D": { "item": "minecraft:chest" }
 	},
 	"result": {
 		"item": "workstations:ranch_station",
