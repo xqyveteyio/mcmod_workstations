@@ -10,8 +10,7 @@ import net.minecraft.item.ItemStack;
 import net.minecraft.world.World;
 
 /**
- * The station as an item: the same table, with the pen on top full. A station in your hand has no
- * herd to report on, so it shows one of every kind, as a picture of what it is for.
+ * The station as an item, drawn exactly as the placed block is: the table with its pen full.
  *
  * <p>The item model is {@code builtin/entity}, meaning it carries no geometry of its own and this
  * class draws the table too, the way vanilla renders chests and shulker boxes.
@@ -28,8 +27,7 @@ public class StationItemRenderer implements BuiltinItemRendererRegistry.DynamicI
 
 		// No world means no animals to borrow, so the item is a bare table until you are in one.
 		if (world != null) {
-			TabletopDisplay.render(world, TabletopDisplay.EVERY_KIND, client.getTickDelta(), matrices,
-					vertexConsumers, light);
+			TabletopDisplay.render(world, client.getTickDelta(), matrices, vertexConsumers, light);
 		}
 	}
 }
