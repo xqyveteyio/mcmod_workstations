@@ -14,19 +14,21 @@ import net.minecraft.util.Identifier;
  * the one vanilla already bakes for its own villagers, so nothing extra is registered; swapping in
  * a custom model later means changing only this class.
  *
- * <p>No clothing feature renderer is attached, unlike vanilla's villagers, so the single texture
- * below is the whole appearance. That leaves the model's hat, hat rim and jacket boxes blank and
- * therefore invisible, since entities are drawn with alpha cutout: three spare layers the skin can
- * claim just by painting them.
+ * <p>The hat rides on a separate overlay texture, following vanilla, which keeps a villager's base
+ * skin apart from its biome and profession clothing. Both files use the same villager UV layout, so
+ * the hat lives in the model's hat and hat rim boxes, which the base skin must leave blank.
  */
 public class RancherEntityRenderer extends MobEntityRenderer<RancherEntity, VillagerResemblingModel<RancherEntity>> {
 	/** 64x64, laid out for the villager model rather than for a player skin. */
 	private static final Identifier TEXTURE = BreederScarecrowMod.id("textures/entity/rancher.png");
+	/** Same layout again, but transparent everywhere except the hat and hat rim boxes. */
+	private static final Identifier HAT_TEXTURE = BreederScarecrowMod.id("textures/entity/rancher_hat.png");
 	/** The same shrink vanilla applies, without which the villager model looks oversized. */
 	private static final float MODEL_SCALE = 0.9375F;
 
 	public RancherEntityRenderer(EntityRendererFactory.Context context) {
 		super(context, new VillagerResemblingModel<>(context.getPart(EntityModelLayers.VILLAGER)), 0.5F);
+		this.addFeature(new RancherOverlayFeatureRenderer(this, HAT_TEXTURE));
 	}
 
 	@Override

@@ -151,6 +151,38 @@ public class ScarecrowBlockEntity extends LootableContainerBlockEntity {
 		}
 	}
 
+	/** What {@link #recallWorker} managed to do, so the caller can report it. */
+	public enum Recall {
+		SUMMONED,
+		MOVED,
+		NO_ROOM
+	}
+
+	/**
+	 * Brings the worker back to the station, hiring a new one if it has gone. This is the way out of
+	 * a rancher that wandered off after a stray animal or walled itself in: rather than digging it
+	 * out, you call it home and it picks its work up from there.
+	 */
+	public Recall recallWorker(ServerWorld world) {
+		RancherEntity worker = getWorker(world);
+
+		if (worker == null) {
+			summonWorker(world);
+			return getWorker(world) == null ? Recall.NO_ROOM : Recall.SUMMONED;
+		}
+
+		BlockPos spawnPos = findSpawnPos(world);
+
+		if (spawnPos == null) {
+			return Recall.NO_ROOM;
+		}
+
+		// The path it was walking leads from where it used to be, so it has to be thrown away.
+		worker.getNavigation().stop();
+		worker.teleport(spawnPos.getX() + 0.5, spawnPos.getY(), spawnPos.getZ() + 0.5);
+		return Recall.MOVED;
+	}
+
 	/** Sends the rancher away with the station, so a broken block does not leave a worker behind. */
 	public void dismissWorker(ServerWorld world) {
 		RancherEntity worker = getWorker(world);

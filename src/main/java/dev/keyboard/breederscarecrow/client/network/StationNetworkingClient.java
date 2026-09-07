@@ -18,19 +18,10 @@ public final class StationNetworkingClient {
 	}
 
 	public static void registerClientReceivers() {
-		ClientPlayNetworking.registerGlobalReceiver(StationNetworking.STATION_STATUS,
+		ClientPlayNetworking.registerGlobalReceiver(StationNetworking.OPEN_SCREEN,
 				(client, handler, buf, sender) -> {
 					BlockPos pos = buf.readBlockPos();
-					Text status = buf.readText();
-					boolean open = buf.readBoolean();
-
-					client.execute(() -> {
-						if (open) {
-							client.setScreen(new StationSettingsScreen(pos, settingsAt(client, pos), status));
-						} else if (client.currentScreen instanceof StationSettingsScreen screen) {
-							screen.setWorkerStatus(status);
-						}
-					});
+					client.execute(() -> client.setScreen(new StationSettingsScreen(pos, settingsAt(client, pos))));
 				});
 	}
 
@@ -44,10 +35,10 @@ public final class StationNetworkingClient {
 		ClientPlayNetworking.send(StationNetworking.SAVE_SETTINGS, buf);
 	}
 
-	public static void requestWorker(BlockPos pos) {
+	public static void recallWorker(BlockPos pos) {
 		PacketByteBuf buf = PacketByteBufs.create();
 		buf.writeBlockPos(pos);
-		ClientPlayNetworking.send(StationNetworking.WORKER_ACTION, buf);
+		ClientPlayNetworking.send(StationNetworking.RECALL_WORKER, buf);
 	}
 
 	/**

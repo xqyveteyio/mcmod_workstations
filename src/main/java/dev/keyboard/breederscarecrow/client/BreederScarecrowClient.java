@@ -6,6 +6,7 @@ import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
 import net.fabricmc.fabric.api.client.rendering.v1.BlockEntityRendererRegistry;
+import net.fabricmc.fabric.api.client.rendering.v1.BuiltinItemRendererRegistry;
 import net.fabricmc.fabric.api.client.rendering.v1.EntityRendererRegistry;
 import net.minecraft.client.option.KeyBinding;
 import net.minecraft.client.util.InputUtil;
@@ -23,7 +24,8 @@ public class BreederScarecrowClient implements ClientModInitializer {
 	public void onInitializeClient() {
 		StationNetworkingClient.registerClientReceivers();
 
-		BlockEntityRendererRegistry.register(BreederScarecrowMod.SCARECROW_BLOCK_ENTITY, WorkAreaHighlightRenderer::new);
+		BlockEntityRendererRegistry.register(BreederScarecrowMod.SCARECROW_BLOCK_ENTITY, StationBlockEntityRenderer::new);
+		BuiltinItemRendererRegistry.INSTANCE.register(BreederScarecrowMod.SCARECROW_ITEM, new StationItemRenderer());
 		EntityRendererRegistry.register(BreederScarecrowMod.RANCHER, RancherEntityRenderer::new);
 
 		ClientTickEvents.END_CLIENT_TICK.register(client -> {

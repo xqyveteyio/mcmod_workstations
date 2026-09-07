@@ -2,7 +2,6 @@ package dev.keyboard.breederscarecrow.network;
 
 import dev.keyboard.breederscarecrow.BreederScarecrowMod;
 import dev.keyboard.breederscarecrow.block.ScarecrowBlockEntity;
-import dev.keyboard.breederscarecrow.entity.RancherEntity;
 import dev.keyboard.breederscarecrow.work.StationSettings;
 import net.fabricmc.fabric.api.networking.v1.PacketByteBufs;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
@@ -13,7 +12,6 @@ import net.minecraft.server.world.ServerWorld;
 import net.minecraft.text.Text;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.math.BlockPos;
-import net.minecraft.world.World;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -27,12 +25,12 @@ import org.jetbrains.annotations.Nullable;
  * one entry in {@link StationSettings} and needs nothing here.
  */
 public final class StationNetworking {
-	/** Server to client: show the screen for a station, or refresh the worker line inside it. */
-	public static final Identifier STATION_STATUS = BreederScarecrowMod.id("station_status");
+	/** Server to client: put the settings screen up for a station. */
+	public static final Identifier OPEN_SCREEN = BreederScarecrowMod.id("open_screen");
 	/** Client to server: store what the screen was left showing. */
 	public static final Identifier SAVE_SETTINGS = BreederScarecrowMod.id("save_settings");
-	/** Client to server: check on the worker, summoning a replacement if there is none. */
-	public static final Identifier WORKER_ACTION = BreederScarecrowMod.id("worker_action");
+	/** Client to server: call the worker home, hiring a replacement if there is none. */
+	public static final Identifier RECALL_WORKER = BreederScarecrowMod.id("recall_worker");
 
 	/**
 	 * How far from a station a player may still be editing it, squared. Generous next to the reach
@@ -52,18 +50,15 @@ public final class StationNetworking {
 			server.execute(() -> {
 				ScarecrowBlockEntity station = reachableStation(player, pos);
 
-				if (station == null || nbt == null) {
-					return;
+				if (station != null && nbt != null) {
+					StationSettings incoming = new StationSettings();
+					incoming.readNbt(nbt);
+					station.applySettings(incoming);
 				}
-
-				StationSettings incoming = new StationSettings();
-				incoming.readNbt(nbt);
-				station.applySettings(incoming);
-				sendStatus(player, pos, station, false);
 			});
 		});
 
-		ServerPlayNetworking.registerGlobalReceiver(WORKER_ACTION, (server, player, handler, buf, sender) -> {
+		ServerPlayNetworking.registerGlobalReceiver(RECALL_WORKER, (server, player, handler, buf, sender) -> {
 			BlockPos pos = buf.readBlockPos();
 
 			server.execute(() -> {
@@ -73,43 +68,21 @@ public final class StationNetworking {
 					return;
 				}
 
-				if (station.getWorker(world) == null) {
-					station.summonWorker(world);
-				}
-
-				sendStatus(player, pos, station, false);
+				// Over the hotbar rather than in the screen, so the answer survives closing it.
+				player.sendMessage(Text.translatable(switch (station.recallWorker(world)) {
+					case SUMMONED -> "message.breeder_scarecrow.worker_summoned";
+					case MOVED -> "message.breeder_scarecrow.worker_recalled";
+					case NO_ROOM -> "message.breeder_scarecrow.worker_no_room";
+				}), true);
 			});
 		});
 	}
 
 	/** Asks the client to put the settings screen up for this station. */
-	public static void openScreen(ServerPlayerEntity player, BlockPos pos, ScarecrowBlockEntity station) {
-		sendStatus(player, pos, station, true);
-	}
-
-	private static void sendStatus(ServerPlayerEntity player, BlockPos pos, ScarecrowBlockEntity station,
-			boolean open) {
+	public static void openScreen(ServerPlayerEntity player, BlockPos pos) {
 		PacketByteBuf buf = PacketByteBufs.create();
 		buf.writeBlockPos(pos);
-		buf.writeText(workerStatus(station, player.getWorld()));
-		buf.writeBoolean(open);
-		ServerPlayNetworking.send(player, STATION_STATUS, buf);
-	}
-
-	/** The same reading the old sneak click gave, now shown along the bottom of the screen. */
-	private static Text workerStatus(ScarecrowBlockEntity station, World world) {
-		if (!(world instanceof ServerWorld serverWorld)) {
-			return Text.translatable("message.breeder_scarecrow.worker_no_room");
-		}
-
-		RancherEntity worker = station.getWorker(serverWorld);
-
-		if (worker != null) {
-			return Text.translatable("message.breeder_scarecrow.worker_ready",
-					(int) worker.getHealth(), station.getWorkArea().getRadius());
-		}
-
-		return Text.translatable("message.breeder_scarecrow.worker_no_room");
+		ServerPlayNetworking.send(player, OPEN_SCREEN, buf);
 	}
 
 	/**

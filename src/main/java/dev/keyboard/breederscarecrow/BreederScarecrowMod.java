@@ -92,8 +92,8 @@ public class BreederScarecrowMod implements ModInitializer {
 			}
 
 			if (player instanceof ServerPlayerEntity serverPlayer
-					&& world.getBlockEntity(pos) instanceof ScarecrowBlockEntity station) {
-				StationNetworking.openScreen(serverPlayer, pos, station);
+					&& world.getBlockEntity(pos) instanceof ScarecrowBlockEntity) {
+				StationNetworking.openScreen(serverPlayer, pos);
 			}
 
 			return ActionResult.SUCCESS;

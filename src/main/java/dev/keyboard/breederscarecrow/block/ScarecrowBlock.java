@@ -29,13 +29,28 @@ import net.minecraft.util.hit.BlockHitResult;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Direction;
 import net.minecraft.util.shape.VoxelShape;
+import net.minecraft.util.shape.VoxelShapes;
 import net.minecraft.world.BlockView;
 import net.minecraft.world.World;
 import org.jetbrains.annotations.Nullable;
 
 public class ScarecrowBlock extends BlockWithEntity {
 	public static final DirectionProperty FACING = Properties.HORIZONTAL_FACING;
-	private static final VoxelShape SHAPE = Block.createCuboidShape(4.0, 0.0, 4.0, 12.0, 16.0, 12.0);
+	/**
+	 * Matches the table model: legs at the corners, the top they carry, and the miniature fence
+	 * ringing it. The fence is four walls rather than one lid, so the pen holding the display
+	 * animals stays as open as it looks.
+	 */
+	private static final VoxelShape SHAPE = VoxelShapes.union(
+			Block.createCuboidShape(0.0, 0.0, 0.0, 2.0, 10.0, 2.0),
+			Block.createCuboidShape(14.0, 0.0, 0.0, 16.0, 10.0, 2.0),
+			Block.createCuboidShape(0.0, 0.0, 14.0, 2.0, 10.0, 16.0),
+			Block.createCuboidShape(14.0, 0.0, 14.0, 16.0, 10.0, 16.0),
+			Block.createCuboidShape(0.0, 10.0, 0.0, 16.0, 12.0, 16.0),
+			Block.createCuboidShape(0.0, 12.0, 0.0, 16.0, 16.0, 1.0),
+			Block.createCuboidShape(0.0, 12.0, 15.0, 16.0, 16.0, 16.0),
+			Block.createCuboidShape(0.0, 12.0, 1.0, 1.0, 16.0, 15.0),
+			Block.createCuboidShape(15.0, 12.0, 1.0, 16.0, 16.0, 15.0));
 
 	public ScarecrowBlock(Settings settings) {
 		super(settings);

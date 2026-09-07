@@ -41,8 +41,8 @@ public class StationSettingsScreen extends Screen {
 	private static final int BUTTON_ROW_WIDTH = 308;
 	private static final int BUTTON_GAP = 4;
 	private static final int TABS_TOP = 6;
-	/** Room under the tabs for the worker status line. */
-	private static final int STATUS_HEIGHT = 16;
+	/** Breathing room between the tabs and the first row. */
+	private static final int LIST_GAP = 8;
 	private static final int FOOTER_HEIGHT = 40;
 
 	private final BlockPos pos;
@@ -50,15 +50,13 @@ public class StationSettingsScreen extends Screen {
 	private final StationSettings settings;
 	private final List<String> categories = categories();
 
-	private Text workerStatus;
 	/** Kept across a rebuild so changing a setting does not throw you back to the first tab. */
 	private String activeCategory;
 
-	public StationSettingsScreen(BlockPos pos, StationSettings settings, Text workerStatus) {
+	public StationSettingsScreen(BlockPos pos, StationSettings settings) {
 		super(Text.translatable("config.breeder_scarecrow.title"));
 		this.pos = pos;
 		this.settings = settings;
-		this.workerStatus = workerStatus;
 		this.activeCategory = categories.get(0);
 	}
 
@@ -73,10 +71,6 @@ public class StationSettingsScreen extends Screen {
 		}
 
 		return out;
-	}
-
-	public void setWorkerStatus(Text status) {
-		workerStatus = status;
 	}
 
 	@Override
@@ -102,8 +96,8 @@ public class StationSettingsScreen extends Screen {
 		int footerX = width / 2 - BUTTON_ROW_WIDTH / 2;
 		int footerY = height - FOOTER_HEIGHT + 10;
 
-		addDrawableChild(ButtonWidget.builder(Text.translatable("config.breeder_scarecrow.worker_check"),
-						button -> StationNetworkingClient.requestWorker(pos))
+		addDrawableChild(ButtonWidget.builder(Text.translatable("config.breeder_scarecrow.worker_recall"),
+						button -> StationNetworkingClient.recallWorker(pos))
 				.dimensions(footerX, footerY, footerWidth, CONTROL_HEIGHT)
 				.build());
 
@@ -118,7 +112,7 @@ public class StationSettingsScreen extends Screen {
 	}
 
 	private int listTop() {
-		return TABS_TOP + CONTROL_HEIGHT + STATUS_HEIGHT;
+		return TABS_TOP + CONTROL_HEIGHT + LIST_GAP;
 	}
 
 	private void showCategory(String category) {
@@ -140,9 +134,6 @@ public class StationSettingsScreen extends Screen {
 	public void render(DrawContext context, int mouseX, int mouseY, float delta) {
 		renderBackground(context);
 		super.render(context, mouseX, mouseY, delta);
-
-		context.drawCenteredTextWithShadow(textRenderer, workerStatus, width / 2,
-				TABS_TOP + CONTROL_HEIGHT + 5, 0xE0C060);
 	}
 
 	/** Closing saves, so leaving by Escape keeps the changes rather than quietly binning them. */
