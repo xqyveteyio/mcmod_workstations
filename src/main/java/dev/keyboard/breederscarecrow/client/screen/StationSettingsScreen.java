@@ -8,46 +8,71 @@ import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.Element;
 import net.minecraft.client.gui.Selectable;
 import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.screen.ScreenTexts;
 import net.minecraft.client.gui.tooltip.Tooltip;
 import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.client.gui.widget.ClickableWidget;
 import net.minecraft.client.gui.widget.ElementListWidget;
 import net.minecraft.client.gui.widget.SliderWidget;
+import net.minecraft.screen.ScreenTexts;
 import net.minecraft.text.Text;
 import net.minecraft.util.Formatting;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.MathHelper;
 
+import java.util.ArrayList;
 import java.util.List;
 
 /**
  * The settings screen for one station, opened by sneaking and using the block.
  *
  * <p>Rows are generated from {@link StationSettings#OPTIONS}, so a new setting appears here with no
- * work: it is listed under its own category with the label and description already wired to the
- * existing {@code config.breeder_scarecrow.*} translations.
+ * work: it lands under its own tab with the label and description already wired to the existing
+ * {@code config.breeder_scarecrow.*} translations. Categories become the row of buttons along the
+ * top, the current one marked by colouring its label rather than by any change of shape.
  *
  * <p>Everything here belongs to the station that was clicked. The one exception is the highlight
- * toggle at the bottom, which is a local drawing preference and stays in the config file.
+ * toggle on the display tab, which is a local drawing preference and stays in the config file.
  */
 public class StationSettingsScreen extends Screen {
 	private static final int CONTROL_WIDTH = 100;
 	private static final int CONTROL_HEIGHT = 20;
 	private static final int ROW_WIDTH = 320;
-	private static final int LIST_TOP = 52;
-	private static final int LIST_BOTTOM_MARGIN = 44;
+	/** Total width of the tab row and the footer row, so the two line up with each other. */
+	private static final int BUTTON_ROW_WIDTH = 308;
+	private static final int BUTTON_GAP = 4;
+	private static final int TABS_TOP = 6;
+	/** Room under the tabs for the worker status line. */
+	private static final int STATUS_HEIGHT = 16;
+	private static final int FOOTER_HEIGHT = 40;
 
 	private final BlockPos pos;
 	/** Edited in place, and sent to the server when the screen is dismissed. */
 	private final StationSettings settings;
+	private final List<String> categories = categories();
+
 	private Text workerStatus;
+	/** Kept across a rebuild so changing a setting does not throw you back to the first tab. */
+	private String activeCategory;
 
 	public StationSettingsScreen(BlockPos pos, StationSettings settings, Text workerStatus) {
 		super(Text.translatable("config.breeder_scarecrow.title"));
 		this.pos = pos;
 		this.settings = settings;
 		this.workerStatus = workerStatus;
+		this.activeCategory = categories.get(0);
+	}
+
+	/** The categories the options table mentions, in the order it mentions them. */
+	private static List<String> categories() {
+		List<String> out = new ArrayList<>();
+
+		for (StationSettings.Option option : StationSettings.OPTIONS) {
+			if (!out.contains(option.category())) {
+				out.add(option.category());
+			}
+		}
+
+		return out;
 	}
 
 	public void setWorkerStatus(Text status) {
@@ -56,22 +81,52 @@ public class StationSettingsScreen extends Screen {
 
 	@Override
 	protected void init() {
-		// Drawable, not merely selectable: a list added as a plain child is never rendered.
-		addDrawableChild(new OptionList());
+		int tabWidth = (BUTTON_ROW_WIDTH - BUTTON_GAP * (categories.size() - 1)) / categories.size();
+		int x = width / 2 - BUTTON_ROW_WIDTH / 2;
+
+		for (String category : categories) {
+			boolean selected = category.equals(activeCategory);
+			Text label = Text.translatable("config.breeder_scarecrow." + category);
+
+			addDrawableChild(ButtonWidget.builder(selected ? label.copy().formatted(Formatting.YELLOW) : label,
+							button -> showCategory(category))
+					.dimensions(x, TABS_TOP, tabWidth, CONTROL_HEIGHT)
+					.build());
+
+			x += tabWidth + BUTTON_GAP;
+		}
+
+		addDrawableChild(new OptionList(activeCategory, listTop(), height - FOOTER_HEIGHT));
+
+		int footerWidth = (BUTTON_ROW_WIDTH - BUTTON_GAP * 2) / 3;
+		int footerX = width / 2 - BUTTON_ROW_WIDTH / 2;
+		int footerY = height - FOOTER_HEIGHT + 10;
 
 		addDrawableChild(ButtonWidget.builder(Text.translatable("config.breeder_scarecrow.worker_check"),
 						button -> StationNetworkingClient.requestWorker(pos))
-				.dimensions(width / 2 - 154, height - 32, 100, CONTROL_HEIGHT)
+				.dimensions(footerX, footerY, footerWidth, CONTROL_HEIGHT)
 				.build());
 
 		addDrawableChild(ButtonWidget.builder(Text.translatable("config.breeder_scarecrow.reset"),
 						button -> resetToDefaults())
-				.dimensions(width / 2 - 50, height - 32, 100, CONTROL_HEIGHT)
+				.dimensions(footerX + footerWidth + BUTTON_GAP, footerY, footerWidth, CONTROL_HEIGHT)
 				.build());
 
 		addDrawableChild(ButtonWidget.builder(ScreenTexts.DONE, button -> close())
-				.dimensions(width / 2 + 54, height - 32, 100, CONTROL_HEIGHT)
+				.dimensions(footerX + (footerWidth + BUTTON_GAP) * 2, footerY, footerWidth, CONTROL_HEIGHT)
 				.build());
+	}
+
+	private int listTop() {
+		return TABS_TOP + CONTROL_HEIGHT + STATUS_HEIGHT;
+	}
+
+	private void showCategory(String category) {
+		// Rebuilding the same tab would only throw away the scroll position for nothing.
+		if (!category.equals(activeCategory)) {
+			activeCategory = category;
+			clearAndInit();
+		}
 	}
 
 	private void resetToDefaults() {
@@ -85,11 +140,9 @@ public class StationSettingsScreen extends Screen {
 	public void render(DrawContext context, int mouseX, int mouseY, float delta) {
 		renderBackground(context);
 		super.render(context, mouseX, mouseY, delta);
-		context.drawCenteredTextWithShadow(textRenderer, title, width / 2, 12, 0xFFFFFF);
-		context.drawCenteredTextWithShadow(textRenderer,
-				Text.translatable("config.breeder_scarecrow.per_station_note", pos.getX(), pos.getY(), pos.getZ()),
-				width / 2, 26, 0x9A9A9A);
-		context.drawCenteredTextWithShadow(textRenderer, workerStatus, width / 2, 38, 0xE0C060);
+
+		context.drawCenteredTextWithShadow(textRenderer, workerStatus, width / 2,
+				TABS_TOP + CONTROL_HEIGHT + 5, 0xE0C060);
 	}
 
 	/** Closing saves, so leaving by Escape keeps the changes rather than quietly binning them. */
@@ -133,37 +186,8 @@ public class StationSettingsScreen extends Screen {
 				.build();
 	}
 
-	private abstract class Row extends ElementListWidget.Entry<Row> {
-	}
-
-	/** A category name, standing in the list where a Cloth Config tab used to be. */
-	private class HeaderRow extends Row {
-		private final Text label;
-
-		HeaderRow(Text label) {
-			this.label = label;
-		}
-
-		@Override
-		public List<? extends Element> children() {
-			return List.of();
-		}
-
-		@Override
-		public List<? extends Selectable> selectableChildren() {
-			return List.of();
-		}
-
-		@Override
-		public void render(DrawContext context, int index, int y, int x, int entryWidth, int entryHeight,
-				int mouseX, int mouseY, boolean hovered, float tickDelta) {
-			context.drawTextWithShadow(textRenderer, label.copy().formatted(Formatting.YELLOW), x,
-					y + entryHeight - textRenderer.fontHeight - 3, 0xFFFFFF);
-		}
-	}
-
 	/** A label on the left with its control on the right, the way vanilla's options screens read. */
-	private class OptionRow extends Row {
+	private class OptionRow extends ElementListWidget.Entry<OptionRow> {
 		private final Text label;
 		private final ClickableWidget control;
 
@@ -194,26 +218,23 @@ public class StationSettingsScreen extends Screen {
 		}
 	}
 
-	private class OptionList extends ElementListWidget<Row> {
-		OptionList() {
+	private class OptionList extends ElementListWidget<OptionRow> {
+		OptionList(String category, int top, int bottom) {
 			super(StationSettingsScreen.this.client, StationSettingsScreen.this.width,
-					StationSettingsScreen.this.height, LIST_TOP,
-					StationSettingsScreen.this.height - LIST_BOTTOM_MARGIN, CONTROL_HEIGHT + 5);
-
-			String category = null;
+					StationSettingsScreen.this.height, top, bottom, CONTROL_HEIGHT + 5);
 
 			for (StationSettings.Option option : StationSettings.OPTIONS) {
-				if (!option.category().equals(category)) {
-					category = option.category();
-					addEntry(new HeaderRow(Text.translatable("config.breeder_scarecrow." + category)));
+				if (option.category().equals(category)) {
+					addEntry(new OptionRow(Text.translatable(option.labelKey()), controlFor(option),
+							Text.translatable(option.tooltipKey())));
 				}
-
-				addEntry(new OptionRow(Text.translatable(option.labelKey()), controlFor(option),
-						Text.translatable(option.tooltipKey())));
 			}
 
-			addEntry(new OptionRow(Text.translatable("config.breeder_scarecrow.highlight_always_on"),
-					highlightControl(), Text.translatable("config.breeder_scarecrow.highlight_always_on.tooltip")));
+			if (StationSettings.DISPLAY.equals(category)) {
+				addEntry(new OptionRow(Text.translatable("config.breeder_scarecrow.highlight_always_on"),
+						highlightControl(),
+						Text.translatable("config.breeder_scarecrow.highlight_always_on.tooltip")));
+			}
 		}
 
 		@Override

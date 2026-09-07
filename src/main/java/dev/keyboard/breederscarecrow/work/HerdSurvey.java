@@ -1,8 +1,10 @@
 package dev.keyboard.breederscarecrow.work;
 
 import net.minecraft.entity.EntityType;
+import net.minecraft.entity.Shearable;
 import net.minecraft.entity.passive.AbstractHorseEntity;
 import net.minecraft.entity.passive.AnimalEntity;
+import net.minecraft.entity.passive.CowEntity;
 import net.minecraft.entity.passive.TameableEntity;
 import net.minecraft.server.world.ServerWorld;
 import org.jetbrains.annotations.Nullable;
@@ -12,6 +14,7 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Predicate;
 
 /**
  * One look at every animal inside a work area, grouped by species, plus the rules deciding what
@@ -221,6 +224,47 @@ public final class HerdSurvey {
 
 		for (Herd herd : herds.values()) {
 			candidates.addAll(herd.babies);
+		}
+
+		return candidates;
+	}
+
+	/**
+	 * Anything wearing a coat right now. Vanilla's own check covers the rest: a lamb and a sheep
+	 * already shorn both answer no, so a flock only offers up what shears would actually work on.
+	 */
+	public List<AnimalEntity> shearCandidates() {
+		return matching(animal -> animal instanceof Shearable shearable && shearable.isShearable());
+	}
+
+	/**
+	 * Grown cows. Vanilla puts no limit on milking, so nothing here says whether one is "ready":
+	 * how often it happens is the rancher's business, and it gives each cow one turn per round.
+	 */
+	public List<AnimalEntity> milkCandidates() {
+		return matching(animal -> animal instanceof CowEntity && !animal.isBaby());
+	}
+
+	/**
+	 * Every animal in the area passing {@code test}, protected ones left out. Shearing a mooshroom
+	 * turns it into a cow for good, so even the harmless looking jobs go by the same rule as
+	 * slaughter: an animal someone named or tamed is not the rancher's to touch.
+	 */
+	private List<AnimalEntity> matching(Predicate<AnimalEntity> test) {
+		List<AnimalEntity> candidates = new ArrayList<>();
+
+		for (Herd herd : herds.values()) {
+			for (AnimalEntity animal : herd.adults) {
+				if (!isProtected(animal) && test.test(animal)) {
+					candidates.add(animal);
+				}
+			}
+
+			for (AnimalEntity animal : herd.babies) {
+				if (!isProtected(animal) && test.test(animal)) {
+					candidates.add(animal);
+				}
+			}
 		}
 
 		return candidates;

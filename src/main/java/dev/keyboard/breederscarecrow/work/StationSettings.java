@@ -29,8 +29,12 @@ public final class StationSettings {
 	public boolean requireFeedItems;
 	public boolean feedBabies;
 	public boolean playFeedSound;
+	public boolean instantKill;
+	public boolean enableShearing;
+	public boolean enableMilking;
 	public boolean openFenceGates;
 	public boolean shoveBlockers;
+	public boolean invulnerable;
 	public boolean showWorkerState;
 	public int workRadius;
 	public int workHeight;
@@ -44,6 +48,7 @@ public final class StationSettings {
 	/** Groups for the settings screen, in tab order. Keys are {@code config.breeder_scarecrow.*}. */
 	public static final String BREEDING = "category.breeding";
 	public static final String CULLING = "category.culling";
+	public static final String HARVEST = "category.harvest";
 	public static final String AREA = "category.area";
 	public static final String DISPLAY = "category.display";
 
@@ -59,6 +64,10 @@ public final class StationSettings {
 			new Flag(CULLING, "enable_culling", s -> s.enableCulling, (s, v) -> s.enableCulling = v),
 			new Range(CULLING, "keep_adults_per_type", 2, 32, s -> s.keepAdultsPerType, (s, v) -> s.keepAdultsPerType = v),
 			new Range(CULLING, "cull_interval_ticks", 1, 1200, s -> s.cullIntervalTicks, (s, v) -> s.cullIntervalTicks = v),
+			new Flag(CULLING, "instant_kill", s -> s.instantKill, (s, v) -> s.instantKill = v),
+
+			new Flag(HARVEST, "enable_shearing", s -> s.enableShearing, (s, v) -> s.enableShearing = v),
+			new Flag(HARVEST, "enable_milking", s -> s.enableMilking, (s, v) -> s.enableMilking = v),
 
 			new Range(AREA, "work_radius", 1, 64, s -> s.workRadius, (s, v) -> s.workRadius = v),
 			new Range(AREA, "work_height", 1, 32, s -> s.workHeight, (s, v) -> s.workHeight = v),
@@ -66,6 +75,7 @@ public final class StationSettings {
 			new Range(AREA, "worker_respawn_ticks", 20, 2400, s -> s.workerRespawnTicks, (s, v) -> s.workerRespawnTicks = v),
 			new Flag(AREA, "open_fence_gates", s -> s.openFenceGates, (s, v) -> s.openFenceGates = v),
 			new Flag(AREA, "shove_blockers", s -> s.shoveBlockers, (s, v) -> s.shoveBlockers = v),
+			new Flag(AREA, "invulnerable", s -> s.invulnerable, (s, v) -> s.invulnerable = v),
 
 			new Flag(DISPLAY, "show_worker_state", s -> s.showWorkerState, (s, v) -> s.showWorkerState = v));
 
@@ -85,8 +95,12 @@ public final class StationSettings {
 		requireFeedItems = config.requireFeedItems;
 		feedBabies = config.feedBabies;
 		playFeedSound = config.playFeedSound;
+		instantKill = config.instantKill;
+		enableShearing = config.enableShearing;
+		enableMilking = config.enableMilking;
 		openFenceGates = config.openFenceGates;
 		shoveBlockers = config.shoveBlockers;
+		invulnerable = config.invulnerable;
 		showWorkerState = config.showWorkerState;
 		workRadius = config.workRadius;
 		workHeight = config.workHeight;

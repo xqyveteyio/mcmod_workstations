@@ -7,15 +7,20 @@ import dev.keyboard.breederscarecrow.work.HerdSurvey;
 import dev.keyboard.breederscarecrow.work.WorkArea;
 import it.unimi.dsi.fastutil.ints.Int2LongMap;
 import it.unimi.dsi.fastutil.ints.Int2LongOpenHashMap;
+import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
+import it.unimi.dsi.fastutil.ints.IntSet;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.ItemEntity;
+import net.minecraft.entity.Shearable;
 import net.minecraft.entity.ai.pathing.Path;
 import net.minecraft.entity.passive.AnimalEntity;
+import net.minecraft.entity.passive.CowEntity;
 import net.minecraft.entity.passive.PassiveEntity;
 import net.minecraft.inventory.Inventory;
 import net.minecraft.inventory.SimpleInventory;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
+import net.minecraft.item.Items;
 import net.minecraft.particle.ParticleTypes;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.sound.SoundCategory;
@@ -47,23 +52,59 @@ public class RancherBrain {
 	/** What the rancher is doing with itself right now. */
 	public enum State {
 		NO_STATION,
-		SWIMMING,
 		IDLE,
+		/** Stood where the last job finished, seeing whether another one turns up. */
+		WAITING,
 		RETURNING,
 		WALKING,
 		WORKING
 	}
 
-	/** The job it is doing it for. */
+	/**
+	 * The kind of work being done, one at a time and each carried through to the end before the
+	 * next is picked up.
+	 *
+	 * <p>Jobs used to be chosen one at a time on their own merits, always taking whatever was
+	 * nearest. That reads badly from outside: the rancher abandons a half cleared pen to chase a
+	 * drop, feeds one pair, wanders off to kill something, and never visibly finishes anything.
+	 * A phase gives the work a shape, and it is the phase, not the individual job, that the
+	 * rotation moves on from.
+	 */
+	public enum Phase {
+		/** Every surplus adult, down to the herd's keep count. */
+		CULL,
+		/** Every drop on the ground, then what was gathered emptied into the station. */
+		COLLECT,
+		/** One pairing. Handing the rotation a turn between pairings keeps the pen from stampeding. */
+		BREED,
+		/** One helping for each baby in the area, in turn. */
+		GROW,
+		/** Shearing and milking, each animal getting one turn. */
+		HARVEST
+	}
+
+	/** A single errand inside a phase. */
 	public enum Job {
 		/** Put an adult in love so vanilla's mate goal pairs it off. */
 		FEED,
 		/** Feed a baby to grow it up early. */
 		GROW,
 		CULL,
+		SHEAR,
+		MILK,
 		COLLECT,
 		DEPOSIT
 	}
+
+	/**
+	 * The order phases are worked through.
+	 *
+	 * <p>A sweep is in the rotation in its own right as well as being forced after culling and
+	 * harvesting, so drops that turn up on their own, an egg or a chicken something else killed,
+	 * are not left lying there until the next slaughter.
+	 */
+	private static final Phase[] ROTATION = {
+			Phase.CULL, Phase.COLLECT, Phase.BREED, Phase.GROW, Phase.HARVEST};
 
 	/** Two blocks, which is roughly a player's reach. */
 	private static final double REACH_SQUARED = 4.0;
@@ -76,10 +117,12 @@ public class RancherBrain {
 	 * fraction below ground level, inside the solid block holding the fence up. Both are impossible
 	 * to path into, which is why those drops were written off as unreachable.
 	 *
-	 * <p>Only drops get this. An animal stands on ground the rancher could stand on too, so its own
-	 * block is a perfectly good target, and loosening it there causes a deadlock: pathfinding calls
-	 * the walk finished while the animal is still further away than {@link #REACH_SQUARED} allows
-	 * feeding, leaving the rancher stood next to a cow it will not close the last stride on.
+	 * <p>Only drops get this, and even for them only as a second attempt after aiming at the exact
+	 * block has failed: see {@link #pathTo}. An animal stands on ground the rancher could stand on
+	 * too, so its own block is a perfectly good target, and loosening it anywhere it is not needed
+	 * causes a deadlock: pathfinding calls the walk finished while the target is still further away
+	 * than reach allows, leaving the rancher stood in the open looking at something it will not
+	 * close the last stride on.
 	 */
 	private static final int COLLECT_PATH_DISTANCE = 2;
 	/** An animal's own block is always somewhere the rancher can stand, so aim right at it. */
@@ -141,8 +184,26 @@ public class RancherBrain {
 	 * not forever correcting its footing after being jostled, tight enough to be beside the block.
 	 */
 	private static final double POST_REACH_SQUARED = 4.0;
+	/**
+	 * How long the rancher stands where it finished before setting off back to its post, in ticks.
+	 *
+	 * <p>It used to leave the instant a job ended. The next scan for work is up to a whole work
+	 * interval away, so the usual sight was the rancher getting half way home, finding something,
+	 * and turning straight round: busy looking, and a lot of walking that came to nothing.
+	 *
+	 * <p>Standing still costs nothing and is strictly better than walking the wrong way. Whatever
+	 * turns up next is started from where the rancher already is, rather than from wherever an
+	 * abandoned walk home happened to leave it.
+	 */
+	private static final int SETTLE_TICKS = 60;
 	private static final double WALK_SPEED = 0.6;
 	private static final double RETURN_SPEED = 0.45;
+
+	/**
+	 * Ticks in water to allow pathfinding before the rancher is steered home by hand. Long enough
+	 * that wading across a stream on a perfectly good path is left alone.
+	 */
+	private static final int SWIM_PATIENCE = 40;
 
 	/**
 	 * Targets that turned out to be unreachable, by entity id, each held until the world time it
@@ -153,6 +214,27 @@ public class RancherBrain {
 	private final Int2LongMap blocked = new Int2LongOpenHashMap();
 
 	private State state = State.IDLE;
+	@Nullable
+	private Phase phase;
+	/** Where in {@link #ROTATION} the next phase comes from. */
+	private int rotationCursor;
+	/** A sweep culling or harvesting has earned, taken before the rotation gets its turn back. */
+	private boolean sweepOwed;
+	/** Whether the current phase has actually accomplished anything, which is what earns a sweep. */
+	private boolean phaseWorked;
+	/** Ids already served this phase, so a round gives every animal one turn and no more. */
+	private final IntSet served = new IntOpenHashSet();
+	/** Set when the station had no room, so a sweep stops retrying a deposit that cannot land. */
+	private boolean stationFull;
+	/**
+	 * Set when pathfinding declined to answer rather than saying no. That is a fact about the
+	 * rancher, usually that it is mid stride, and must not be read as the phase having run out of
+	 * work: doing so ended phases early and left culls half finished.
+	 */
+	private boolean pathPending;
+	/** One look at the herd per scan, shared by whichever phases get asked during it. */
+	@Nullable
+	private HerdSurvey scanSurvey;
 	@Nullable
 	private Job job;
 	@Nullable
@@ -170,6 +252,10 @@ public class RancherBrain {
 	private int timeout;
 	/** Consecutive ticks of getting no closer to the target. */
 	private int stalled;
+	/** Consecutive ticks touching water, for the label and for noticing a swim going nowhere. */
+	private int swimming;
+	/** Ticks since the last job ended, which is how long there has been nothing to do. */
+	private int settling;
 	/** Closest the rancher has been to the current target, for spotting a walk going nowhere. */
 	private double closest = Double.MAX_VALUE;
 
@@ -183,6 +269,9 @@ public class RancherBrain {
 
 		if (station == null || area == null) {
 			clearJob(rancher);
+			// Whatever round it was part way through belongs to a station that is no longer there.
+			phase = null;
+			served.clear();
 			state = State.NO_STATION;
 			note = "";
 			return;
@@ -191,17 +280,16 @@ public class RancherBrain {
 		long now = world.getTime();
 		blocked.int2LongEntrySet().removeIf(entry -> entry.getLongValue() <= now);
 
-		// The swim goal owns movement in water, and steering against it would drown the rancher.
-		// The clock still runs so a job cannot be held forever by a puddle.
-		if (rancher.isTouchingWater()) {
-			state = State.SWIMMING;
+		// The state machine has to keep running in water. SwimGoal takes the JUMP control alone and
+		// never steers, so handing movement over to it leaves nothing at all moving the rancher.
+		// What it does give us is a navigation set to allow swimming, so a path out can exist.
+		swimming = rancher.isTouchingWater() ? swimming + 1 : 0;
 
-			if (job != null && --timeout <= 0) {
-				note = "timed out";
-				clearJob(rancher);
-			}
-
-			return;
+		// Out of its depth there may be no node for pathfinding to offer. Steering by hand needs no
+		// path and only has to reach a bank the navigation can work from again.
+		if (swimming > SWIM_PATIENCE && rancher.getNavigation().isIdle()) {
+			BlockPos post = area.getCenter();
+			rancher.getMoveControl().moveTo(post.getX() + 0.5, post.getY(), post.getZ() + 0.5, RETURN_SPEED);
 		}
 
 		if (job != null) {
@@ -219,6 +307,7 @@ public class RancherBrain {
 				repathCooldown = 0;
 				actionCooldown = 0;
 				stalled = 0;
+				settling = 0;
 				closest = Double.MAX_VALUE;
 				state = State.WALKING;
 				navigate(rancher);
@@ -226,22 +315,34 @@ public class RancherBrain {
 			}
 		}
 
-		idle(rancher, area);
+		idle(rancher, area, station.getSettings());
 	}
 
 	/** A one line summary of the state machine, short enough to sit over the rancher's head. */
 	public String describe(RancherEntity rancher) {
 		StringBuilder text = new StringBuilder(switch (state) {
 			case NO_STATION -> "no station";
-			case SWIMMING -> "swimming";
 			case IDLE -> "idle";
+			case WAITING -> "waiting";
 			case RETURNING -> "heading back";
 			case WALKING -> "walking";
 			case WORKING -> "working";
 		});
 
-		if (job != null) {
-			text.append(' ').append(job.name().toLowerCase(Locale.ROOT));
+		// The countdown to giving up and walking home, so a rancher stood in a field can be told
+		// apart from one that is stuck.
+		if (state == State.WAITING) {
+			text.append(' ').append(Math.max(0, settleTicks(rancher.getSettings()) - settling));
+		}
+
+		if (phase != null) {
+			text.append(' ').append(phase.name().toLowerCase(Locale.ROOT));
+		}
+
+		// Only when it says something the phase has not already. Most jobs share their phase's
+		// name, and "walking cull cull" reads like a bug.
+		if (job != null && (phase == null || !job.name().equals(phase.name()))) {
+			text.append(phase == null ? ' ' : '/').append(job.name().toLowerCase(Locale.ROOT));
 		}
 
 		if (job == Job.FEED) {
@@ -259,8 +360,22 @@ public class RancherBrain {
 					: String.format(Locale.ROOT, " n%d/%d", path.getCurrentNodeIndex(), path.getLength()));
 		}
 
+		// Water slows the rancher down, so it is the first thing to suspect when a walk takes longer
+		// than it should.
+		if (swimming > 0) {
+			text.append(" | water");
+		}
+
 		if (job == null && !note.isEmpty()) {
 			text.append(" | ").append(note);
+		}
+
+		if (!served.isEmpty()) {
+			text.append(" | done ").append(served.size());
+		}
+
+		if (sweepOwed) {
+			text.append(" | sweep due");
 		}
 
 		if (!blocked.isEmpty()) {
@@ -288,18 +403,6 @@ public class RancherBrain {
 	}
 
 	private void runJob(RancherEntity rancher, ServerWorld world, WorkArea area, ScarecrowBlockEntity station) {
-		if (--timeout <= 0) {
-			// Never got there. The target is passed over for a while so the rancher does not spend
-			// every scan from here on walking at the same thing it cannot reach.
-			if (target != null) {
-				block(world, target);
-			}
-
-			note = "timed out";
-			clearJob(rancher);
-			return;
-		}
-
 		if (!jobValid(area)) {
 			note = "target gone";
 			clearJob(rancher);
@@ -320,10 +423,35 @@ public class RancherBrain {
 			state = State.WORKING;
 			rancher.getNavigation().stop();
 
-			if (actionCooldown <= 0) {
+			// Arriving settles the question the timeout and the stall detector were both asking,
+			// so both start again from scratch. Without this, an animal that grazes a couple of
+			// blocks off while the interval runs down is measured against how close the rancher
+			// once stood to it, and gets written off as unreachable during the walk back.
+			timeout = JOB_TIMEOUT;
+			stalled = 0;
+			closest = Double.MAX_VALUE;
+
+			// The clock is deliberately not running here. It exists to give up on a walk that is
+			// going nowhere, and having arrived, waiting out the configured interval is the rancher
+			// doing as it was told. The interval can also be set longer than the timeout, which
+			// otherwise meant standing over an animal until the job expired and then blocklisting
+			// it for being unreachable, having been next to it the whole time.
+			if (actionCooldown <= 0 && actionReady(rancher)) {
 				perform(rancher, station);
 			}
 
+			return;
+		}
+
+		if (--timeout <= 0) {
+			// Never got there. The target is passed over for a while so the rancher does not spend
+			// every scan from here on walking at the same thing it cannot reach.
+			if (target != null) {
+				block(world, target);
+			}
+
+			note = "timed out";
+			clearJob(rancher);
 			return;
 		}
 
@@ -380,6 +508,8 @@ public class RancherBrain {
 			case FEED -> feed(rancher, station, false);
 			case GROW -> feed(rancher, station, true);
 			case CULL -> cull(rancher);
+			case SHEAR -> shear(rancher);
+			case MILK -> milk(rancher);
 			case COLLECT -> collect(rancher);
 			case DEPOSIT -> deposit(rancher, station);
 		};
@@ -389,11 +519,23 @@ public class RancherBrain {
 		}
 	}
 
-	private void clearJob(RancherEntity rancher) {
-		if (job == Job.CULL) {
-			rancher.startCullCooldown();
+	/**
+	 * Whether the configured pacing allows the job to go ahead. Asked on arrival rather than when
+	 * the job was picked, so the walk over happens during the wait instead of after it.
+	 */
+	private boolean actionReady(RancherEntity rancher) {
+		if (job == null) {
+			return false;
 		}
 
+		return switch (job) {
+			case CULL -> rancher.canCullNow();
+			case FEED, GROW -> rancher.canFeedNow();
+			default -> true;
+		};
+	}
+
+	private void clearJob(RancherEntity rancher) {
 		job = null;
 		target = null;
 		targetPos = null;
@@ -414,13 +556,26 @@ public class RancherBrain {
 	 * pushes livestock about, which for animals in love means being nudged away from the partner
 	 * they were walking to.
 	 */
-	private void idle(RancherEntity rancher, WorkArea area) {
+	private void idle(RancherEntity rancher, WorkArea area, StationSettings config) {
+		settling++;
 		BlockPos post = area.getCenter();
 
 		if (rancher.squaredDistanceTo(Vec3d.ofCenter(post)) <= POST_REACH_SQUARED) {
 			state = State.IDLE;
 
 			// Stopped explicitly, or the walk home would carry on pushing it past the station.
+			if (!rancher.getNavigation().isIdle()) {
+				rancher.getNavigation().stop();
+			}
+
+			return;
+		}
+
+		// Not on the way anywhere yet: the job only just ended and the ranch has not been looked
+		// over since. Setting off now is what produced the half walk home and the about turn.
+		if (settling < settleTicks(config)) {
+			state = State.WAITING;
+
 			if (!rancher.getNavigation().isIdle()) {
 				rancher.getNavigation().stop();
 			}
@@ -438,51 +593,56 @@ public class RancherBrain {
 		}
 	}
 
+	/**
+	 * How long to stand still before heading home, in ticks.
+	 *
+	 * <p>Scaled off the work interval as well as fixed, because "nothing to do" is only ever
+	 * established by a scan coming up empty, and scans are what the interval paces. A flat wait
+	 * shorter than the interval could send the rancher home without a single look around, which is
+	 * the behaviour this is here to stop.
+	 */
+	private static int settleTicks(StationSettings config) {
+		return Math.max(SETTLE_TICKS, config.workIntervalTicks * 2);
+	}
+
 	private boolean chooseJob(RancherEntity rancher, ServerWorld world, WorkArea area, ScarecrowBlockEntity station) {
 		StationSettings config = station.getSettings();
 		note = "";
+		scanSurvey = null;
 
-		// A full pack first, otherwise the rancher would keep killing animals it cannot carry.
+		// A full pack interrupts whatever is running. Carrying on would mean killing animals and
+		// shearing sheep whose drops there is nowhere left to put.
 		if (isPackFull(rancher)) {
 			return takeDeposit(area);
 		}
 
-		ItemEntity drop = nearestReachable(rancher, world, world.getEntitiesByClass(ItemEntity.class, area.getBox(),
-				item -> item.isAlive() && !item.cannotPickup() && rancher.getCarried().canInsert(item.getStack())),
-				COLLECT_PATH_DISTANCE);
+		if (phase != null) {
+			if (takeJobIn(rancher, world, area, station, config)) {
+				return true;
+			}
 
-		if (drop != null) {
-			return take(Job.COLLECT, drop);
+			if (pathPending) {
+				return false;
+			}
+
+			endPhase();
 		}
 
-		if (config.enableBreeding || config.enableCulling) {
-			HerdSurvey survey = HerdSurvey.of(world, area);
+		// One turn round the rotation, with a spare go for the sweep that culling or harvesting
+		// may have just earned. Every phase gets asked, so a quiet ranch still reaches the one
+		// thing that does have work waiting.
+		for (int attempt = 0; attempt <= ROTATION.length; attempt++) {
+			startPhase(nextPhase(config));
 
-			if (config.enableCulling && rancher.canCullNow()) {
-				AnimalEntity victim = nearestReachable(rancher, world, survey.cullCandidates(config),
-						ANIMAL_PATH_DISTANCE);
-
-				if (victim != null) {
-					return take(Job.CULL, victim);
-				}
+			if (takeJobIn(rancher, world, area, station, config)) {
+				return true;
 			}
 
-			if (config.enableBreeding && rancher.canFeedNow()) {
-				HerdSurvey.FeedPlan plan = nearestPlan(rancher, world, survey.feedPlans(config), station, config);
-
-				if (plan != null) {
-					return takeFeed(plan);
-				}
-
-				if (config.feedBabies) {
-					AnimalEntity baby = nearestReachable(rancher, world,
-							filterFeedable(survey.babyCandidates(), station, config), ANIMAL_PATH_DISTANCE);
-
-					if (baby != null) {
-						return take(Job.GROW, baby);
-					}
-				}
+			if (pathPending) {
+				return false;
 			}
+
+			endPhase();
 		}
 
 		if (!rancher.getCarried().isEmpty()) {
@@ -494,6 +654,164 @@ public class RancherBrain {
 		}
 
 		return false;
+	}
+
+	/** The next phase to try: a sweep if one is owed, otherwise the next enabled one in turn. */
+	private Phase nextPhase(StationSettings config) {
+		if (sweepOwed) {
+			sweepOwed = false;
+			return Phase.COLLECT;
+		}
+
+		for (int step = 0; step < ROTATION.length; step++) {
+			Phase candidate = ROTATION[rotationCursor];
+			rotationCursor = (rotationCursor + 1) % ROTATION.length;
+
+			if (enabled(candidate, config)) {
+				return candidate;
+			}
+		}
+
+		// Sweeping is the one phase with no switch, so there is always somewhere to land.
+		return Phase.COLLECT;
+	}
+
+	private static boolean enabled(Phase phase, StationSettings config) {
+		return switch (phase) {
+			case CULL -> config.enableCulling;
+			case COLLECT -> true;
+			case BREED -> config.enableBreeding;
+			case GROW -> config.feedBabies;
+			case HARVEST -> config.enableShearing || config.enableMilking;
+		};
+	}
+
+	private void startPhase(Phase next) {
+		phase = next;
+		phaseWorked = false;
+		stationFull = false;
+		served.clear();
+	}
+
+	private void endPhase() {
+		// A slaughtered animal leaves its drops where it fell and shearing scatters wool, so these
+		// two hand over to a sweep rather than to whatever the rotation had lined up next. Only
+		// when something actually happened: a phase that found nothing to do owes nothing.
+		if (phaseWorked && (phase == Phase.CULL || phase == Phase.HARVEST)) {
+			sweepOwed = true;
+		}
+
+		phase = null;
+		phaseWorked = false;
+		served.clear();
+	}
+
+	/** The next errand within the current phase, or false when the phase has nothing left. */
+	private boolean takeJobIn(RancherEntity rancher, ServerWorld world, WorkArea area,
+			ScarecrowBlockEntity station, StationSettings config) {
+		pathPending = false;
+
+		if (phase == null) {
+			return false;
+		}
+
+		return switch (phase) {
+			case CULL -> takeCull(rancher, world, area, config);
+			case COLLECT -> takeCollect(rancher, world, area);
+			case BREED -> takeBreed(rancher, world, area, station, config);
+			case GROW -> takeGrow(rancher, world, area, station, config);
+			case HARVEST -> takeHarvest(rancher, world, area, config);
+		};
+	}
+
+	private boolean takeCull(RancherEntity rancher, ServerWorld world, WorkArea area, StationSettings config) {
+		AnimalEntity victim = nearestReachable(rancher, world,
+				survey(world, area).cullCandidates(config), ANIMAL_PATH_DISTANCE);
+		return victim != null && take(Job.CULL, victim);
+	}
+
+	private boolean takeCollect(RancherEntity rancher, ServerWorld world, WorkArea area) {
+		ItemEntity drop = nearestReachable(rancher, world, world.getEntitiesByClass(ItemEntity.class, area.getBox(),
+				item -> item.isAlive() && !item.cannotPickup() && rancher.getCarried().canInsert(item.getStack())),
+				COLLECT_PATH_DISTANCE);
+
+		if (drop != null) {
+			return take(Job.COLLECT, drop);
+		}
+
+		// The sweep is not finished until what was picked up is in the station, so whatever phase
+		// comes next starts with an empty pack and room for what it produces.
+		if (!stationFull && !rancher.getCarried().isEmpty()) {
+			return takeDeposit(area);
+		}
+
+		return false;
+	}
+
+	private boolean takeBreed(RancherEntity rancher, ServerWorld world, WorkArea area,
+			ScarecrowBlockEntity station, StationSettings config) {
+		// One pairing is the whole phase. Breeding a pen out to its limit in a single stretch would
+		// starve everything else, and the animals just put in love need time to find each other.
+		if (phaseWorked) {
+			return false;
+		}
+
+		HerdSurvey.FeedPlan plan = nearestPlan(rancher, world,
+				survey(world, area).feedPlans(config), station, config);
+		return plan != null && takeFeed(plan);
+	}
+
+	private boolean takeGrow(RancherEntity rancher, ServerWorld world, WorkArea area,
+			ScarecrowBlockEntity station, StationSettings config) {
+		AnimalEntity baby = nearestReachable(rancher, world,
+				filterFeedable(unserved(survey(world, area).babyCandidates()), station, config),
+				ANIMAL_PATH_DISTANCE);
+		return baby != null && take(Job.GROW, baby);
+	}
+
+	private boolean takeHarvest(RancherEntity rancher, ServerWorld world, WorkArea area, StationSettings config) {
+		HerdSurvey survey = survey(world, area);
+
+		if (config.enableShearing) {
+			AnimalEntity woolly = nearestReachable(rancher, world,
+					unserved(survey.shearCandidates()), ANIMAL_PATH_DISTANCE);
+
+			if (woolly != null) {
+				return take(Job.SHEAR, woolly);
+			}
+		}
+
+		if (config.enableMilking) {
+			AnimalEntity cow = nearestReachable(rancher, world,
+					unserved(survey.milkCandidates()), ANIMAL_PATH_DISTANCE);
+
+			if (cow != null) {
+				return take(Job.MILK, cow);
+			}
+		}
+
+		return false;
+	}
+
+	private HerdSurvey survey(ServerWorld world, WorkArea area) {
+		if (scanSurvey == null) {
+			scanSurvey = HerdSurvey.of(world, area);
+		}
+
+		return scanSurvey;
+	}
+
+	/** Whatever has not had its turn yet this phase, which is what makes a round finite. */
+	private <T extends Entity> List<T> unserved(List<T> candidates) {
+		List<T> waiting = new ArrayList<>(candidates.size());
+
+		for (T candidate : candidates) {
+			if (!served.contains(candidate.getId())) {
+				waiting.add(candidate);
+			}
+		}
+
+		return waiting;
 	}
 
 	private boolean take(Job newJob, Entity newTarget) {
@@ -615,6 +933,7 @@ public class RancherBrain {
 				// made the rancher blocklist every drop in sight and then stand around doing
 				// nothing for the ten seconds it took to expire.
 				note = "no path yet";
+				pathPending = true;
 				return null;
 			}
 
@@ -667,6 +986,10 @@ public class RancherBrain {
 			animal.lovePlayer(null);
 		}
 
+		// Its turn is used up. For babies that is what makes a round finite, and it also stops a
+		// baby that grew to adulthood on this very helping from being served again as an adult.
+		served.add(animal.getId());
+		phaseWorked = true;
 		celebrate(rancher, animal);
 
 		// The animal just fed is on a 600 tick timer and is no use on its own, so the partner is
@@ -706,12 +1029,79 @@ public class RancherBrain {
 		}
 
 		rancher.swingHand(Hand.MAIN_HAND);
-		rancher.tryAttack(animal);
+
+		if (rancher.getSettings().instantKill) {
+			// Still dealt as damage rather than by emptying the health bar, so the loot table, the
+			// looting on the rancher's sword and the death animation all behave as they always do.
+			// The headroom over max health is for anything wearing armour or under resistance.
+			animal.damage(rancher.getDamageSources().mobAttack(rancher),
+					animal.getMaxHealth() * 10.0F + animal.getAbsorptionAmount() + 10.0F);
+		} else {
+			rancher.tryAttack(animal);
+		}
+
 		actionCooldown = ATTACK_INTERVAL;
 
-		// Drops land on the ground and get picked up as a COLLECT job on a later pass, which also
-		// covers eggs and anything else that shows up inside the area.
-		return !animal.isAlive();
+		if (animal.isAlive()) {
+			return false;
+		}
+
+		// The interval paces one animal to the next, so it starts on the blow that finished this
+		// one rather than on merely having swung at it.
+		rancher.startCullCooldown();
+		// What it dropped is left where it fell. Culling always hands over to a sweep, so the
+		// carcass is collected as part of finishing the same piece of work.
+		phaseWorked = true;
+		return true;
+	}
+
+	/**
+	 * Takes the coat off anything wearing one. No shears are spent or even carried: the rancher is
+	 * equipment the station summons, and asking players to keep it stocked with tools would make a
+	 * ranch stop working for a reason nothing on the screen explains.
+	 */
+	private boolean shear(RancherEntity rancher) {
+		if (!(target instanceof AnimalEntity animal)) {
+			return true;
+		}
+
+		// Marked as served whatever happens next, so an animal that turns out not to need it after
+		// all cannot be picked again and stall the round.
+		served.add(animal.getId());
+
+		if (!(animal instanceof Shearable shearable) || !shearable.isShearable()) {
+			return true;
+		}
+
+		rancher.swingHand(Hand.MAIN_HAND);
+		// Vanilla's own routine, so the sound, the drop count and a mooshroom turning into a cow
+		// all behave exactly as they do for a player holding shears.
+		shearable.sheared(SoundCategory.NEUTRAL);
+		actionCooldown = ATTACK_INTERVAL;
+		phaseWorked = true;
+		return true;
+	}
+
+	/** Fills a bucket the rancher did not have to be given, for the same reason as shearing. */
+	private boolean milk(RancherEntity rancher) {
+		if (!(target instanceof AnimalEntity animal)) {
+			return true;
+		}
+
+		served.add(animal.getId());
+
+		if (!(animal instanceof CowEntity) || animal.isBaby()) {
+			return true;
+		}
+
+		rancher.swingHand(Hand.MAIN_HAND);
+		animal.playSound(SoundEvents.ENTITY_COW_MILK, 1.0F, 1.0F);
+		// Straight into the pack rather than onto the floor, which is where a bucket would go if it
+		// were handed over the vanilla way.
+		keepOrDrop(rancher, new ItemStack(Items.MILK_BUCKET));
+		actionCooldown = ATTACK_INTERVAL;
+		phaseWorked = true;
+		return true;
 	}
 
 	private boolean collect(RancherEntity rancher) {
@@ -730,6 +1120,7 @@ public class RancherBrain {
 		rancher.getWorld().playSound(null, rancher.getBlockPos(), SoundEvents.ENTITY_ITEM_PICKUP,
 				SoundCategory.NEUTRAL, 0.15F,
 				(rancher.getRandom().nextFloat() - rancher.getRandom().nextFloat()) * 1.4F + 2.0F);
+		phaseWorked = true;
 		return true;
 	}
 
@@ -758,6 +1149,9 @@ public class RancherBrain {
 			station.markDirty();
 		} else if (!carried.isEmpty()) {
 			note = "station full";
+			// Remembered for the rest of the phase, or a sweep that has cleared the ground would
+			// keep taking the same deposit that has nowhere to go and never finish.
+			stationFull = true;
 		}
 
 		// A full station leaves the pack loaded; the next pass tries again after the work interval.
@@ -802,11 +1196,36 @@ public class RancherBrain {
 		// path right onto the target's own block. For a drop resting against a fence that block is
 		// the fence, so the walk would silently never start, leaving the rancher stood still with a
 		// job it had already accepted as reachable.
-		Path path = rancher.getNavigation().findPathTo(target, pathDistance());
+		Path path = pathTo(rancher, target);
 
 		if (path != null) {
 			rancher.getNavigation().startMovingAlong(path, WALK_SPEED);
 		}
+	}
+
+	/**
+	 * A path right up to {@code destination}, settling for a block near it only if that fails.
+	 *
+	 * <p>Two tries rather than one, because the slack a drop resting inside a fence needs is
+	 * ruinous everywhere else. Offered a path that may stop {@link #COLLECT_PATH_DISTANCE} short,
+	 * pathfinding takes that offer on open ground too, parking the rancher up to four blocks from a
+	 * drop it could have walked right up to. That is outside the {@link #COLLECT_REACH_SQUARED} a
+	 * pickup reaches, so it stood there until the stall detector wrote the drop off, waited out the
+	 * backoff and did the whole thing again, forever. Asking for the exact block first means the
+	 * slack is only ever spent where it is actually needed.
+	 */
+	@Nullable
+	private Path pathTo(RancherEntity rancher, Entity destination) {
+		Path direct = rancher.getNavigation().findPathTo(destination, 0);
+
+		// A null path is pathfinding declining to answer rather than saying no, and a second ask
+		// gets the same non answer. Animals stand on ground the rancher can stand on, so for them
+		// the first ask is the only one that makes sense anyway.
+		if (job != Job.COLLECT || direct == null || direct.reachesTarget()) {
+			return direct;
+		}
+
+		return rancher.getNavigation().findPathTo(destination, COLLECT_PATH_DISTANCE);
 	}
 
 	/**
@@ -825,10 +1244,6 @@ public class RancherBrain {
 				.add(destination.subtract(rancher.getPos()).normalize().multiply(APPROACH_STEP));
 		rancher.getNavigation().startMovingTo(hop.x, hop.y, hop.z, speed);
 		return true;
-	}
-
-	private int pathDistance() {
-		return job == Job.COLLECT ? COLLECT_PATH_DISTANCE : ANIMAL_PATH_DISTANCE;
 	}
 
 	private double distanceToTarget(RancherEntity rancher) {

@@ -22,6 +22,7 @@ import net.minecraft.inventory.SimpleInventory;
 import net.minecraft.nbt.NbtCompound;
 import net.minecraft.nbt.NbtElement;
 import net.minecraft.nbt.NbtHelper;
+import net.minecraft.registry.tag.DamageTypeTags;
 import net.minecraft.sound.SoundEvent;
 import net.minecraft.sound.SoundEvents;
 import net.minecraft.text.Text;
@@ -82,6 +83,22 @@ public class RancherEntity extends PathAwareEntity {
 				.add(EntityAttributes.GENERIC_MOVEMENT_SPEED, 0.5)
 				.add(EntityAttributes.GENERIC_FOLLOW_RANGE, 32.0)
 				.add(EntityAttributes.GENERIC_ATTACK_DAMAGE, 4.0);
+	}
+
+	/**
+	 * A worker is equipment, not livestock, so by default nothing may kill it: not the mob it is
+	 * butchering, not a cactus it walked into, not a creeper wandering past. The station would only
+	 * summon a replacement anyway, and the pack it was carrying would end up on the floor.
+	 *
+	 * <p>Damage types that bypass invulnerability still land, which keeps {@code /kill} working.
+	 */
+	@Override
+	public boolean isInvulnerableTo(DamageSource source) {
+		if (super.isInvulnerableTo(source)) {
+			return true;
+		}
+
+		return getSettings().invulnerable && !source.isIn(DamageTypeTags.BYPASSES_INVULNERABILITY);
 	}
 
 	/** Gates are only worth opening if paths are allowed to run through them in the first place. */

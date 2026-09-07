@@ -30,6 +30,21 @@ public class ModConfig {
 	public boolean openFenceGates = true;
 	/** Let the rancher shoulder livestock out of its way instead of pathing around it. */
 	public boolean shoveBlockers = true;
+	/**
+	 * Finish an animal off in a single blow rather than hacking away at it. On by default: the
+	 * rancher is a machine for turning a pen into drops, and drawing that out only means more time
+	 * spent standing over one cow while the rest of the herd goes unattended.
+	 */
+	public boolean instantKill = true;
+	/** Shear anything wearing a coat. The wool lands on the ground and is swept up straight after. */
+	public boolean enableShearing = true;
+	/**
+	 * Milk grown cows. Off by default, and not because it is expensive: a milk bucket does not
+	 * stack, so every cow milked costs a whole slot and a station of 27 fills in a few rounds.
+	 */
+	public boolean enableMilking = false;
+	/** Whether anything is allowed to hurt the worker. On by default; {@code /kill} still works. */
+	public boolean invulnerable = true;
 	/** Horizontal reach of the work area, measured out from the station block. */
 	public int workRadius = 8;
 	/** How far the work area reaches above and below the station block. */
@@ -42,9 +57,10 @@ public class ModConfig {
 	public int cullIntervalTicks = 100;
 	/**
 	 * When true feeding spends matching items out of the station inventory, so the ranch only runs
-	 * as long as you keep it stocked. When false the rancher breeds for free.
+	 * as long as you keep it stocked. When false the rancher breeds for free, which is the default:
+	 * a station that has to be stocked by hand does nothing at all until you notice it is empty.
 	 */
-	public boolean requireFeedItems = true;
+	public boolean requireFeedItems = false;
 	/** Adults of one species kept as breeding stock. Anything above this gets slaughtered. */
 	public int keepAdultsPerType = 4;
 	/** Animals of one species allowed inside the area before breeding pauses. */
