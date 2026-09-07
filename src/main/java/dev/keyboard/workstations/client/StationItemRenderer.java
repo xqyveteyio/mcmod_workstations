@@ -20,7 +20,7 @@ public class StationItemRenderer implements BuiltinItemRendererRegistry.DynamicI
 	public void render(ItemStack stack, ModelTransformationMode mode, MatrixStack matrices,
 			VertexConsumerProvider vertexConsumers, int light, int overlay) {
 		MinecraftClient client = MinecraftClient.getInstance();
-		client.getBlockRenderManager().renderBlockAsEntity(WorkstationsMod.SCARECROW_BLOCK.getDefaultState(),
+		client.getBlockRenderManager().renderBlockAsEntity(WorkstationsMod.RANCH_BLOCK.getDefaultState(),
 				matrices, vertexConsumers, light, overlay);
 
 		World world = client.world;

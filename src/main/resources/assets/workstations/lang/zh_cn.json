@@ -1,6 +1,6 @@
 {
-	"block.workstations.scarecrow": "牧场工作站",
-	"container.workstations.scarecrow": "牧场工作站",
+	"block.workstations.ranch_station": "牧场工作站",
+	"container.workstations.ranch_station": "牧场工作站",
 	"entity.workstations.rancher": "牧场工",
 	"category.workstations": "工作站",
 	"key.workstations.toggle_highlight": "切换工作范围高亮",

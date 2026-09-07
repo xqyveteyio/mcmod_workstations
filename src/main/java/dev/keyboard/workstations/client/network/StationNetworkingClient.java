@@ -1,7 +1,7 @@
 package dev.keyboard.workstations.client.network;
 
 import dev.keyboard.workstations.block.FarmBlockEntity;
-import dev.keyboard.workstations.block.ScarecrowBlockEntity;
+import dev.keyboard.workstations.block.RanchBlockEntity;
 import dev.keyboard.workstations.client.screen.FarmSettingsScreen;
 import dev.keyboard.workstations.client.screen.StationSettingsScreen;
 import dev.keyboard.workstations.network.StationNetworking;
@@ -55,7 +55,7 @@ public final class StationNetworkingClient {
 
 		if (world.getBlockEntity(pos) instanceof FarmBlockEntity farm) {
 			client.setScreen(new FarmSettingsScreen(pos, farm.getSettings().copy(), items(palette)));
-		} else if (world.getBlockEntity(pos) instanceof ScarecrowBlockEntity ranch) {
+		} else if (world.getBlockEntity(pos) instanceof RanchBlockEntity ranch) {
 			client.setScreen(new StationSettingsScreen(pos, ranch.getSettings().copy()));
 		}
 	}

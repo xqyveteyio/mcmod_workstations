@@ -2,8 +2,8 @@ package dev.keyboard.workstations;
 
 import dev.keyboard.workstations.block.FarmBlock;
 import dev.keyboard.workstations.block.FarmBlockEntity;
-import dev.keyboard.workstations.block.ScarecrowBlock;
-import dev.keyboard.workstations.block.ScarecrowBlockEntity;
+import dev.keyboard.workstations.block.RanchBlock;
+import dev.keyboard.workstations.block.RanchBlockEntity;
 import dev.keyboard.workstations.block.WorkStationBlockEntity;
 import dev.keyboard.workstations.entity.FarmerEntity;
 import dev.keyboard.workstations.entity.RancherEntity;
@@ -37,18 +37,18 @@ public class WorkstationsMod implements ModInitializer {
 	public static final String MOD_ID = "workstations";
 	public static final Logger LOGGER = LoggerFactory.getLogger(MOD_ID);
 
-	public static final Identifier SCARECROW_ID = id("scarecrow");
+	public static final Identifier RANCH_ID = id("ranch_station");
 	public static final Identifier RANCHER_ID = id("rancher");
 	public static final Identifier FARM_ID = id("farm_station");
 	public static final Identifier FARMER_ID = id("farmer");
 
-	public static final ScarecrowBlock SCARECROW_BLOCK = new ScarecrowBlock(stationSettings());
+	public static final RanchBlock RANCH_BLOCK = new RanchBlock(stationSettings());
 	public static final FarmBlock FARM_BLOCK = new FarmBlock(stationSettings());
 
-	public static final BlockItem SCARECROW_ITEM = new BlockItem(SCARECROW_BLOCK, new Item.Settings());
+	public static final BlockItem RANCH_ITEM = new BlockItem(RANCH_BLOCK, new Item.Settings());
 	public static final BlockItem FARM_ITEM = new BlockItem(FARM_BLOCK, new Item.Settings());
 
-	public static BlockEntityType<ScarecrowBlockEntity> SCARECROW_BLOCK_ENTITY;
+	public static BlockEntityType<RanchBlockEntity> RANCH_BLOCK_ENTITY;
 	public static BlockEntityType<FarmBlockEntity> FARM_BLOCK_ENTITY;
 	public static EntityType<RancherEntity> RANCHER;
 	public static EntityType<FarmerEntity> FARMER;
@@ -69,10 +69,10 @@ public class WorkstationsMod implements ModInitializer {
 	public void onInitialize() {
 		ModConfig.get();
 
-		Registry.register(Registries.BLOCK, SCARECROW_ID, SCARECROW_BLOCK);
-		Registry.register(Registries.ITEM, SCARECROW_ID, SCARECROW_ITEM);
-		SCARECROW_BLOCK_ENTITY = Registry.register(Registries.BLOCK_ENTITY_TYPE, SCARECROW_ID,
-				FabricBlockEntityTypeBuilder.create(ScarecrowBlockEntity::new, SCARECROW_BLOCK).build());
+		Registry.register(Registries.BLOCK, RANCH_ID, RANCH_BLOCK);
+		Registry.register(Registries.ITEM, RANCH_ID, RANCH_ITEM);
+		RANCH_BLOCK_ENTITY = Registry.register(Registries.BLOCK_ENTITY_TYPE, RANCH_ID,
+				FabricBlockEntityTypeBuilder.create(RanchBlockEntity::new, RANCH_BLOCK).build());
 
 		Registry.register(Registries.BLOCK, FARM_ID, FARM_BLOCK);
 		Registry.register(Registries.ITEM, FARM_ID, FARM_ITEM);
@@ -98,7 +98,7 @@ public class WorkstationsMod implements ModInitializer {
 		registerSettingsGesture();
 
 		ItemGroupEvents.modifyEntriesEvent(ItemGroups.FUNCTIONAL).register(entries -> {
-			entries.add(SCARECROW_ITEM);
+			entries.add(RANCH_ITEM);
 			entries.add(FARM_ITEM);
 		});
 
@@ -119,7 +119,7 @@ public class WorkstationsMod implements ModInitializer {
 			BlockPos pos = hit.getBlockPos();
 			BlockState state = world.getBlockState(pos);
 
-			if (!player.isSneaking() || !(state.isOf(SCARECROW_BLOCK) || state.isOf(FARM_BLOCK))) {
+			if (!player.isSneaking() || !(state.isOf(RANCH_BLOCK) || state.isOf(FARM_BLOCK))) {
 				return ActionResult.PASS;
 			}
 

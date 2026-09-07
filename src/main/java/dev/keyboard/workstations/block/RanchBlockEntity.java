@@ -15,15 +15,15 @@ import net.minecraft.util.math.BlockPos;
  * The ranch station: storage for feed going in and produce coming out, plus the owner of one
  * rancher. It does no ranching itself, it only keeps a worker alive and hands out the work area.
  */
-public class ScarecrowBlockEntity extends WorkStationBlockEntity<RancherEntity, StationSettings> {
+public class RanchBlockEntity extends WorkStationBlockEntity<RancherEntity, StationSettings> {
 	/** Where the area size lived before stations had settings of their own. */
 	private static final String LEGACY_RADIUS_KEY = "Radius";
 	private static final String LEGACY_HEIGHT_KEY = "Height";
 
 	private final StationSettings settings = new StationSettings();
 
-	public ScarecrowBlockEntity(BlockPos pos, BlockState state) {
-		super(WorkstationsMod.SCARECROW_BLOCK_ENTITY, pos, state);
+	public RanchBlockEntity(BlockPos pos, BlockState state) {
+		super(WorkstationsMod.RANCH_BLOCK_ENTITY, pos, state);
 	}
 
 	@Override
@@ -53,7 +53,7 @@ public class ScarecrowBlockEntity extends WorkStationBlockEntity<RancherEntity, 
 
 	@Override
 	protected Text getContainerName() {
-		return Text.translatable("container.workstations.scarecrow");
+		return Text.translatable("container.workstations.ranch_station");
 	}
 
 	@Override

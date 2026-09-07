@@ -1,6 +1,6 @@
 {
-	"block.workstations.scarecrow": "Ranch Station",
-	"container.workstations.scarecrow": "Ranch Station",
+	"block.workstations.ranch_station": "Ranch Station",
+	"container.workstations.ranch_station": "Ranch Station",
 	"entity.workstations.rancher": "Rancher",
 	"category.workstations": "Workstations",
 	"key.workstations.toggle_highlight": "Toggle work area highlight",

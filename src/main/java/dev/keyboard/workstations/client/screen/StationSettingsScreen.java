@@ -8,7 +8,7 @@ import net.minecraft.util.math.BlockPos;
 /** The ranch station's settings, which are entirely described by its option list. */
 public class StationSettingsScreen extends WorkerSettingsScreen<StationSettings> {
 	public StationSettingsScreen(BlockPos pos, StationSettings settings) {
-		super(WorkstationsMod.SCARECROW_BLOCK.getName(), pos, settings);
+		super(WorkstationsMod.RANCH_BLOCK.getName(), pos, settings);
 	}
 
 	@Override

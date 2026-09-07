@@ -26,8 +26,8 @@ public class WorkstationsClient implements ClientModInitializer {
 	public void onInitializeClient() {
 		StationNetworkingClient.registerClientReceivers();
 
-		BlockEntityRendererRegistry.register(WorkstationsMod.SCARECROW_BLOCK_ENTITY, StationBlockEntityRenderer::new);
-		BuiltinItemRendererRegistry.INSTANCE.register(WorkstationsMod.SCARECROW_ITEM, new StationItemRenderer());
+		BlockEntityRendererRegistry.register(WorkstationsMod.RANCH_BLOCK_ENTITY, StationBlockEntityRenderer::new);
+		BuiltinItemRendererRegistry.INSTANCE.register(WorkstationsMod.RANCH_ITEM, new StationItemRenderer());
 		EntityRendererRegistry.register(WorkstationsMod.RANCHER, RancherEntityRenderer::new);
 
 		// The sprouts on the tabletop are a crop sprite, and nearly all of that texture is

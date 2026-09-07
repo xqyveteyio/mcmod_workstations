@@ -1,7 +1,7 @@
 package dev.keyboard.workstations.entity.ai;
 
 import dev.keyboard.workstations.work.StationSettings;
-import dev.keyboard.workstations.block.ScarecrowBlockEntity;
+import dev.keyboard.workstations.block.RanchBlockEntity;
 import dev.keyboard.workstations.entity.RancherEntity;
 import dev.keyboard.workstations.work.HerdSurvey;
 import dev.keyboard.workstations.work.WorkArea;
@@ -245,7 +245,7 @@ public class RancherBrain {
 			return;
 		}
 
-		ScarecrowBlockEntity station = rancher.getStation();
+		RanchBlockEntity station = rancher.getStation();
 		WorkArea area = rancher.getWorkArea();
 
 		if (station == null || area == null) {
@@ -383,7 +383,7 @@ public class RancherBrain {
 		return text.toString();
 	}
 
-	private void runJob(RancherEntity rancher, ServerWorld world, WorkArea area, ScarecrowBlockEntity station) {
+	private void runJob(RancherEntity rancher, ServerWorld world, WorkArea area, RanchBlockEntity station) {
 		if (!jobValid(area)) {
 			note = "target gone";
 			clearJob(rancher);
@@ -478,7 +478,7 @@ public class RancherBrain {
 		return target != null && target.isAlive() && !target.isRemoved() && area.contains(target);
 	}
 
-	private void perform(RancherEntity rancher, ScarecrowBlockEntity station) {
+	private void perform(RancherEntity rancher, RanchBlockEntity station) {
 		Job current = job;
 
 		if (current == null) {
@@ -586,7 +586,7 @@ public class RancherBrain {
 		return Math.max(SETTLE_TICKS, config.workIntervalTicks * 2);
 	}
 
-	private boolean chooseJob(RancherEntity rancher, ServerWorld world, WorkArea area, ScarecrowBlockEntity station) {
+	private boolean chooseJob(RancherEntity rancher, ServerWorld world, WorkArea area, RanchBlockEntity station) {
 		StationSettings config = station.getSettings();
 		note = "";
 		scanSurvey = null;
@@ -689,7 +689,7 @@ public class RancherBrain {
 
 	/** The next errand within the current phase, or false when the phase has nothing left. */
 	private boolean takeJobIn(RancherEntity rancher, ServerWorld world, WorkArea area,
-			ScarecrowBlockEntity station, StationSettings config) {
+			RanchBlockEntity station, StationSettings config) {
 		pathPending = false;
 
 		if (phase == null) {
@@ -730,7 +730,7 @@ public class RancherBrain {
 	}
 
 	private boolean takeBreed(RancherEntity rancher, ServerWorld world, WorkArea area,
-			ScarecrowBlockEntity station, StationSettings config) {
+			RanchBlockEntity station, StationSettings config) {
 		// One pairing is the whole phase. Breeding a pen out to its limit in a single stretch would
 		// starve everything else, and the animals just put in love need time to find each other.
 		if (phaseWorked) {
@@ -743,7 +743,7 @@ public class RancherBrain {
 	}
 
 	private boolean takeGrow(RancherEntity rancher, ServerWorld world, WorkArea area,
-			ScarecrowBlockEntity station, StationSettings config) {
+			RanchBlockEntity station, StationSettings config) {
 		AnimalEntity baby = nearestReachable(rancher, world,
 				filterFeedable(unserved(survey(world, area).babyCandidates()), station, config),
 				ANIMAL_PATH_DISTANCE);
@@ -933,7 +933,7 @@ public class RancherBrain {
 		blocked.put(blockedTarget.getId(), world.getTime() + BLOCKED_COOLDOWN);
 	}
 
-	private boolean feed(RancherEntity rancher, ScarecrowBlockEntity station, boolean growUp) {
+	private boolean feed(RancherEntity rancher, RanchBlockEntity station, boolean growUp) {
 		if (!(target instanceof AnimalEntity animal)) {
 			return true;
 		}
@@ -1105,7 +1105,7 @@ public class RancherBrain {
 		return true;
 	}
 
-	private boolean deposit(RancherEntity rancher, ScarecrowBlockEntity station) {
+	private boolean deposit(RancherEntity rancher, RanchBlockEntity station) {
 		SimpleInventory carried = rancher.getCarried();
 		boolean moved = false;
 

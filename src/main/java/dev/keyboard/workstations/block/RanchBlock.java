@@ -34,7 +34,7 @@ import net.minecraft.world.BlockView;
 import net.minecraft.world.World;
 import org.jetbrains.annotations.Nullable;
 
-public class ScarecrowBlock extends BlockWithEntity {
+public class RanchBlock extends BlockWithEntity {
 	public static final DirectionProperty FACING = Properties.HORIZONTAL_FACING;
 	/**
 	 * Matches the table model: legs at the corners, the top they carry, and the miniature fence
@@ -52,7 +52,7 @@ public class ScarecrowBlock extends BlockWithEntity {
 			Block.createCuboidShape(0.0, 12.0, 1.0, 1.0, 16.0, 15.0),
 			Block.createCuboidShape(15.0, 12.0, 1.0, 16.0, 16.0, 15.0));
 
-	public ScarecrowBlock(Settings settings) {
+	public RanchBlock(Settings settings) {
 		super(settings);
 		setDefaultState(getStateManager().getDefaultState().with(FACING, Direction.NORTH));
 	}
@@ -91,7 +91,7 @@ public class ScarecrowBlock extends BlockWithEntity {
 	@Nullable
 	@Override
 	public BlockEntity createBlockEntity(BlockPos pos, BlockState state) {
-		return new ScarecrowBlockEntity(pos, state);
+		return new RanchBlockEntity(pos, state);
 	}
 
 	@Nullable
@@ -101,7 +101,7 @@ public class ScarecrowBlock extends BlockWithEntity {
 			return null;
 		}
 
-		return checkType(type, WorkstationsMod.SCARECROW_BLOCK_ENTITY, WorkStationBlockEntity::serverTick);
+		return checkType(type, WorkstationsMod.RANCH_BLOCK_ENTITY, WorkStationBlockEntity::serverTick);
 	}
 
 	@Override
@@ -109,7 +109,7 @@ public class ScarecrowBlock extends BlockWithEntity {
 		super.onPlaced(world, pos, state, placer, itemStack);
 
 		if (!(world instanceof ServerWorld serverWorld)
-				|| !(world.getBlockEntity(pos) instanceof ScarecrowBlockEntity station)) {
+				|| !(world.getBlockEntity(pos) instanceof RanchBlockEntity station)) {
 			return;
 		}
 
@@ -128,7 +128,7 @@ public class ScarecrowBlock extends BlockWithEntity {
 			return ActionResult.SUCCESS;
 		}
 
-		if (!(world.getBlockEntity(pos) instanceof ScarecrowBlockEntity station)) {
+		if (!(world.getBlockEntity(pos) instanceof RanchBlockEntity station)) {
 			return ActionResult.PASS;
 		}
 
@@ -143,7 +143,7 @@ public class ScarecrowBlock extends BlockWithEntity {
 
 	@Override
 	public void onStateReplaced(BlockState state, World world, BlockPos pos, BlockState newState, boolean moved) {
-		if (!state.isOf(newState.getBlock()) && world.getBlockEntity(pos) instanceof ScarecrowBlockEntity station) {
+		if (!state.isOf(newState.getBlock()) && world.getBlockEntity(pos) instanceof RanchBlockEntity station) {
 			if (world instanceof ServerWorld serverWorld) {
 				station.dismissWorker(serverWorld);
 			}

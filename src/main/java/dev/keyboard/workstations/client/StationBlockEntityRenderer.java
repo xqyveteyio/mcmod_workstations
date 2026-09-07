@@ -1,6 +1,6 @@
 package dev.keyboard.workstations.client;
 
-import dev.keyboard.workstations.block.ScarecrowBlockEntity;
+import dev.keyboard.workstations.block.RanchBlockEntity;
 import net.minecraft.client.render.VertexConsumerProvider;
 import net.minecraft.client.render.block.entity.BlockEntityRenderer;
 import net.minecraft.client.render.block.entity.BlockEntityRendererFactory;
@@ -11,15 +11,15 @@ import net.minecraft.world.World;
  * Everything the station draws: the work area highlight, and the miniature pen on the tabletop. The
  * two are one renderer because a block entity type may only have one.
  */
-public class StationBlockEntityRenderer implements BlockEntityRenderer<ScarecrowBlockEntity> {
-	private final WorkAreaHighlightRenderer<ScarecrowBlockEntity> highlight;
+public class StationBlockEntityRenderer implements BlockEntityRenderer<RanchBlockEntity> {
+	private final WorkAreaHighlightRenderer<RanchBlockEntity> highlight;
 
 	public StationBlockEntityRenderer(BlockEntityRendererFactory.Context context) {
 		this.highlight = new WorkAreaHighlightRenderer<>(context);
 	}
 
 	@Override
-	public boolean rendersOutsideBoundingBox(ScarecrowBlockEntity station) {
+	public boolean rendersOutsideBoundingBox(RanchBlockEntity station) {
 		return true;
 	}
 
@@ -29,7 +29,7 @@ public class StationBlockEntityRenderer implements BlockEntityRenderer<Scarecrow
 	}
 
 	@Override
-	public void render(ScarecrowBlockEntity station, float tickDelta, MatrixStack matrices,
+	public void render(RanchBlockEntity station, float tickDelta, MatrixStack matrices,
 			VertexConsumerProvider vertexConsumers, int light, int overlay) {
 		highlight.render(station, tickDelta, matrices, vertexConsumers, light, overlay);
 

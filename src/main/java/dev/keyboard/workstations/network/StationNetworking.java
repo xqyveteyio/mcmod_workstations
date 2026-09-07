@@ -2,7 +2,7 @@ package dev.keyboard.workstations.network;
 
 import dev.keyboard.workstations.WorkstationsMod;
 import dev.keyboard.workstations.block.FarmBlockEntity;
-import dev.keyboard.workstations.block.ScarecrowBlockEntity;
+import dev.keyboard.workstations.block.RanchBlockEntity;
 import dev.keyboard.workstations.block.WorkStationBlockEntity;
 import dev.keyboard.workstations.work.Crops;
 import dev.keyboard.workstations.work.FarmSettings;
@@ -66,7 +66,7 @@ public final class StationNetworking {
 
 				// Which kind of settings the packet holds is decided by the block it names rather
 				// than by anything in the packet, so a mismatched pair cannot be applied at all.
-				if (station instanceof ScarecrowBlockEntity ranch) {
+				if (station instanceof RanchBlockEntity ranch) {
 					StationSettings incoming = new StationSettings();
 					incoming.readNbt(nbt);
 					ranch.applySettings(incoming);

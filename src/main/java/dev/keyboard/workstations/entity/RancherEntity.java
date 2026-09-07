@@ -1,6 +1,6 @@
 package dev.keyboard.workstations.entity;
 
-import dev.keyboard.workstations.block.ScarecrowBlockEntity;
+import dev.keyboard.workstations.block.RanchBlockEntity;
 import dev.keyboard.workstations.block.StationWorker;
 import dev.keyboard.workstations.entity.ai.GateOperator;
 import dev.keyboard.workstations.entity.ai.RancherBrain;
@@ -220,17 +220,17 @@ public class RancherEntity extends PathAwareEntity implements StationWorker, Wor
 
 	/** {@code null} when the station was broken, replaced, or its chunk is not loaded right now. */
 	@Nullable
-	public ScarecrowBlockEntity getStation() {
+	public RanchBlockEntity getStation() {
 		if (stationPos == null || !getWorld().isChunkLoaded(stationPos.getX() >> 4, stationPos.getZ() >> 4)) {
 			return null;
 		}
 
-		return getWorld().getBlockEntity(stationPos) instanceof ScarecrowBlockEntity station ? station : null;
+		return getWorld().getBlockEntity(stationPos) instanceof RanchBlockEntity station ? station : null;
 	}
 
 	@Nullable
 	public WorkArea getWorkArea() {
-		ScarecrowBlockEntity station = getStation();
+		RanchBlockEntity station = getStation();
 		return station == null ? null : station.getWorkArea();
 	}
 
@@ -242,7 +242,7 @@ public class RancherEntity extends PathAwareEntity implements StationWorker, Wor
 	 * config file's values so the few ticks it has left need no null checking.
 	 */
 	public StationSettings getSettings() {
-		ScarecrowBlockEntity station = getStation();
+		RanchBlockEntity station = getStation();
 
 		if (station != null) {
 			return station.getSettings();
