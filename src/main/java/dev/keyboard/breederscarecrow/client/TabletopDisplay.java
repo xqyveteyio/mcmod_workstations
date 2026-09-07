@@ -4,8 +4,8 @@ import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.render.VertexConsumerProvider;
 import net.minecraft.client.render.entity.EntityRenderDispatcher;
 import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityType;
+import net.minecraft.entity.LivingEntity;
 import net.minecraft.util.math.RotationAxis;
 import net.minecraft.world.World;
 import org.jetbrains.annotations.Nullable;
@@ -43,13 +43,13 @@ final class TabletopDisplay {
 	 * Stand-ins by world, so leaving a world lets its animals go. One instance per kind is enough:
 	 * they hold no per station state, and every pen draws them in the same pose.
 	 */
-	private static final Map<World, Map<EntityType<?>, Entity>> STAND_INS = new WeakHashMap<>();
+	private static final Map<World, Map<EntityType<?>, LivingEntity>> STAND_INS = new WeakHashMap<>();
 
 	private TabletopDisplay() {
 	}
 
 	/** One kind's reserved corner of the pen. */
-	record Slot(EntityType<?> type, float x, float z, float yaw) {
+	record Slot(EntityType<? extends LivingEntity> type, float x, float z, float yaw) {
 	}
 
 	/** Draws one of every kind, each in its own corner, in the block's own coordinates. */
@@ -61,7 +61,7 @@ final class TabletopDisplay {
 		dispatcher.setRenderShadows(false);
 
 		for (Slot slot : SLOTS) {
-			Entity animal = standIn(world, slot.type());
+			LivingEntity animal = standIn(world, slot.type());
 
 			if (animal == null) {
 				continue;
@@ -80,8 +80,28 @@ final class TabletopDisplay {
 	}
 
 	@Nullable
-	private static Entity standIn(World world, EntityType<?> type) {
+	private static LivingEntity standIn(World world, EntityType<? extends LivingEntity> type) {
 		return STAND_INS.computeIfAbsent(world, key -> new HashMap<>())
-				.computeIfAbsent(type, key -> key.create(world));
+				.computeIfAbsent(type, key -> settle(type.create(world)));
+	}
+
+	/**
+	 * Stops a stand-in twitching. Every living entity is born facing a small random angle, which its
+	 * constructor copies to {@code headYaw} while leaving {@code prevHeadYaw} at zero. A mob in the
+	 * world evens the two out on its first tick, but nothing ever ticks a stand-in, so the renderer
+	 * goes on interpolating between them and the head snaps back and forth twenty times a second.
+	 */
+	@Nullable
+	private static LivingEntity settle(@Nullable LivingEntity animal) {
+		if (animal != null) {
+			animal.setYaw(0.0F);
+			animal.prevYaw = 0.0F;
+			animal.headYaw = 0.0F;
+			animal.prevHeadYaw = 0.0F;
+			animal.bodyYaw = 0.0F;
+			animal.prevBodyYaw = 0.0F;
+		}
+
+		return animal;
 	}
 }
