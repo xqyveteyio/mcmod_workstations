@@ -1,7 +1,6 @@
 package dev.keyboard.breederscarecrow.block;
 
 import dev.keyboard.breederscarecrow.BreederScarecrowMod;
-import dev.keyboard.breederscarecrow.network.StationNetworking;
 import net.minecraft.block.Block;
 import net.minecraft.block.BlockRenderType;
 import net.minecraft.block.BlockState;
@@ -16,7 +15,6 @@ import net.minecraft.item.ItemPlacementContext;
 import net.minecraft.item.ItemStack;
 import net.minecraft.screen.NamedScreenHandlerFactory;
 import net.minecraft.screen.ScreenHandler;
-import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.state.StateManager;
 import net.minecraft.state.property.DirectionProperty;
@@ -119,13 +117,6 @@ public class ScarecrowBlock extends BlockWithEntity {
 			return ActionResult.PASS;
 		}
 
-		// Sneaking opens this station's settings instead of its storage. The worker report that
-		// used to live on this click is a line inside that screen now, so nothing was lost.
-		if (player.isSneaking() && player instanceof ServerPlayerEntity serverPlayer) {
-			StationNetworking.openScreen(serverPlayer, pos, station);
-			return ActionResult.SUCCESS;
-		}
-
 		NamedScreenHandlerFactory factory = state.createScreenHandlerFactory(world, pos);
 
 		if (factory != null) {
@@ -158,5 +149,4 @@ public class ScarecrowBlock extends BlockWithEntity {
 	public int getComparatorOutput(BlockState state, World world, BlockPos pos) {
 		return ScreenHandler.calculateComparatorOutput(world.getBlockEntity(pos));
 	}
-
 }

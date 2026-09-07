@@ -100,8 +100,7 @@ public final class StationSettings {
 	}
 
 	public StationSettings copy() {
-		StationSettings copy = new StationSettings(this);
-		return copy;
+		return new StationSettings(this);
 	}
 
 	private StationSettings(StationSettings other) {

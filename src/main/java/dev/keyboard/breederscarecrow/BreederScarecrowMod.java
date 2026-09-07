@@ -5,6 +5,7 @@ import dev.keyboard.breederscarecrow.block.ScarecrowBlockEntity;
 import dev.keyboard.breederscarecrow.entity.RancherEntity;
 import dev.keyboard.breederscarecrow.network.StationNetworking;
 import net.fabricmc.api.ModInitializer;
+import net.fabricmc.fabric.api.event.player.UseBlockCallback;
 import net.fabricmc.fabric.api.itemgroup.v1.ItemGroupEvents;
 import net.fabricmc.fabric.api.object.builder.v1.block.entity.FabricBlockEntityTypeBuilder;
 import net.fabricmc.fabric.api.object.builder.v1.entity.FabricDefaultAttributeRegistry;
@@ -19,8 +20,11 @@ import net.minecraft.item.Item;
 import net.minecraft.item.ItemGroups;
 import net.minecraft.registry.Registries;
 import net.minecraft.registry.Registry;
+import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.sound.BlockSoundGroup;
+import net.minecraft.util.ActionResult;
 import net.minecraft.util.Identifier;
+import net.minecraft.util.math.BlockPos;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -63,10 +67,37 @@ public class BreederScarecrowMod implements ModInitializer {
 		FabricDefaultAttributeRegistry.register(RANCHER, RancherEntity.createRancherAttributes());
 
 		StationNetworking.registerServerReceivers();
+		registerSettingsGesture();
 
 		ItemGroupEvents.modifyEntriesEvent(ItemGroups.FUNCTIONAL).register(entries -> entries.add(SCARECROW_ITEM));
 
 		LOGGER.info("Breeder Scarecrow initialized");
+	}
+
+	/**
+	 * Sneak and use a station to set it up.
+	 *
+	 * <p>Hooked to this event rather than to the block's own use handler because vanilla skips that
+	 * handler entirely when a sneaking player has anything in either hand, going straight to using
+	 * the held item. The screen would then only have opened with both hands empty. This event runs
+	 * ahead of that decision, and answering SUCCESS is also what tells the client to report the
+	 * click to the server instead of trying to place whatever it is holding.
+	 */
+	private static void registerSettingsGesture() {
+		UseBlockCallback.EVENT.register((player, world, hand, hit) -> {
+			BlockPos pos = hit.getBlockPos();
+
+			if (!player.isSneaking() || !world.getBlockState(pos).isOf(SCARECROW_BLOCK)) {
+				return ActionResult.PASS;
+			}
+
+			if (player instanceof ServerPlayerEntity serverPlayer
+					&& world.getBlockEntity(pos) instanceof ScarecrowBlockEntity station) {
+				StationNetworking.openScreen(serverPlayer, pos, station);
+			}
+
+			return ActionResult.SUCCESS;
+		});
 	}
 
 	public static Identifier id(String path) {

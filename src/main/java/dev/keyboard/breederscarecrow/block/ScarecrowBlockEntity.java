@@ -247,10 +247,10 @@ public class ScarecrowBlockEntity extends LootableContainerBlockEntity {
 
 		if (nbt.contains(SETTINGS_KEY, NbtElement.COMPOUND_TYPE)) {
 			settings.readNbt(nbt.getCompound(SETTINGS_KEY));
-		}
-
-		// Stations saved before settings were per block only recorded the area size.
-		if (nbt.contains(LEGACY_RADIUS_KEY, NbtElement.INT_TYPE)) {
+		} else if (nbt.contains(LEGACY_RADIUS_KEY, NbtElement.INT_TYPE)) {
+			// Stations saved before settings were per block only recorded the area size. Checked
+			// only when there are no settings to read, so a station that has both because someone
+			// merged the old keys back in is not dragged back to them.
 			settings.workRadius = nbt.getInt(LEGACY_RADIUS_KEY);
 			settings.workHeight = nbt.getInt(LEGACY_HEIGHT_KEY);
 			settings.clamp();

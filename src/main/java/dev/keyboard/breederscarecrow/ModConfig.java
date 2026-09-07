@@ -3,13 +3,20 @@ package dev.keyboard.breederscarecrow;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import net.fabricmc.loader.api.FabricLoader;
-import net.minecraft.util.math.MathHelper;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
 
 /**
- * Runtime tunables, stored in {@code config/breeder_scarecrow.json}.
+ * Starting values for newly placed stations, stored in {@code config/breeder_scarecrow.json}.
+ *
+ * <p>Ranchers do not read this. Each station keeps its own
+ * {@link dev.keyboard.breederscarecrow.work.StationSettings}, copied from here when the block is
+ * placed and edited from the block's own screen afterwards, so changing the file only affects
+ * stations built from then on.
+ *
+ * <p>Nothing is range checked here either. A station clamps whatever it is given to the bounds its
+ * settings screen offers, which keeps those bounds stated in exactly one place.
  */
 public class ModConfig {
 	private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
@@ -48,7 +55,7 @@ public class ModConfig {
 	public boolean playFeedSound = false;
 	/** Ticks the station waits before replacing a rancher that died or went missing. */
 	public int workerRespawnTicks = 200;
-	/** Show the work area highlight without holding the station block. */
+	/** Show the work area highlight without holding the station block. Purely local to your client. */
 	public boolean highlightAlwaysOn = false;
 	/** Print the rancher's current state over its head, for working out why it is idle. */
 	public boolean showWorkerState = true;
@@ -85,21 +92,7 @@ public class ModConfig {
 		return config;
 	}
 
-	private void clamp() {
-		workRadius = MathHelper.clamp(workRadius, 1, 64);
-		workHeight = MathHelper.clamp(workHeight, 1, 32);
-		workIntervalTicks = MathHelper.clamp(workIntervalTicks, 1, 1200);
-		breedIntervalTicks = MathHelper.clamp(breedIntervalTicks, 1, 12000);
-		cullIntervalTicks = MathHelper.clamp(cullIntervalTicks, 1, 12000);
-		keepAdultsPerType = MathHelper.clamp(keepAdultsPerType, 2, 128);
-		maxAnimalsPerType = MathHelper.clamp(maxAnimalsPerType, keepAdultsPerType, 512);
-		workerRespawnTicks = MathHelper.clamp(workerRespawnTicks, 20, 24000);
-	}
-
-	/** Clamps the current values back into range and writes them out. */
 	public void save() {
-		clamp();
-
 		try {
 			Files.writeString(path(), GSON.toJson(this));
 		} catch (Exception exception) {

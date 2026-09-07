@@ -56,7 +56,8 @@ public class StationSettingsScreen extends Screen {
 
 	@Override
 	protected void init() {
-		addSelectableChild(new OptionList());
+		// Drawable, not merely selectable: a list added as a plain child is never rendered.
+		addDrawableChild(new OptionList());
 
 		addDrawableChild(ButtonWidget.builder(Text.translatable("config.breeder_scarecrow.worker_check"),
 						button -> StationNetworkingClient.requestWorker(pos))
@@ -82,7 +83,7 @@ public class StationSettingsScreen extends Screen {
 
 	@Override
 	public void render(DrawContext context, int mouseX, int mouseY, float delta) {
-		renderBackground(context, mouseX, mouseY, delta);
+		renderBackground(context);
 		super.render(context, mouseX, mouseY, delta);
 		context.drawCenteredTextWithShadow(textRenderer, title, width / 2, 12, 0xFFFFFF);
 		context.drawCenteredTextWithShadow(textRenderer,
