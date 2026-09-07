@@ -1,9 +1,9 @@
 {
 	"schemaVersion": 1,
-	"id": "breeder_scarecrow",
+	"id": "workstations",
 	"version": "${version}",
-	"name": "Breeder Scarecrow",
-	"description": "A scarecrow that detects the fenced pen around it, highlights it for debugging, and automatically feeds and pairs the animals inside so they breed.",
+	"name": "Workstations",
+	"description": "Work stations that each summon a worker to run the ground around them. The ranch station's rancher breeds, culls, shears and milks the animals in its pen; the farm station's farmer tills, sows and harvests its plots. Every station is configured in place and highlights the area it works.",
 	"authors": [
 		"keyboard"
 	],
@@ -11,10 +11,10 @@
 	"environment": "*",
 	"entrypoints": {
 		"main": [
-			"dev.keyboard.breederscarecrow.BreederScarecrowMod"
+			"dev.keyboard.workstations.WorkstationsMod"
 		],
 		"client": [
-			"dev.keyboard.breederscarecrow.client.BreederScarecrowClient"
+			"dev.keyboard.workstations.client.WorkstationsClient"
 		]
 	},
 	"depends": {

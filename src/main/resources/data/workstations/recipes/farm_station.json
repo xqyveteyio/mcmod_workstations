@@ -1,0 +1,23 @@
+{
+	"type": "minecraft:crafting_shaped",
+	"pattern": [
+		" H ",
+		"SPS",
+		" S "
+	],
+	"key": {
+		"H": {
+			"item": "minecraft:wheat"
+		},
+		"P": {
+			"item": "minecraft:oak_planks"
+		},
+		"S": {
+			"item": "minecraft:stick"
+		}
+	},
+	"result": {
+		"item": "workstations:farm_station",
+		"count": 1
+	}
+}

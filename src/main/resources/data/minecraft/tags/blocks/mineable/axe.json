@@ -1,6 +1,7 @@
 {
 	"replace": false,
 	"values": [
-		"breeder_scarecrow:scarecrow"
+		"workstations:scarecrow",
+		"workstations:farm_station"
 	]
 }
