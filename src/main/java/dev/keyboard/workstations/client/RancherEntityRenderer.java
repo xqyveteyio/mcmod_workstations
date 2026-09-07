@@ -1,7 +1,7 @@
 package dev.keyboard.workstations.client;
 
-import dev.keyboard.workstations.WorkstationsMod;
 import dev.keyboard.workstations.entity.RancherEntity;
+import dev.keyboard.workstations.work.WorkerSkin;
 import net.minecraft.client.render.entity.EntityRendererFactory;
 import net.minecraft.client.render.entity.MobEntityRenderer;
 import net.minecraft.client.render.entity.model.EntityModelLayers;
@@ -17,23 +17,26 @@ import net.minecraft.util.Identifier;
  * <p>The hat rides on a separate overlay texture, following vanilla, which keeps a villager's base
  * skin apart from its biome and profession clothing. Both files use the same villager UV layout, so
  * the hat lives in the model's hat and hat rim boxes, which the base skin must leave blank.
+ *
+ * <p>Which pair of files that is comes from the rancher itself, since its station picks its look
+ * out of {@link WorkerSkin#RANCHER}.
  */
 public class RancherEntityRenderer extends MobEntityRenderer<RancherEntity, VillagerResemblingModel<RancherEntity>> {
-	/** 64x64, laid out for the villager model rather than for a player skin. */
-	private static final Identifier TEXTURE = WorkstationsMod.id("textures/entity/rancher.png");
-	/** Same layout again, but transparent everywhere except the hat and hat rim boxes. */
-	private static final Identifier HAT_TEXTURE = WorkstationsMod.id("textures/entity/rancher_hat.png");
 	/** The same shrink vanilla applies, without which the villager model looks oversized. */
 	private static final float MODEL_SCALE = 0.9375F;
 
 	public RancherEntityRenderer(EntityRendererFactory.Context context) {
 		super(context, new VillagerResemblingModel<>(context.getPart(EntityModelLayers.VILLAGER)), 0.5F);
-		this.addFeature(new WorkerOverlayFeatureRenderer<>(this, HAT_TEXTURE));
+		this.addFeature(new WorkerOverlayFeatureRenderer<>(this, entity -> skin(entity).hatTexture()));
 	}
 
 	@Override
 	public Identifier getTexture(RancherEntity entity) {
-		return TEXTURE;
+		return skin(entity).texture();
+	}
+
+	private static WorkerSkin skin(RancherEntity entity) {
+		return WorkerSkin.get(WorkerSkin.RANCHER, entity.getSkin());
 	}
 
 	@Override

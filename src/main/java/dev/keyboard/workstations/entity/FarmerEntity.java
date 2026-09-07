@@ -9,6 +9,7 @@ import dev.keyboard.workstations.entity.ai.WorkerMovement;
 import dev.keyboard.workstations.entity.ai.WorkerNavigation;
 import dev.keyboard.workstations.work.FarmSettings;
 import dev.keyboard.workstations.work.WorkArea;
+import dev.keyboard.workstations.work.WorkerSkin;
 import net.minecraft.block.BlockState;
 import net.minecraft.entity.EntityType;
 import net.minecraft.entity.ai.goal.LookAroundGoal;
@@ -18,6 +19,9 @@ import net.minecraft.entity.ai.pathing.EntityNavigation;
 import net.minecraft.entity.attribute.DefaultAttributeContainer;
 import net.minecraft.entity.attribute.EntityAttributes;
 import net.minecraft.entity.damage.DamageSource;
+import net.minecraft.entity.data.DataTracker;
+import net.minecraft.entity.data.TrackedData;
+import net.minecraft.entity.data.TrackedDataHandlerRegistry;
 import net.minecraft.entity.mob.MobEntity;
 import net.minecraft.entity.mob.PathAwareEntity;
 import net.minecraft.entity.player.PlayerEntity;
@@ -46,6 +50,14 @@ import org.jetbrains.annotations.Nullable;
 public class FarmerEntity extends PathAwareEntity implements StationWorker, WorkerMob {
 	public static final int CARRY_SLOTS = 8;
 
+	/**
+	 * Which of {@link WorkerSkin#FARMER} to draw. Tracked rather than read off the station the way
+	 * every other setting is, because the station a farmer belongs to is server side knowledge: the
+	 * renderer has no way to ask which block hired the farmer standing in front of it.
+	 */
+	private static final TrackedData<Integer> SKIN =
+			DataTracker.registerData(FarmerEntity.class, TrackedDataHandlerRegistry.INTEGER);
+
 	private static final String STATION_KEY = "Station";
 	private static final String CARRIED_KEY = "Carried";
 	/** Grace period before a farmer whose station is gone gives up, in ticks. */
@@ -71,6 +83,12 @@ public class FarmerEntity extends PathAwareEntity implements StationWorker, Work
 	public FarmerEntity(EntityType<? extends FarmerEntity> type, World world) {
 		super(type, world);
 		setPersistent();
+	}
+
+	@Override
+	protected void initDataTracker() {
+		super.initDataTracker();
+		dataTracker.startTracking(SKIN, 0);
 	}
 
 	public static DefaultAttributeContainer.Builder createFarmerAttributes() {
@@ -143,7 +161,14 @@ public class FarmerEntity extends PathAwareEntity implements StationWorker, Work
 			WorkerMovement.shoveBlockers(this);
 		}
 
+		// Setting tracked data it already holds costs nothing, so this needs no change detection.
+		dataTracker.set(SKIN, getSettings().workerSkin);
 		updateStateLabel();
+	}
+
+	/** Which of {@link WorkerSkin#FARMER} this farmer wears, readable on either side. */
+	public int getSkin() {
+		return dataTracker.get(SKIN);
 	}
 
 	/**

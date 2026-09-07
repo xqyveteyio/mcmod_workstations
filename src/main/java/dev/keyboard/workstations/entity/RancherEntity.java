@@ -9,6 +9,7 @@ import dev.keyboard.workstations.entity.ai.WorkerMob;
 import dev.keyboard.workstations.entity.ai.WorkerNavigation;
 import dev.keyboard.workstations.work.StationSettings;
 import dev.keyboard.workstations.work.WorkArea;
+import dev.keyboard.workstations.work.WorkerSkin;
 import net.minecraft.entity.EntityType;
 import net.minecraft.entity.attribute.DefaultAttributeContainer;
 import net.minecraft.entity.attribute.EntityAttributes;
@@ -17,6 +18,9 @@ import net.minecraft.entity.ai.goal.LookAroundGoal;
 import net.minecraft.entity.ai.goal.LookAtEntityGoal;
 import net.minecraft.entity.ai.goal.SwimGoal;
 import net.minecraft.entity.ai.pathing.EntityNavigation;
+import net.minecraft.entity.data.DataTracker;
+import net.minecraft.entity.data.TrackedData;
+import net.minecraft.entity.data.TrackedDataHandlerRegistry;
 import net.minecraft.entity.mob.MobEntity;
 import net.minecraft.entity.mob.PathAwareEntity;
 import net.minecraft.entity.player.PlayerEntity;
@@ -45,6 +49,14 @@ import org.jetbrains.annotations.Nullable;
 public class RancherEntity extends PathAwareEntity implements StationWorker, WorkerMob {
 	public static final int CARRY_SLOTS = 8;
 
+	/**
+	 * Which of {@link WorkerSkin#RANCHER} to draw. Tracked rather than read off the station the way
+	 * every other setting is, because the station a rancher belongs to is server side knowledge:
+	 * the renderer has no way to ask which block hired the rancher standing in front of it.
+	 */
+	private static final TrackedData<Integer> SKIN =
+			DataTracker.registerData(RancherEntity.class, TrackedDataHandlerRegistry.INTEGER);
+
 	private static final String STATION_KEY = "Station";
 	private static final String CARRIED_KEY = "Carried";
 	/** Grace period before a rancher whose station is gone gives up, in ticks. */
@@ -71,6 +83,12 @@ public class RancherEntity extends PathAwareEntity implements StationWorker, Wor
 	public RancherEntity(EntityType<? extends RancherEntity> type, World world) {
 		super(type, world);
 		setPersistent();
+	}
+
+	@Override
+	protected void initDataTracker() {
+		super.initDataTracker();
+		dataTracker.startTracking(SKIN, 0);
 	}
 
 	public static DefaultAttributeContainer.Builder createRancherAttributes() {
@@ -149,7 +167,14 @@ public class RancherEntity extends PathAwareEntity implements StationWorker, Wor
 			WorkerMovement.shoveBlockers(this);
 		}
 
+		// Setting tracked data it already holds costs nothing, so this needs no change detection.
+		dataTracker.set(SKIN, getSettings().workerSkin);
 		updateStateLabel();
+	}
+
+	/** Which of {@link WorkerSkin#RANCHER} this rancher wears, readable on either side. */
+	public int getSkin() {
+		return dataTracker.get(SKIN);
 	}
 
 	/** A rancher that dies in a gateway must not leave the pen standing open behind it. */

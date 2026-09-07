@@ -73,8 +73,12 @@ public class ModConfig {
 	public int workerRespawnTicks = 200;
 	/** Show the work area highlight without holding the station block. Purely local to your client. */
 	public boolean highlightAlwaysOn = false;
-	/** Print the rancher's current state over its head, for working out why it is idle. */
-	public boolean showWorkerState = true;
+	/**
+	 * Print the rancher's current state over its head. Off by default: it is there for working out
+	 * why a station is idle, and a ranch that is running fine reads better without a name tag
+	 * rewriting itself over the worker's head all day.
+	 */
+	public boolean showWorkerState = false;
 
 	/** Re-hoe plots that got trampled back to dirt, so a field survives being walked over. */
 	public boolean enableTilling = true;

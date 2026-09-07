@@ -11,6 +11,8 @@ import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.util.Identifier;
 
+import java.util.function.Function;
+
 /**
  * Draws a worker's model a second time with another texture, the way vanilla layers a villager's
  * biome and profession clothing over the base villager skin. The overlay shares the model and so
@@ -19,13 +21,16 @@ import net.minecraft.util.Identifier;
  * <p>Whatever the overlay leaves transparent is discarded by the cutout render layer, so an overlay
  * that paints only the hat boxes shows only a hat. Overlay and base must not paint the same box, or
  * the two copies of that surface will z-fight.
+ *
+ * <p>Asked for the texture per entity rather than given one, since two workers of the same kind can
+ * be dressed differently by their own stations.
  */
 public class WorkerOverlayFeatureRenderer<T extends LivingEntity>
 		extends FeatureRenderer<T, VillagerResemblingModel<T>> {
-	private final Identifier texture;
+	private final Function<T, Identifier> texture;
 
 	public WorkerOverlayFeatureRenderer(FeatureRendererContext<T, VillagerResemblingModel<T>> context,
-			Identifier texture) {
+			Function<T, Identifier> texture) {
 		super(context);
 		this.texture = texture;
 	}
@@ -38,7 +43,7 @@ public class WorkerOverlayFeatureRenderer<T extends LivingEntity>
 			return;
 		}
 
-		VertexConsumer consumer = vertexConsumers.getBuffer(RenderLayer.getEntityCutoutNoCull(texture));
+		VertexConsumer consumer = vertexConsumers.getBuffer(RenderLayer.getEntityCutoutNoCull(texture.apply(entity)));
 		getContextModel().render(matrices, consumer, light, OverlayTexture.DEFAULT_UV, 1.0F, 1.0F, 1.0F, 1.0F);
 	}
 }

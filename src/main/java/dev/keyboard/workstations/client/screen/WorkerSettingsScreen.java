@@ -162,6 +162,15 @@ public abstract class WorkerSettingsScreen<S extends WorkerSettings<S>> extends 
 					.build();
 		}
 
+		if (option instanceof SettingOption.Choice<S> choice) {
+			return ButtonWidget.builder(Text.translatable(choice.valueLabelKey(settings)), button -> {
+						choice.next(settings);
+						button.setMessage(Text.translatable(choice.valueLabelKey(settings)));
+					})
+					.dimensions(0, 0, CONTROL_WIDTH, CONTROL_HEIGHT)
+					.build();
+		}
+
 		return new OptionSlider<>((SettingOption.Range<S>) option, settings);
 	}
 

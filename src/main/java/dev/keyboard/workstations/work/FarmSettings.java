@@ -29,6 +29,8 @@ public final class FarmSettings implements WorkerSettings<FarmSettings> {
 	public int workIntervalTicks;
 	public int farmIntervalTicks;
 	public int workerRespawnTicks;
+	/** Position in {@link WorkerSkin#FARMER} of the look this station's farmer wears. */
+	public int workerSkin;
 
 	/** Weights per seed. Edited on its own tab rather than through an {@link SettingOption}. */
 	public final SeedMix seedMix = new SeedMix();
@@ -57,7 +59,8 @@ public final class FarmSettings implements WorkerSettings<FarmSettings> {
 			SettingOption.flag(AREA, "shove_blockers", s -> s.shoveBlockers, (s, v) -> s.shoveBlockers = v),
 			SettingOption.flag(AREA, "invulnerable", s -> s.invulnerable, (s, v) -> s.invulnerable = v),
 
-			SettingOption.flag(DISPLAY, "show_worker_state", s -> s.showWorkerState, (s, v) -> s.showWorkerState = v));
+			SettingOption.flag(DISPLAY, "show_worker_state", s -> s.showWorkerState, (s, v) -> s.showWorkerState = v),
+			SettingOption.choice(DISPLAY, "worker_skin", WorkerSkin.ids(WorkerSkin.FARMER), s -> s.workerSkin, (s, v) -> s.workerSkin = v));
 
 	public FarmSettings() {
 		this(ModConfig.get());

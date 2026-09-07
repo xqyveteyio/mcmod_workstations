@@ -37,6 +37,8 @@ public final class StationSettings implements WorkerSettings<StationSettings> {
 	public int keepAdultsPerType;
 	public int maxAnimalsPerType;
 	public int workerRespawnTicks;
+	/** Position in {@link WorkerSkin#RANCHER} of the look this station's rancher wears. */
+	public int workerSkin;
 
 	/** Groups for the settings screen, in tab order. Keys are {@code config.workstations.*}. */
 	public static final String BREEDING = "category.breeding";
@@ -70,7 +72,8 @@ public final class StationSettings implements WorkerSettings<StationSettings> {
 			SettingOption.flag(AREA, "shove_blockers", s -> s.shoveBlockers, (s, v) -> s.shoveBlockers = v),
 			SettingOption.flag(AREA, "invulnerable", s -> s.invulnerable, (s, v) -> s.invulnerable = v),
 
-			SettingOption.flag(DISPLAY, "show_worker_state", s -> s.showWorkerState, (s, v) -> s.showWorkerState = v));
+			SettingOption.flag(DISPLAY, "show_worker_state", s -> s.showWorkerState, (s, v) -> s.showWorkerState = v),
+			SettingOption.choice(DISPLAY, "worker_skin", WorkerSkin.ids(WorkerSkin.RANCHER), s -> s.workerSkin, (s, v) -> s.workerSkin = v));
 
 	/** The values a station starts life with, taken from the config file. */
 	public StationSettings() {
