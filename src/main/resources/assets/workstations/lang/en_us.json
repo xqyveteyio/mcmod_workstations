@@ -14,6 +14,8 @@
 	"block.workstations.milk_barrel": "Milk Barrel",
 	"message.workstations.milk_barrel_level": "Milk barrel: %1$s / %2$s buckets",
 	"item.workstations.universal_feed": "Universal Feed",
+	"block.workstations.seed_box": "Seed Box",
+	"container.workstations.seed_box": "Seed Box",
 	"message.workstations.mca_version": "[Workstations] Minecraft Comes Alive %1$s is not a version workers can borrow a villager look from - that needs %2$s or newer, below %3$s. Workers will look like themselves instead. Nothing else about either mod is affected.",
 	"config.workstations.worker_recall": "Recall worker",
 	"config.workstations.reset": "Reset to defaults",

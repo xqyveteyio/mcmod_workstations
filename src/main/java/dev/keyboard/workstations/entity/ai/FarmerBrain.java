@@ -121,6 +121,12 @@ public class FarmerBrain {
 	private static final int MAX_PATH_CHECKS = 3;
 	/** Ticks between swings, so hoeing a field is watchable rather than instant. */
 	private static final int SWING_INTERVAL = 6;
+	/**
+	 * How much of a seed that is also food the seed boxes are kept stocked with before the rest of
+	 * it counts as produce. A stack, which no field gets through between two harvests, since a plot
+	 * takes one to sow and gives several back.
+	 */
+	private static final int SEED_RESERVE = 64;
 	/** How near the station counts as being at its post, squared. */
 	private static final double POST_REACH_SQUARED = 4.0;
 	/** How long the farmer stands where it finished before setting off back to its post, in ticks. */
@@ -682,7 +688,7 @@ public class FarmerBrain {
 	 * the walk over cannot be wasted on a plot the mix turns out to have nothing for.
 	 */
 	private boolean takeSow(FarmerEntity farmer, ServerWorld world, FarmBlockEntity station, FarmSettings config) {
-		List<Item> palette = Crops.palette(station);
+		List<Item> palette = Crops.palette(station.seedStores());
 
 		if (palette.isEmpty()) {
 			note = "no seeds";
@@ -943,7 +949,7 @@ public class FarmerBrain {
 			return true;
 		}
 
-		if (ModConfig.get().consumeSeeds && !spendSeed(station, seed)) {
+		if (ModConfig.get().consumeSeeds && !spendSeed(station.seedStores(), seed)) {
 			note = "out of seeds";
 			return true;
 		}
@@ -960,15 +966,23 @@ public class FarmerBrain {
 		return true;
 	}
 
-	/** Takes one seed out of the station, or reports that there were none left after all. */
-	private static boolean spendSeed(Inventory station, Item seed) {
-		for (int slot = 0; slot < station.size(); slot++) {
-			ItemStack stack = station.getStack(slot);
+	/**
+	 * Takes one seed out of the first store holding it, or reports that there were none left after
+	 * all.
+	 *
+	 * <p>The stores come in the order they are to be drawn down, so a seed box beside the station
+	 * is emptied of a kind before the station's own copies of it are touched.
+	 */
+	private static boolean spendSeed(List<Inventory> stores, Item seed) {
+		for (Inventory store : stores) {
+			for (int slot = 0; slot < store.size(); slot++) {
+				ItemStack stack = store.getStack(slot);
 
-			if (!stack.isEmpty() && stack.getItem() == seed) {
-				station.removeStack(slot, 1);
-				station.markDirty();
-				return true;
+				if (!stack.isEmpty() && stack.getItem() == seed) {
+					store.removeStack(slot, 1);
+					store.markDirty();
+					return true;
+				}
 			}
 		}
 
@@ -1050,7 +1064,7 @@ public class FarmerBrain {
 			}
 
 			int before = stack.getCount();
-			ItemStack left = insert(station, stack);
+			ItemStack left = store(station, stack);
 			carried.setStack(slot, left.isEmpty() ? ItemStack.EMPTY : left);
 
 			if (left.getCount() != before) {
@@ -1060,7 +1074,6 @@ public class FarmerBrain {
 
 		if (moved) {
 			farmer.swingHand(Hand.MAIN_HAND);
-			station.markDirty();
 		} else if (!carried.isEmpty()) {
 			note = "station full";
 			// Remembered for the rest of the phase, or a sweep that has cleared the ground would
@@ -1154,6 +1167,85 @@ public class FarmerBrain {
 
 	private static boolean isPackFull(FarmerEntity farmer) {
 		return countCarried(farmer) == farmer.getCarried().size();
+	}
+
+	/**
+	 * Puts a stack away where it belongs and hands back whatever would not fit.
+	 *
+	 * <p>Seed goes into the seed boxes and produce onto the station's own shelves, which is the
+	 * whole point of having a box: a field's returns are mostly seed, and left in with the produce
+	 * they fill the station up with the one thing that was going straight back into the ground.
+	 *
+	 * <p>Seed falls back on the station when the boxes are full, because a box that has run out of
+	 * room should not stop the harvest coming in. Produce does not fall the other way, or a station
+	 * left unemptied would end up filling the seed boxes with wheat and undo the separation.
+	 *
+	 * <p>A seed that is also food, meaning a carrot or a potato, is only seed up to a point. The
+	 * boxes are kept topped up to {@link #SEED_RESERVE} of it, which is far more than a field
+	 * consumes between harvests, and everything past that is treated as the produce it also is and
+	 * shelved with the rest. Sending all of it to the boxes instead would leave the harvest
+	 * somewhere other than where the harvest is collected, and would in time pack the boxes with
+	 * food that has nothing to do with sowing.
+	 */
+	private static ItemStack store(FarmBlockEntity station, ItemStack stack) {
+		if (Crops.isSeed(stack)) {
+			int offered = Crops.isEdibleSeed(stack)
+					? Math.min(stack.getCount(), boxRoomFor(station, stack))
+					: stack.getCount();
+
+			if (offered > 0) {
+				// Split rather than handed over whole, so the part held back is never at the mercy
+				// of how much room the boxes happen to have.
+				ItemStack refused = fill(station.seedBoxes(), stack.split(offered));
+
+				// Whatever the boxes would not take rejoins the part held back, and goes with it
+				// to the station below.
+				if (!refused.isEmpty()) {
+					if (stack.isEmpty()) {
+						stack = refused;
+					} else {
+						stack.increment(refused.getCount());
+					}
+				}
+			}
+		}
+
+		return fill(List.of(station), stack);
+	}
+
+	/** How much more of a seed that is also food the boxes should be holding. */
+	private static int boxRoomFor(FarmBlockEntity station, ItemStack stack) {
+		int held = 0;
+
+		for (Inventory box : station.seedBoxes()) {
+			for (int slot = 0; slot < box.size(); slot++) {
+				ItemStack existing = box.getStack(slot);
+
+				if (ItemStack.canCombine(existing, stack)) {
+					held += existing.getCount();
+				}
+			}
+		}
+
+		return Math.max(0, SEED_RESERVE - held);
+	}
+
+	/** Works down the destinations in order, returning whatever none of them had room for. */
+	private static ItemStack fill(List<Inventory> destinations, ItemStack stack) {
+		for (Inventory destination : destinations) {
+			if (stack.isEmpty()) {
+				break;
+			}
+
+			int before = stack.getCount();
+			stack = insert(destination, stack);
+
+			if (stack.getCount() != before) {
+				destination.markDirty();
+			}
+		}
+
+		return stack;
 	}
 
 	/** Moves what fits into {@code target}, mutating and returning the leftover. */

@@ -37,6 +37,9 @@ public class WorkstationsClient implements ClientModInitializer {
 		BlockEntityRendererRegistry.register(WorkstationsMod.FARM_BLOCK_ENTITY, FarmBlockEntityRenderer::new);
 		EntityRendererRegistry.register(WorkstationsMod.FARMER, FarmerEntityRenderer::new);
 
+		BlockEntityRendererRegistry.register(WorkstationsMod.SEED_BOX_BLOCK_ENTITY, SeedBoxBlockEntityRenderer::new);
+		BuiltinItemRendererRegistry.INSTANCE.register(WorkstationsMod.SEED_BOX_ITEM, new SeedBoxItemRenderer());
+
 		ClientTickEvents.END_CLIENT_TICK.register(client -> {
 			while (TOGGLE_HIGHLIGHT.wasPressed()) {
 				boolean enabled = HighlightState.toggle();

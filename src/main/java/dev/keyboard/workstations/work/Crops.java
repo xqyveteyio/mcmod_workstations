@@ -53,6 +53,21 @@ public final class Crops {
 		return !stack.isEmpty() && cropFor(stack.getItem()) != null;
 	}
 
+	/**
+	 * Whether a stack is at once the seed and the crop, as a carrot and a potato are.
+	 *
+	 * <p>Most crops keep the two apart: wheat and beetroot are sown from seeds that cannot be
+	 * eaten, so what to sow and what to keep is never in question. Carrots and potatoes are sown
+	 * from themselves, and a field of them yields one item that is both the next sowing and the
+	 * whole of the harvest, which is why where to put them takes deciding.
+	 *
+	 * <p>Asked of the item rather than named outright so a modded crop sown from something edible
+	 * is treated the same way.
+	 */
+	public static boolean isEdibleSeed(ItemStack stack) {
+		return isSeed(stack) && stack.isFood();
+	}
+
 	/** The crop a seed grows into, or null when the item is not a seed at all. */
 	@Nullable
 	public static CropBlock cropFor(Item seed) {
@@ -60,17 +75,25 @@ public final class Crops {
 	}
 
 	/**
-	 * The seeds a station is offering, in container order and without repeats. This is the whole of
-	 * what the farmer is allowed to plant, whether or not it is set to spend them.
+	 * The seeds a station is offering, without repeats and in the order its stores were given.
+	 * This is the whole of what the farmer is allowed to plant, whether or not it is set to spend
+	 * them.
+	 *
+	 * <p>Read across every store rather than only the first with anything in it, so a seed box
+	 * holding nothing but wheat does not quietly retire the carrots left on the station's own
+	 * shelves. Which store a seed is then taken out of is a separate question, settled where it is
+	 * spent.
 	 */
-	public static List<Item> palette(Inventory station) {
+	public static List<Item> palette(List<Inventory> stores) {
 		Set<Item> seeds = new LinkedHashSet<>();
 
-		for (int slot = 0; slot < station.size(); slot++) {
-			ItemStack stack = station.getStack(slot);
+		for (Inventory store : stores) {
+			for (int slot = 0; slot < store.size(); slot++) {
+				ItemStack stack = store.getStack(slot);
 
-			if (isSeed(stack)) {
-				seeds.add(stack.getItem());
+				if (isSeed(stack)) {
+					seeds.add(stack.getItem());
+				}
 			}
 		}
 

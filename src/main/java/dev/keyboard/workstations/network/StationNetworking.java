@@ -122,7 +122,7 @@ public final class StationNetworking {
 		PacketByteBuf buf = PacketByteBufs.create();
 		buf.writeBlockPos(pos);
 		List<Item> palette = player.getWorld().getBlockEntity(pos) instanceof FarmBlockEntity farm
-				? Crops.palette(farm)
+				? Crops.palette(farm.seedStores())
 				: List.of();
 		buf.writeVarInt(palette.size());
 

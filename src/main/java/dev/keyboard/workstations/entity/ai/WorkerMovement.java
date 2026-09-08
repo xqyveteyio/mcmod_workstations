@@ -33,8 +33,14 @@ public final class WorkerMovement {
 
 	/** How far ahead blockers get shouldered aside, in blocks. */
 	private static final double SHOVE_RANGE = 1.8;
-	/** Velocity added per tick at point blank range, tapering to nothing at {@link #SHOVE_RANGE}. */
-	private static final double SHOVE_STRENGTH = 0.07;
+	/**
+	 * Velocity added per tick at point blank range, tapering to nothing at {@link #SHOVE_RANGE}.
+	 *
+	 * <p>Safe to be firm about, because the shove is only ever sideways. A blocker cannot be driven
+	 * through the gap the worker is heading for however hard it is pushed, and velocity is still
+	 * stopped by walls, so a penned animal stays penned.
+	 */
+	private static final double SHOVE_STRENGTH = 0.14;
 	/** Cosine of the cone in front of the worker that counts as being in the way. */
 	private static final double SHOVE_CONE = 0.3;
 

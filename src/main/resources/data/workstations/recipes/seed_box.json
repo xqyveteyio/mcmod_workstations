@@ -1,0 +1,11 @@
+{
+	"type": "minecraft:crafting_shapeless",
+	"ingredients": [
+		{ "item": "minecraft:chest" },
+		{ "item": "minecraft:chest" }
+	],
+	"result": {
+		"item": "workstations:seed_box",
+		"count": 1
+	}
+}

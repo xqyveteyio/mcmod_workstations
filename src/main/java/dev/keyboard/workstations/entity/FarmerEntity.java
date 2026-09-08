@@ -135,6 +135,23 @@ public class FarmerEntity extends PathAwareEntity implements StationWorker, Work
 		return ModConfig.get().invulnerable && !source.isIn(DamageTypeTags.BYPASSES_INVULNERABILITY);
 	}
 
+	/**
+	 * Nothing shoves a farmer. It shoves.
+	 *
+	 * <p>Vanilla's jostling is one push per overlapping entity per tick and is answered in kind, so
+	 * a farmer crossing a field full of livestock takes as many pushes as there are animals while
+	 * returning one each. No amount of extra shoving strength wins that, because the imbalance
+	 * grows with the size of the crowd.
+	 *
+	 * <p>Answering no here takes the farmer out of every other entity's push list, and leaves it in
+	 * theirs: vanilla still separates the two on the farmer's own tick, only now the whole of the
+	 * movement lands on the other one.
+	 */
+	@Override
+	public boolean isPushable() {
+		return false;
+	}
+
 	/** Gates are only worth opening if paths are allowed to run through them in the first place. */
 	@Override
 	protected EntityNavigation createNavigation(World world) {

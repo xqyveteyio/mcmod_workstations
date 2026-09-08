@@ -137,6 +137,25 @@ public class RancherEntity extends PathAwareEntity implements StationWorker, Wor
 		return ModConfig.get().invulnerable && !source.isIn(DamageTypeTags.BYPASSES_INVULNERABILITY);
 	}
 
+	/**
+	 * Nothing shoves a rancher. It shoves.
+	 *
+	 * <p>Vanilla's jostling is one push per overlapping animal per tick and is answered in kind, so
+	 * a rancher wading into a herd takes as many pushes as there are animals while returning one
+	 * each. No amount of extra shoving strength wins that: the imbalance grows with the size of the
+	 * pen, which is exactly where a rancher is most needed and where it used to be squeezed back
+	 * out of its own work.
+	 *
+	 * <p>Answering no here takes the rancher out of every other entity's push list, and leaves it
+	 * in theirs: vanilla still separates the two on the rancher's own tick, only now the whole of
+	 * the movement lands on the animal. A crowd of forty is then no harder to walk through than
+	 * one cow.
+	 */
+	@Override
+	public boolean isPushable() {
+		return false;
+	}
+
 	/** Gates are only worth opening if paths are allowed to run through them in the first place. */
 	@Override
 	protected EntityNavigation createNavigation(World world) {

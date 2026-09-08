@@ -3,6 +3,7 @@
 	"values": [
 		"workstations:ranch_station",
 		"workstations:farm_station",
-		"workstations:milk_barrel"
+		"workstations:milk_barrel",
+		"workstations:seed_box"
 	]
 }

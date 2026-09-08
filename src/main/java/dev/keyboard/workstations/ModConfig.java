@@ -60,12 +60,12 @@ public class ModConfig {
 	public int workRadius = 8;
 	/** How far the work area reaches above and below the station block. */
 	public int workHeight = 4;
-	/** How often the rancher looks around for its next job, in ticks. */
-	public int workIntervalTicks = 20;
+	/** How often a worker looks around for its next job, in ticks. Both stations read this. */
+	public int workIntervalTicks = 10;
 	/** Ticks the rancher waits after feeding one animal before feeding another. */
 	public int breedIntervalTicks = 60;
 	/** Ticks the rancher waits after finishing one animal off before starting on the next. */
-	public int cullIntervalTicks = 100;
+	public int cullIntervalTicks = 60;
 	/**
 	 * When true feeding spends matching items out of the station inventory, so the ranch only runs
 	 * as long as you keep it stocked. When false the rancher breeds for free.

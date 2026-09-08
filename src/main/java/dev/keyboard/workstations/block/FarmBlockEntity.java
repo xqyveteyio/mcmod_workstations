@@ -9,6 +9,7 @@ import dev.keyboard.workstations.work.WorkArea;
 import net.minecraft.block.Block;
 import net.minecraft.block.BlockState;
 import net.minecraft.entity.EntityType;
+import net.minecraft.inventory.Inventory;
 import net.minecraft.item.Item;
 import net.minecraft.nbt.NbtCompound;
 import net.minecraft.nbt.NbtElement;
@@ -203,6 +204,32 @@ public class FarmBlockEntity extends WorkStationBlockEntity<FarmerEntity, FarmSe
 
 	public Set<BlockPos> getPlots() {
 		return Collections.unmodifiableSet(plots);
+	}
+
+	/**
+	 * The seed boxes set against this station, if any, in the order to draw on them.
+	 *
+	 * <p>Separate from {@link #seedStores()} because the boxes are where seed is meant to end up
+	 * and the station is only what catches the overflow, a distinction that matters when deciding
+	 * how much of something belongs in a box in the first place.
+	 */
+	public List<Inventory> seedBoxes() {
+		return world == null ? List.of() : List.copyOf(SeedBoxBlockEntity.adjoining(world, pos));
+	}
+
+	/**
+	 * Everywhere this station's seed might be, the place to reach for first listed first.
+	 *
+	 * <p>Seed boxes touching the station come before the station's own shelves: seed is taken out
+	 * of a box while one holds any, which is what keeps the station's own space clear for the
+	 * produce coming the other way. The station is last rather than absent so seed left on its
+	 * shelves by hand is still sown, and with no box beside it the station is the only store there
+	 * is and everything works as it did before boxes existed.
+	 */
+	public List<Inventory> seedStores() {
+		List<Inventory> stores = new ArrayList<>(seedBoxes());
+		stores.add(this);
+		return stores;
 	}
 
 	/** How many plots each seed holds, for the mix to divide the next one out by. */
