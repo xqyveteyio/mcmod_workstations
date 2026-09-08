@@ -1,5 +1,6 @@
 package dev.keyboard.workstations.block;
 
+import dev.keyboard.workstations.entity.WorkerEntrance;
 import dev.keyboard.workstations.work.WorkArea;
 import dev.keyboard.workstations.work.WorkerSettings;
 import net.minecraft.block.Block;
@@ -159,9 +160,15 @@ public abstract class WorkStationBlockEntity<W extends MobEntity & StationWorker
 			return;
 		}
 
-		worker.refreshPositionAndAngles(spawnPos.getX() + 0.5, spawnPos.getY(), spawnPos.getZ() + 0.5,
+		// A worker that dropped in has to be put in the air it is going to drop through, so where
+		// it starts depends on how it is arriving.
+		WorkerEntrance.Style style = WorkerEntrance.styleFor(world, spawnPos);
+		double startY = spawnPos.getY() + (style == WorkerEntrance.Style.FALL ? WorkerEntrance.FALL_HEIGHT : 0);
+
+		worker.refreshPositionAndAngles(spawnPos.getX() + 0.5, startY, spawnPos.getZ() + 0.5,
 				world.random.nextFloat() * 360.0F, 0.0F);
 		worker.setStation(pos);
+		worker.arriveBy(style);
 
 		if (world.spawnEntity(worker)) {
 			adopt(worker);
@@ -205,7 +212,7 @@ public abstract class WorkStationBlockEntity<W extends MobEntity & StationWorker
 		W worker = getWorker(world);
 
 		if (worker != null) {
-			worker.discard();
+			WorkerEntrance.leave(worker);
 		}
 
 		workerUuid = null;

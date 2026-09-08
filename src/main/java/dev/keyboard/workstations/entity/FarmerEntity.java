@@ -58,6 +58,14 @@ public class FarmerEntity extends PathAwareEntity implements StationWorker, Work
 	private static final TrackedData<Integer> SKIN =
 			DataTracker.registerData(FarmerEntity.class, TrackedDataHandlerRegistry.INTEGER);
 
+	/**
+	 * Ticks of digging a farmer still owes before it is above ground, or zero. Tracked rather than
+	 * announced, because the client has to know how deep to draw it from the very first frame: a
+	 * message sent after the farmer would leave it standing in the open until that message landed.
+	 */
+	private static final TrackedData<Integer> BURIED =
+			DataTracker.registerData(FarmerEntity.class, TrackedDataHandlerRegistry.INTEGER);
+
 	private static final String STATION_KEY = "Station";
 	private static final String CARRIED_KEY = "Carried";
 	/** Grace period before a farmer whose station is gone gives up, in ticks. */
@@ -68,6 +76,8 @@ public class FarmerEntity extends PathAwareEntity implements StationWorker, Work
 	private final SimpleInventory carried = new SimpleInventory(CARRY_SLOTS);
 	private final FarmerBrain brain = new FarmerBrain();
 	private final GateOperator gates = new GateOperator();
+	private final WorkerEntrance entrance =
+			new WorkerEntrance(() -> dataTracker.get(BURIED), ticks -> dataTracker.set(BURIED, ticks));
 	@Nullable
 	private BlockPos stationPos;
 	/** Last label pushed to the name tag, so an unchanged state is not resent every tick. */
@@ -89,6 +99,7 @@ public class FarmerEntity extends PathAwareEntity implements StationWorker, Work
 	protected void initDataTracker() {
 		super.initDataTracker();
 		dataTracker.startTracking(SKIN, 0);
+		dataTracker.startTracking(BURIED, 0);
 	}
 
 	public static DefaultAttributeContainer.Builder createFarmerAttributes() {
@@ -140,6 +151,16 @@ public class FarmerEntity extends PathAwareEntity implements StationWorker, Work
 	protected void mobTick() {
 		super.mobTick();
 
+		// Setting tracked data it already holds costs nothing, so this needs no change detection.
+		// Kept up before the entrance is checked, so the farmer is dressed on the way down.
+		dataTracker.set(SKIN, getSettings().workerSkin);
+
+		// Still dropping out of the sky or clawing its way up through the ground. The field will
+		// keep until it has both feet on the floor.
+		if (entrance.isArriving()) {
+			return;
+		}
+
 		if (workCooldown > 0) {
 			workCooldown--;
 		}
@@ -147,7 +168,7 @@ public class FarmerEntity extends PathAwareEntity implements StationWorker, Work
 		// A farmer outliving its station would keep working a field nobody owns any more.
 		if (getStation() == null) {
 			if (++homelessTicks > HOMELESS_LIMIT) {
-				discard();
+				WorkerEntrance.leave(this);
 			}
 		} else {
 			homelessTicks = 0;
@@ -161,9 +182,34 @@ public class FarmerEntity extends PathAwareEntity implements StationWorker, Work
 			WorkerMovement.shoveBlockers(this);
 		}
 
-		// Setting tracked data it already holds costs nothing, so this needs no change detection.
-		dataTracker.set(SKIN, getSettings().workerSkin);
 		updateStateLabel();
+	}
+
+	/**
+	 * The entrance is ticked ahead of the body rather than after it, so that a farmer dropped in
+	 * out of the sky is already clear of its fall by the time the landing is worked out.
+	 */
+	@Override
+	public void tick() {
+		entrance.tick(this);
+		super.tick();
+	}
+
+	@Override
+	public void arriveBy(WorkerEntrance.Style style) {
+		entrance.begin(style);
+	}
+
+	@Override
+	public void handleStatus(byte status) {
+		if (!entrance.handleStatus(this, status)) {
+			super.handleStatus(status);
+		}
+	}
+
+	/** How the farmer is arriving or leaving, which is the renderer's business as well as its own. */
+	public WorkerEntrance getEntrance() {
+		return entrance;
 	}
 
 	/** Which of {@link WorkerSkin#FARMER} this farmer wears, readable on either side. */

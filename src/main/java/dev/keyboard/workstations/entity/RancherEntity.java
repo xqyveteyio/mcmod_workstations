@@ -57,6 +57,14 @@ public class RancherEntity extends PathAwareEntity implements StationWorker, Wor
 	private static final TrackedData<Integer> SKIN =
 			DataTracker.registerData(RancherEntity.class, TrackedDataHandlerRegistry.INTEGER);
 
+	/**
+	 * Ticks of digging a rancher still owes before it is above ground, or zero. Tracked rather than
+	 * announced, because the client has to know how deep to draw it from the very first frame: a
+	 * message sent after the rancher would leave it standing in the open until that message landed.
+	 */
+	private static final TrackedData<Integer> BURIED =
+			DataTracker.registerData(RancherEntity.class, TrackedDataHandlerRegistry.INTEGER);
+
 	private static final String STATION_KEY = "Station";
 	private static final String CARRIED_KEY = "Carried";
 	/** Grace period before a rancher whose station is gone gives up, in ticks. */
@@ -67,6 +75,8 @@ public class RancherEntity extends PathAwareEntity implements StationWorker, Wor
 	private final SimpleInventory carried = new SimpleInventory(CARRY_SLOTS);
 	private final RancherBrain brain = new RancherBrain();
 	private final GateOperator gates = new GateOperator();
+	private final WorkerEntrance entrance =
+			new WorkerEntrance(() -> dataTracker.get(BURIED), ticks -> dataTracker.set(BURIED, ticks));
 	@Nullable
 	private BlockPos stationPos;
 	/** Last label pushed to the name tag, so an unchanged state is not resent every tick. */
@@ -89,6 +99,7 @@ public class RancherEntity extends PathAwareEntity implements StationWorker, Wor
 	protected void initDataTracker() {
 		super.initDataTracker();
 		dataTracker.startTracking(SKIN, 0);
+		dataTracker.startTracking(BURIED, 0);
 	}
 
 	public static DefaultAttributeContainer.Builder createRancherAttributes() {
@@ -142,6 +153,16 @@ public class RancherEntity extends PathAwareEntity implements StationWorker, Wor
 	protected void mobTick() {
 		super.mobTick();
 
+		// Setting tracked data it already holds costs nothing, so this needs no change detection.
+		// Kept up before the entrance is checked, so the rancher is dressed on the way down.
+		dataTracker.set(SKIN, getSettings().workerSkin);
+
+		// Still dropping out of the sky or clawing its way up through the ground. Whatever the
+		// animals are up to can wait until it has both feet on the floor.
+		if (entrance.isArriving()) {
+			return;
+		}
+
 		if (feedCooldown > 0) {
 			feedCooldown--;
 		}
@@ -153,7 +174,7 @@ public class RancherEntity extends PathAwareEntity implements StationWorker, Wor
 		// A rancher outliving its station would keep working an area nobody owns any more.
 		if (getStation() == null) {
 			if (++homelessTicks > HOMELESS_LIMIT) {
-				discard();
+				WorkerEntrance.leave(this);
 			}
 		} else {
 			homelessTicks = 0;
@@ -167,9 +188,35 @@ public class RancherEntity extends PathAwareEntity implements StationWorker, Wor
 			WorkerMovement.shoveBlockers(this);
 		}
 
-		// Setting tracked data it already holds costs nothing, so this needs no change detection.
-		dataTracker.set(SKIN, getSettings().workerSkin);
 		updateStateLabel();
+	}
+
+	/**
+	 * The entrance is ticked ahead of the body rather than after it. Part of what it does is write
+	 * off the fall damage owed by a rancher dropped in out of the sky, and once the body has moved
+	 * for the tick the landing has already been worked out and taken out of its health.
+	 */
+	@Override
+	public void tick() {
+		entrance.tick(this);
+		super.tick();
+	}
+
+	@Override
+	public void arriveBy(WorkerEntrance.Style style) {
+		entrance.begin(style);
+	}
+
+	@Override
+	public void handleStatus(byte status) {
+		if (!entrance.handleStatus(this, status)) {
+			super.handleStatus(status);
+		}
+	}
+
+	/** How the rancher is arriving or leaving, which is the renderer's business as well as its own. */
+	public WorkerEntrance getEntrance() {
+		return entrance;
 	}
 
 	/** Which of {@link WorkerSkin#RANCHER} this rancher wears, readable on either side. */

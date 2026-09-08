@@ -8,6 +8,7 @@ import net.minecraft.client.render.entity.model.EntityModelLayers;
 import net.minecraft.client.render.entity.model.VillagerResemblingModel;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.util.Identifier;
+import net.minecraft.util.math.Vec3d;
 
 /**
  * Draws the rancher on the vanilla villager model, wearing the mod's own skin. The model layer is
@@ -42,5 +43,23 @@ public class RancherEntityRenderer extends MobEntityRenderer<RancherEntity, Vill
 	@Override
 	protected void scale(RancherEntity entity, MatrixStack matrices, float amount) {
 		matrices.scale(MODEL_SCALE, MODEL_SCALE, MODEL_SCALE);
+	}
+
+	/**
+	 * Buries a rancher that is digging its way in, letting the ground itself hide everything that
+	 * has not surfaced yet. This is vanilla's own offset hook rather than a shift of the matrix
+	 * inside the render, so only the drawing moves: the rancher stands where it always stood, and
+	 * the shadow stays on the floor to mark the spot it is coming up through.
+	 */
+	@Override
+	public Vec3d getPositionOffset(RancherEntity entity, float tickDelta) {
+		double sink = entity.getEntrance().sink(tickDelta);
+		return sink <= 0.0 ? super.getPositionOffset(entity, tickDelta) : new Vec3d(0.0, -sink, 0.0);
+	}
+
+	/** A name tag on a rancher still underground is a label lying face up on the floor. */
+	@Override
+	protected boolean hasLabel(RancherEntity entity) {
+		return !entity.getEntrance().isBuried() && super.hasLabel(entity);
 	}
 }

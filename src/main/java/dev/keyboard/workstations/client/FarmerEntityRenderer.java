@@ -8,6 +8,7 @@ import net.minecraft.client.render.entity.model.EntityModelLayers;
 import net.minecraft.client.render.entity.model.VillagerResemblingModel;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.util.Identifier;
+import net.minecraft.util.math.Vec3d;
 
 /**
  * Draws the farmer on the vanilla villager model, wearing the mod's own skin. Built exactly like
@@ -38,5 +39,18 @@ public class FarmerEntityRenderer extends MobEntityRenderer<FarmerEntity, Villag
 	@Override
 	protected void scale(FarmerEntity entity, MatrixStack matrices, float amount) {
 		matrices.scale(MODEL_SCALE, MODEL_SCALE, MODEL_SCALE);
+	}
+
+	/** Buries a farmer that is digging its way in, exactly as {@link RancherEntityRenderer} does. */
+	@Override
+	public Vec3d getPositionOffset(FarmerEntity entity, float tickDelta) {
+		double sink = entity.getEntrance().sink(tickDelta);
+		return sink <= 0.0 ? super.getPositionOffset(entity, tickDelta) : new Vec3d(0.0, -sink, 0.0);
+	}
+
+	/** A name tag on a farmer still underground is a label lying face up on the floor. */
+	@Override
+	protected boolean hasLabel(FarmerEntity entity) {
+		return !entity.getEntrance().isBuried() && super.hasLabel(entity);
 	}
 }
