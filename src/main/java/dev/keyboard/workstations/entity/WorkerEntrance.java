@@ -99,13 +99,47 @@ public final class WorkerEntrance {
 		this.setBuried = setBuried;
 	}
 
-	/** Which entrance suits the spot the worker is about to stand in. */
+	/**
+	 * Which entrance suits the spot the worker is about to stand in.
+	 *
+	 * <p>Open sky is asked about in two senses here, because they disagree. Sky light reaches a post
+	 * under a glass roof at full strength, glass costing light nothing at all, so the light alone
+	 * sends the worker up to drop from a sky it cannot get back down out of, and it lands on the
+	 * roof. Light says whether the spot is out of doors; only collision says whether there is a
+	 * shaft to fall down.
+	 */
 	public static Style styleFor(World world, BlockPos post) {
-		if (world.isSkyVisibleAllowingSea(post)) {
+		if (world.isSkyVisibleAllowingSea(post) && isDropClear(world, post)) {
 			return Style.FALL;
 		}
 
 		return world.isAir(post.down()) ? Style.SPARK : Style.DIG;
+	}
+
+	/**
+	 * Whether a worker could fall the whole way from where it would be put in to where it belongs.
+	 *
+	 * <p>Asked of collision rather than of what each block is. Being fallen through is the only
+	 * thing being asked of them, so whether they would stop a body is the only property that
+	 * decides it, and glass, its panes, iron bars, barriers and whatever a mod adds in the same
+	 * spirit are all covered without any of them being named. Torches, ladders and long grass go on
+	 * being fallen past, as they should.
+	 *
+	 * <p>One block higher than the drop, because the worker is put in with its feet at the top of
+	 * the shaft and its head above that.
+	 */
+	private static boolean isDropClear(World world, BlockPos post) {
+		BlockPos.Mutable cursor = new BlockPos.Mutable();
+
+		for (int above = 1; above <= FALL_HEIGHT + 1; above++) {
+			cursor.set(post.getX(), post.getY() + above, post.getZ());
+
+			if (!world.getBlockState(cursor).getCollisionShape(world, cursor).isEmpty()) {
+				return false;
+			}
+		}
+
+		return true;
 	}
 
 	/**
