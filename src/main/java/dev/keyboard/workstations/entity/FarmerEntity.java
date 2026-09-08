@@ -2,6 +2,7 @@ package dev.keyboard.workstations.entity;
 
 import dev.keyboard.workstations.block.FarmBlockEntity;
 import dev.keyboard.workstations.block.StationWorker;
+import dev.keyboard.workstations.ModConfig;
 import dev.keyboard.workstations.entity.ai.FarmerBrain;
 import dev.keyboard.workstations.entity.ai.GateOperator;
 import dev.keyboard.workstations.entity.ai.WorkerMob;
@@ -131,7 +132,7 @@ public class FarmerEntity extends PathAwareEntity implements StationWorker, Work
 			return true;
 		}
 
-		return getSettings().invulnerable && !source.isIn(DamageTypeTags.BYPASSES_INVULNERABILITY);
+		return ModConfig.get().invulnerable && !source.isIn(DamageTypeTags.BYPASSES_INVULNERABILITY);
 	}
 
 	/** Gates are only worth opening if paths are allowed to run through them in the first place. */

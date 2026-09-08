@@ -19,7 +19,6 @@ import java.util.List;
 public final class StationSettings implements WorkerSettings<StationSettings> {
 	public boolean enableBreeding;
 	public boolean enableCulling;
-	public boolean requireFeedItems;
 	public boolean feedBabies;
 	public boolean playFeedSound;
 	public boolean instantKill;
@@ -27,7 +26,6 @@ public final class StationSettings implements WorkerSettings<StationSettings> {
 	public boolean enableMilking;
 	public boolean openFenceGates;
 	public boolean shoveBlockers;
-	public boolean invulnerable;
 	public boolean showWorkerState;
 	public int workRadius;
 	public int workHeight;
@@ -50,7 +48,6 @@ public final class StationSettings implements WorkerSettings<StationSettings> {
 	/** Bounds double as the slider ends, so what the screen offers is exactly what is accepted. */
 	public static final List<SettingOption<StationSettings>> OPTIONS = List.of(
 			SettingOption.flag(BREEDING, "enable_breeding", s -> s.enableBreeding, (s, v) -> s.enableBreeding = v),
-			SettingOption.flag(BREEDING, "require_feed_items", s -> s.requireFeedItems, (s, v) -> s.requireFeedItems = v),
 			SettingOption.range(BREEDING, "breed_interval_ticks", 1, 600, s -> s.breedIntervalTicks, (s, v) -> s.breedIntervalTicks = v),
 			SettingOption.range(BREEDING, "max_animals_per_type", 2, 64, s -> s.maxAnimalsPerType, (s, v) -> s.maxAnimalsPerType = v),
 			SettingOption.flag(BREEDING, "feed_babies", s -> s.feedBabies, (s, v) -> s.feedBabies = v),
@@ -70,8 +67,6 @@ public final class StationSettings implements WorkerSettings<StationSettings> {
 			SettingOption.range(AREA, "worker_respawn_ticks", 20, 2400, s -> s.workerRespawnTicks, (s, v) -> s.workerRespawnTicks = v),
 			SettingOption.flag(AREA, "open_fence_gates", s -> s.openFenceGates, (s, v) -> s.openFenceGates = v),
 			SettingOption.flag(AREA, "shove_blockers", s -> s.shoveBlockers, (s, v) -> s.shoveBlockers = v),
-			SettingOption.flag(AREA, "invulnerable", s -> s.invulnerable, (s, v) -> s.invulnerable = v),
-
 			SettingOption.flag(DISPLAY, "show_worker_state", s -> s.showWorkerState, (s, v) -> s.showWorkerState = v),
 			SettingOption.choice(DISPLAY, "worker_skin", WorkerSkin.ids(WorkerSkin.RANCHER), s -> s.workerSkin, (s, v) -> s.workerSkin = v));
 
@@ -83,7 +78,6 @@ public final class StationSettings implements WorkerSettings<StationSettings> {
 	public StationSettings(ModConfig config) {
 		enableBreeding = config.enableBreeding;
 		enableCulling = config.enableCulling;
-		requireFeedItems = config.requireFeedItems;
 		feedBabies = config.feedBabies;
 		playFeedSound = config.playFeedSound;
 		instantKill = config.instantKill;
@@ -91,7 +85,6 @@ public final class StationSettings implements WorkerSettings<StationSettings> {
 		enableMilking = config.enableMilking;
 		openFenceGates = config.openFenceGates;
 		shoveBlockers = config.shoveBlockers;
-		invulnerable = config.invulnerable;
 		showWorkerState = config.showWorkerState;
 		workRadius = config.workRadius;
 		workHeight = config.workHeight;

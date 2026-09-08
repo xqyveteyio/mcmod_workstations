@@ -10,10 +10,15 @@ import java.nio.file.Path;
 /**
  * Starting values for newly placed stations, stored in {@code config/workstations.json}.
  *
- * <p>Ranchers do not read this. Each station keeps its own
+ * <p>Ranchers do not read this, with three exceptions noted below. Each station keeps its own
  * {@link dev.keyboard.workstations.work.StationSettings}, copied from here when the block is
  * placed and edited from the block's own screen afterwards, so changing the file only affects
  * stations built from then on.
+ *
+ * <p>{@link #requireFeedItems}, {@link #consumeSeeds} and {@link #invulnerable} are the exceptions.
+ * They are read straight from here every time they are needed, are not copied into any station and
+ * appear on no settings screen, so they hold for every workstation in the world and change the
+ * moment the file does.
  *
  * <p>Nothing is range checked here either. A station clamps whatever it is given to the bounds its
  * settings screen offers, which keeps those bounds stated in exactly one place.
@@ -43,7 +48,13 @@ public class ModConfig {
 	 * there to take it: buckets in the station's own shelves would bury everything else it produces.
 	 */
 	public boolean enableMilking = true;
-	/** Whether anything is allowed to hurt the worker. On by default; {@code /kill} still works. */
+	/**
+	 * Whether anything is allowed to hurt the worker. On by default; {@code /kill} still works.
+	 *
+	 * <p>One of the three settings a station cannot override. Whether a worker can be killed decides
+	 * whether a station is a machine or something you have to defend, which is a decision about the
+	 * whole world rather than about one block.
+	 */
 	public boolean invulnerable = true;
 	/** Horizontal reach of the work area, measured out from the station block. */
 	public int workRadius = 8;
@@ -57,10 +68,11 @@ public class ModConfig {
 	public int cullIntervalTicks = 100;
 	/**
 	 * When true feeding spends matching items out of the station inventory, so the ranch only runs
-	 * as long as you keep it stocked. When false the rancher breeds for free, which is the default:
-	 * a station that has to be stocked by hand does nothing at all until you notice it is empty.
+	 * as long as you keep it stocked. When false the rancher breeds for free.
+	 *
+	 * <p>One of the three settings that is only ever read from here. See the note on {@link #consumeSeeds}.
 	 */
-	public boolean requireFeedItems = false;
+	public boolean requireFeedItems = true;
 	/** Adults of one species kept as breeding stock. Anything above this gets slaughtered. */
 	public int keepAdultsPerType = 4;
 	/** Animals of one species allowed inside the area before breeding pauses. */
@@ -96,10 +108,17 @@ public class ModConfig {
 	public boolean harvestMushrooms = false;
 	/**
 	 * When true sowing spends seeds out of the farm station, so the field only runs as long as you
-	 * keep it stocked. Off by default: what is in the container then only says which seeds the
-	 * farmer is allowed to plant, and the field keeps going once you have shown it the mix.
+	 * keep it stocked. When false what is in the container only says which seeds the farmer is
+	 * allowed to plant, and the field keeps going once you have shown it the mix.
+	 *
+	 * <p>This, {@link #requireFeedItems} and {@link #invulnerable} are the settings a station cannot
+	 * override, and the only ones read from here while the game runs rather than copied out when a
+	 * block is placed. They decide whether a workstation is something you keep supplied and defend
+	 * or something that runs on nothing and cannot be touched, which is the sort of decision a pack
+	 * settles once for the whole world rather than leaving to be turned off at each block by
+	 * whoever owns it.
 	 */
-	public boolean consumeSeeds = false;
+	public boolean consumeSeeds = true;
 	/** Ticks the farmer waits between one plot and the next. */
 	public int farmIntervalTicks = 10;
 

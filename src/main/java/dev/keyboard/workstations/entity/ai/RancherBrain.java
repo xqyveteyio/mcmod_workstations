@@ -1,5 +1,6 @@
 package dev.keyboard.workstations.entity.ai;
 
+import dev.keyboard.workstations.ModConfig;
 import dev.keyboard.workstations.work.StationSettings;
 import dev.keyboard.workstations.block.MilkBarrelBlockEntity;
 import dev.keyboard.workstations.block.RanchBlockEntity;
@@ -700,7 +701,7 @@ public class RancherBrain {
 			case CULL -> takeCull(rancher, world, area, config);
 			case COLLECT -> takeCollect(rancher, world, area);
 			case BREED -> takeBreed(rancher, world, area, station, config);
-			case GROW -> takeGrow(rancher, world, area, station, config);
+			case GROW -> takeGrow(rancher, world, area, station);
 			case HARVEST -> takeHarvest(rancher, world, area, station, config);
 		};
 	}
@@ -738,14 +739,14 @@ public class RancherBrain {
 		}
 
 		HerdSurvey.FeedPlan plan = nearestPlan(rancher, world,
-				survey(world, area).feedPlans(config), station, config);
+				survey(world, area).feedPlans(config), station);
 		return plan != null && takeFeed(plan);
 	}
 
 	private boolean takeGrow(RancherEntity rancher, ServerWorld world, WorkArea area,
-			RanchBlockEntity station, StationSettings config) {
+			RanchBlockEntity station) {
 		AnimalEntity baby = nearestReachable(rancher, world,
-				filterFeedable(unserved(survey(world, area).babyCandidates()), station, config),
+				filterFeedable(unserved(survey(world, area).babyCandidates()), station),
 				ANIMAL_PATH_DISTANCE);
 		return baby != null && take(Job.GROW, baby);
 	}
@@ -829,11 +830,11 @@ public class RancherBrain {
 	 */
 	@Nullable
 	private HerdSurvey.FeedPlan nearestPlan(RancherEntity rancher, ServerWorld world,
-			List<HerdSurvey.FeedPlan> plans, Inventory station, StationSettings config) {
+			List<HerdSurvey.FeedPlan> plans, Inventory station) {
 		List<AnimalEntity> heads = new ArrayList<>(plans.size());
 
 		for (HerdSurvey.FeedPlan plan : plans) {
-			if (affordable(plan, station, config)) {
+			if (affordable(plan, station)) {
 				heads.add(plan.first());
 			}
 		}
@@ -854,8 +855,8 @@ public class RancherBrain {
 	}
 
 	/** Whether the station holds a portion for every animal in the plan. */
-	private static boolean affordable(HerdSurvey.FeedPlan plan, Inventory station, StationSettings config) {
-		if (!config.requireFeedItems) {
+	private static boolean affordable(HerdSurvey.FeedPlan plan, Inventory station) {
+		if (!ModConfig.get().requireFeedItems) {
 			return true;
 		}
 
@@ -944,7 +945,7 @@ public class RancherBrain {
 
 		StationSettings config = station.getSettings();
 
-		if (config.requireFeedItems) {
+		if (ModConfig.get().requireFeedItems) {
 			int slot = findFeedSlot(station, animal);
 
 			if (slot < 0) {
@@ -1278,8 +1279,8 @@ public class RancherBrain {
 		world.spawnParticles(ParticleTypes.HAPPY_VILLAGER, center.x, center.y, center.z, 4, 0.3, 0.3, 0.3, 0.0);
 	}
 
-	private static List<AnimalEntity> filterFeedable(List<AnimalEntity> animals, Inventory station, StationSettings config) {
-		if (!config.requireFeedItems) {
+	private static List<AnimalEntity> filterFeedable(List<AnimalEntity> animals, Inventory station) {
+		if (!ModConfig.get().requireFeedItems) {
 			return animals;
 		}
 

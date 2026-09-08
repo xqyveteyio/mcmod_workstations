@@ -3,6 +3,7 @@ package dev.keyboard.workstations.entity;
 import dev.keyboard.workstations.block.RanchBlockEntity;
 import dev.keyboard.workstations.block.StationWorker;
 import dev.keyboard.workstations.entity.ai.GateOperator;
+import dev.keyboard.workstations.ModConfig;
 import dev.keyboard.workstations.entity.ai.RancherBrain;
 import dev.keyboard.workstations.entity.ai.WorkerMovement;
 import dev.keyboard.workstations.entity.ai.WorkerMob;
@@ -133,7 +134,7 @@ public class RancherEntity extends PathAwareEntity implements StationWorker, Wor
 			return true;
 		}
 
-		return getSettings().invulnerable && !source.isIn(DamageTypeTags.BYPASSES_INVULNERABILITY);
+		return ModConfig.get().invulnerable && !source.isIn(DamageTypeTags.BYPASSES_INVULNERABILITY);
 	}
 
 	/** Gates are only worth opening if paths are allowed to run through them in the first place. */

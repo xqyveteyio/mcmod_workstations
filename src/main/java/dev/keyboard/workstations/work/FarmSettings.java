@@ -21,10 +21,8 @@ public final class FarmSettings implements WorkerSettings<FarmSettings> {
 	public boolean enableHarvesting;
 	public boolean harvestGourds;
 	public boolean harvestMushrooms;
-	public boolean consumeSeeds;
 	public boolean openFenceGates;
 	public boolean shoveBlockers;
-	public boolean invulnerable;
 	public boolean showWorkerState;
 	public int workRadius;
 	public int workHeight;
@@ -52,7 +50,6 @@ public final class FarmSettings implements WorkerSettings<FarmSettings> {
 			SettingOption.flag(FIELD, "enable_harvesting", s -> s.enableHarvesting, (s, v) -> s.enableHarvesting = v),
 			SettingOption.flag(FIELD, "harvest_gourds", s -> s.harvestGourds, (s, v) -> s.harvestGourds = v),
 			SettingOption.flag(FIELD, "harvest_mushrooms", s -> s.harvestMushrooms, (s, v) -> s.harvestMushrooms = v),
-			SettingOption.flag(FIELD, "consume_seeds", s -> s.consumeSeeds, (s, v) -> s.consumeSeeds = v),
 			SettingOption.range(FIELD, "farm_interval_ticks", 1, 200, s -> s.farmIntervalTicks, (s, v) -> s.farmIntervalTicks = v),
 
 			SettingOption.range(AREA, "work_radius", 1, 64, s -> s.workRadius, (s, v) -> s.workRadius = v),
@@ -61,8 +58,6 @@ public final class FarmSettings implements WorkerSettings<FarmSettings> {
 			SettingOption.range(AREA, "worker_respawn_ticks", 20, 2400, s -> s.workerRespawnTicks, (s, v) -> s.workerRespawnTicks = v),
 			SettingOption.flag(AREA, "open_fence_gates", s -> s.openFenceGates, (s, v) -> s.openFenceGates = v),
 			SettingOption.flag(AREA, "shove_blockers", s -> s.shoveBlockers, (s, v) -> s.shoveBlockers = v),
-			SettingOption.flag(AREA, "invulnerable", s -> s.invulnerable, (s, v) -> s.invulnerable = v),
-
 			SettingOption.flag(DISPLAY, "show_worker_state", s -> s.showWorkerState, (s, v) -> s.showWorkerState = v),
 			SettingOption.choice(DISPLAY, "worker_skin", WorkerSkin.ids(WorkerSkin.FARMER), s -> s.workerSkin, (s, v) -> s.workerSkin = v));
 
@@ -76,10 +71,8 @@ public final class FarmSettings implements WorkerSettings<FarmSettings> {
 		enableHarvesting = config.enableHarvesting;
 		harvestGourds = config.harvestGourds;
 		harvestMushrooms = config.harvestMushrooms;
-		consumeSeeds = config.consumeSeeds;
 		openFenceGates = config.openFenceGates;
 		shoveBlockers = config.shoveBlockers;
-		invulnerable = config.invulnerable;
 		showWorkerState = config.showWorkerState;
 		workRadius = config.workRadius;
 		workHeight = config.workHeight;

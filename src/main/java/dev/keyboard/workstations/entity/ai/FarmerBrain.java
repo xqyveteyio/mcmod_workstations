@@ -1,5 +1,6 @@
 package dev.keyboard.workstations.entity.ai;
 
+import dev.keyboard.workstations.ModConfig;
 import dev.keyboard.workstations.block.FarmBlockEntity;
 import dev.keyboard.workstations.entity.FarmerEntity;
 import dev.keyboard.workstations.work.Crops;
@@ -942,7 +943,7 @@ public class FarmerBrain {
 			return true;
 		}
 
-		if (station.getSettings().consumeSeeds && !spendSeed(station, seed)) {
+		if (ModConfig.get().consumeSeeds && !spendSeed(station, seed)) {
 			note = "out of seeds";
 			return true;
 		}
