@@ -1,6 +1,6 @@
 package dev.keyboard.workstations.client;
 
-import dev.keyboard.workstations.McaSupport;
+import dev.keyboard.workstations.McaVillagers;
 import dev.keyboard.workstations.WorkstationsMod;
 import net.minecraft.client.render.VertexConsumerProvider;
 import net.minecraft.client.util.math.MatrixStack;

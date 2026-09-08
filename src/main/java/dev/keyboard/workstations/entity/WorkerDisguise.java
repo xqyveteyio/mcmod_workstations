@@ -1,8 +1,9 @@
 package dev.keyboard.workstations.entity;
 
-import dev.keyboard.workstations.McaSupport;
+import dev.keyboard.workstations.McaVillagers;
 import dev.keyboard.workstations.WorkstationsMod;
 import net.minecraft.entity.mob.MobEntity;
+import net.minecraft.entity.passive.VillagerEntity;
 import net.minecraft.nbt.NbtCompound;
 import net.minecraft.registry.Registries;
 import net.minecraft.sound.SoundEvent;
@@ -17,13 +18,10 @@ import org.jetbrains.annotations.Nullable;
  * player. Rolling it on each client instead would be less work, but the same worker would then be
  * a different villager to everyone looking at it, and a different one again after a rejoin.
  *
- * <p>This class names no class from the mod being borrowed from, which is the whole point of it. A
- * class is not loaded until a line naming it actually runs, so {@link McaSupport} is what keeps the
- * game from going looking for classes that are not installed, or installed in a version that no
- * longer has them. The safety net has to live out here too, rather than inside the bridge it
- * guards: a version that passes the check is still no promise that the classes compiled against are
- * the ones present, and if they are not, the failure is not something the bridge throws but the
- * bridge itself failing to load, which a net cast inside it would miss.
+ * <p>Every call into {@link McaVillagers} is netted, because none of what it reaches for is an API
+ * MCA offers. A version that passes {@link dev.keyboard.workstations.McaSupport}'s check is still
+ * no promise that what is reached for behaves as it did, and a worker in its own skin is a much
+ * better answer to that than a crash.
  */
 public final class WorkerDisguise {
 	/** Set once the MCA side has failed even once, which puts every worker back in its own skin. */
@@ -47,7 +45,7 @@ public final class WorkerDisguise {
 
 	/** Whether there is anything to be gained by asking for a roll, worth checking first. */
 	public static boolean canRoll() {
-		return McaSupport.available() && !mcaGivenUp;
+		return McaVillagers.usable() && !mcaGivenUp;
 	}
 
 	/**
@@ -65,7 +63,7 @@ public final class WorkerDisguise {
 		boolean female;
 
 		try {
-			female = McaWorkerDisguise.isFemale(disguise);
+			female = McaVillagers.isFemale(disguise);
 		} catch (Throwable failure) {
 			mcaGivenUp = true;
 			WorkstationsMod.LOGGER.warn("Could not read a worker's borrowed looks, so it keeps its own voice", failure);
@@ -79,16 +77,30 @@ public final class WorkerDisguise {
 	/**
 	 * Rolls a Minecraft Comes Alive villager and hands back everything that makes it look the way
 	 * it does, or an empty compound if that could not be managed.
+	 *
+	 * <p>The villager is built, read off, and dropped. It is never put in the world and never
+	 * ticks: all that is kept is the data MCA reads a villager's body out of, which travels on the
+	 * worker and is handed to a stand in on each client.
 	 */
 	public static NbtCompound roll(MobEntity worker) {
 		try {
-			return McaWorkerDisguise.roll(worker);
+			VillagerEntity villager = McaVillagers.createRandom(worker.getWorld());
+
+			// Grown up. Age is otherwise rolled too, and a station is no place for a toddler.
+			villager.setBreedingAge(0);
+
+			// Standing where the worker stands, because some of what is about to be rolled is drawn
+			// from the climate the villager finds itself in.
+			villager.setPos(worker.getX(), worker.getY(), worker.getZ());
+			McaVillagers.randomizeGenetics(villager);
+			McaVillagers.rollSkin(villager);
+
+			return McaVillagers.wearingOf(villager);
 		} catch (Throwable failure) {
 			mcaGivenUp = true;
-			WorkstationsMod.LOGGER.warn("""
-					Could not dress workers as Minecraft Comes Alive villagers, so they will keep their own look. \
-					If MCA was installed as its combined "universal" download, swap it for the Fabric one: the \
-					combined build renames every class inside it, so nothing outside it can find them.""", failure);
+			WorkstationsMod.LOGGER.warn(
+					"Could not dress workers as Minecraft Comes Alive villagers, so they will keep their own look",
+					failure);
 			return new NbtCompound();
 		}
 	}

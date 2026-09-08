@@ -1,12 +1,12 @@
 package dev.keyboard.workstations.client;
 
-import net.mca.entity.VillagerEntityMCA;
-import net.mca.entity.ai.relationship.Gender;
+import dev.keyboard.workstations.McaVillagers;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.render.VertexConsumerProvider;
 import net.minecraft.client.render.entity.EntityRenderer;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.entity.mob.MobEntity;
+import net.minecraft.entity.passive.VillagerEntity;
 import net.minecraft.nbt.NbtCompound;
 
 import java.util.Map;
@@ -34,7 +34,7 @@ import java.util.WeakHashMap;
  *
  * <p>None of this goes through an API MCA offers, because it offers none for this, so anything here
  * is free to throw and this class makes no attempt to catch it. {@link WorkerLook} does the
- * catching, out where it can also survive this class failing to load at all.
+ * catching, out where one failure can put every worker back in its own skin for good.
  */
 final class McaVillagerLook {
 	/**
@@ -50,21 +50,23 @@ final class McaVillagerLook {
 	}
 
 	/** A stand in together with the villager data it was dressed in, so a change is noticed. */
-	private record StandIn(VillagerEntityMCA villager, NbtCompound wearing) {
+	private record StandIn(VillagerEntity villager, NbtCompound wearing) {
 	}
 
 	static boolean render(MobEntity worker, NbtCompound disguise, float yaw, float tickDelta,
 			MatrixStack matrices, VertexConsumerProvider vertexConsumers, int light) {
-		VillagerEntityMCA standIn = standInFor(worker, disguise);
+		VillagerEntity standIn = standInFor(worker, disguise);
 		pose(worker, standIn);
 
-		EntityRenderer<? super VillagerEntityMCA> renderer =
+		// Dispatched on the stand in's entity type, which is MCA's, so this hands back MCA's own
+		// renderer however the villager in front of it happens to be typed here.
+		EntityRenderer<? super VillagerEntity> renderer =
 				MinecraftClient.getInstance().getEntityRenderDispatcher().getRenderer(standIn);
 		renderer.render(standIn, yaw, tickDelta, matrices, vertexConsumers, light);
 		return true;
 	}
 
-	private static VillagerEntityMCA standInFor(MobEntity worker, NbtCompound disguise) {
+	private static VillagerEntity standInFor(MobEntity worker, NbtCompound disguise) {
 		StandIn held = STAND_INS.get(worker);
 
 		if (held == null || !held.wearing().equals(disguise)) {
@@ -75,14 +77,9 @@ final class McaVillagerLook {
 		return held.villager();
 	}
 
-	private static VillagerEntityMCA dress(MobEntity worker, NbtCompound disguise) {
-		// Which of the two villager types is built makes no difference. Gender is part of what is
-		// being put on, and MCA's model reads it back off the villager rather than off its type.
-		VillagerEntityMCA standIn = Gender.MALE.getVillagerType().create(worker.getWorld());
-
-		// MCA's own way of pouring one villager's data into another, which it uses to carry a
-		// villager across when one turns into a zombie. What it is being carried from is not read.
-		standIn.readNbtForConversion(standIn.getType(), disguise);
+	private static VillagerEntity dress(MobEntity worker, NbtCompound disguise) {
+		VillagerEntity standIn = McaVillagers.createStandIn(worker.getWorld());
+		McaVillagers.wear(standIn, disguise);
 
 		// The name plate over a worker is the worker's own business, drawn by the worker's own
 		// renderer, so the stand in must not put up a second one of its own.
@@ -97,7 +94,7 @@ final class McaVillagerLook {
 	 * because the renderer interpolates between the pair of them and a stale previous value would
 	 * have the villager swinging back to wherever it last stood on every frame.
 	 */
-	private static void pose(MobEntity worker, VillagerEntityMCA standIn) {
+	private static void pose(MobEntity worker, VillagerEntity standIn) {
 		walk(worker, standIn);
 
 		standIn.setPos(worker.getX(), worker.getY(), worker.getZ());
@@ -133,7 +130,7 @@ final class McaVillagerLook {
 	 * how many are owed, and a cap keeps a client that has fallen behind from paying them all at
 	 * once.
 	 */
-	private static void walk(MobEntity worker, VillagerEntityMCA standIn) {
+	private static void walk(MobEntity worker, VillagerEntity standIn) {
 		double travelledX = worker.getX() - worker.prevX;
 		double travelledZ = worker.getZ() - worker.prevZ;
 		float speed = (float) Math.min(Math.sqrt(travelledX * travelledX + travelledZ * travelledZ) * 4.0, 1.0);

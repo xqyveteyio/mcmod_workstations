@@ -1,6 +1,7 @@
 package dev.keyboard.workstations.entity.ai;
 
 import dev.keyboard.workstations.ModConfig;
+import dev.keyboard.workstations.WorkstationsMod;
 import dev.keyboard.workstations.work.StationSettings;
 import dev.keyboard.workstations.block.MilkBarrelBlockEntity;
 import dev.keyboard.workstations.block.RanchBlockEntity;
@@ -865,8 +866,9 @@ public class RancherBrain {
 		for (int slot = 0; slot < station.size(); slot++) {
 			ItemStack stack = station.getStack(slot);
 
-			// Both halves are the same species, so one animal's taste speaks for the pair.
-			if (!stack.isEmpty() && plan.first().isBreedingItem(stack)) {
+			// Both halves are the same species, so one animal's taste speaks for the pair. A pairing
+			// may be paid for half in wheat and half in universal feed: either portion will serve.
+			if (feeds(stack, plan.first())) {
 				found += stack.getCount();
 
 				if (found >= plan.portions()) {
@@ -1287,16 +1289,39 @@ public class RancherBrain {
 		return animals.stream().filter(animal -> findFeedSlot(station, animal) >= 0).toList();
 	}
 
+	/**
+	 * The slot this animal's next helping comes out of, or -1 when the station holds nothing it
+	 * would take.
+	 *
+	 * <p>What the animal eats of its own accord wins over universal feed wherever both are in the
+	 * station, so a chest stocked with wheat for the cows spends none of the crafted stuff on them.
+	 * Universal feed is then left for the animals nothing else in there would have fed.
+	 */
 	private static int findFeedSlot(Inventory station, AnimalEntity animal) {
+		int universal = -1;
+
 		for (int slot = 0; slot < station.size(); slot++) {
 			ItemStack stack = station.getStack(slot);
 
-			if (!stack.isEmpty() && animal.isBreedingItem(stack)) {
+			if (stack.isEmpty()) {
+				continue;
+			}
+
+			if (animal.isBreedingItem(stack)) {
 				return slot;
+			}
+
+			if (universal < 0 && stack.isOf(WorkstationsMod.UNIVERSAL_FEED)) {
+				universal = slot;
 			}
 		}
 
-		return -1;
+		return universal;
+	}
+
+	/** Whether one of these is a helping this animal will accept. */
+	private static boolean feeds(ItemStack stack, AnimalEntity animal) {
+		return !stack.isEmpty() && (animal.isBreedingItem(stack) || stack.isOf(WorkstationsMod.UNIVERSAL_FEED));
 	}
 
 	/** Moves what fits into {@code target}, mutating and returning the leftover. */
