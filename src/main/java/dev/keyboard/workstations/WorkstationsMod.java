@@ -13,36 +13,35 @@ import dev.keyboard.workstations.entity.FarmerEntity;
 import dev.keyboard.workstations.entity.RancherEntity;
 import dev.keyboard.workstations.network.StationNetworking;
 import net.fabricmc.api.ModInitializer;
+import net.fabricmc.fabric.api.client.itemgroup.FabricItemGroupBuilder;
 import net.fabricmc.fabric.api.event.player.UseBlockCallback;
-import net.fabricmc.fabric.api.itemgroup.v1.FabricItemGroup;
-import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
-import net.fabricmc.fabric.api.object.builder.v1.block.entity.FabricBlockEntityTypeBuilder;
 import net.fabricmc.fabric.api.object.builder.v1.entity.FabricDefaultAttributeRegistry;
 import net.minecraft.block.AbstractBlock;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.MapColor;
+import net.minecraft.block.Material;
 import net.minecraft.block.entity.BlockEntityType;
-import net.minecraft.block.piston.PistonBehavior;
 import net.minecraft.entity.EntityType;
 import net.minecraft.entity.SpawnGroup;
 import net.minecraft.item.BlockItem;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemGroup;
 import net.minecraft.item.ItemStack;
-import net.minecraft.registry.Registries;
-import net.minecraft.registry.Registry;
+import net.minecraft.util.registry.Registry;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.sound.BlockSoundGroup;
+import net.minecraft.text.LiteralText;
 import net.minecraft.text.Text;
+import net.minecraft.text.TranslatableText;
 import net.minecraft.util.ActionResult;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.math.BlockPos;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 public class WorkstationsMod implements ModInitializer {
 	public static final String MOD_ID = "keyboard_workstations";
-	public static final Logger LOGGER = LoggerFactory.getLogger(MOD_ID);
+	public static final Logger LOGGER = LogManager.getLogger(MOD_ID);
 
 	public static final Identifier RANCH_ID = id("ranch_station");
 	public static final Identifier RANCHER_ID = id("rancher");
@@ -63,25 +62,21 @@ public class WorkstationsMod implements ModInitializer {
 	public static final BlockItem MILK_BARREL_ITEM = new BlockItem(MILK_BARREL_BLOCK, new Item.Settings());
 	public static final BlockItem SEED_BOX_ITEM = new BlockItem(SEED_BOX_BLOCK, new Item.Settings());
 	public static final Item UNIVERSAL_FEED = new Item(new Item.Settings());
+public static final ItemGroup GROUP = FabricItemGroupBuilder.create(
+WorkstationsMod.id("keyboard_workstations"))
+.icon(() -> new ItemStack(RANCH_ITEM))
+.appendItems(stacks -> {
+stacks.add(new ItemStack(RANCH_ITEM));
+stacks.add(new ItemStack(FARM_ITEM));
+stacks.add(new ItemStack(MILK_BARREL_ITEM));
+stacks.add(new ItemStack(SEED_BOX_ITEM));
+stacks.add(new ItemStack(UNIVERSAL_FEED));
+})
+.build();
 
-	/**
-	 * One creative tab for everything the mod adds, rather than scattering four things through the
-	 * vanilla ones. Small enough a mod that a player looking for its parts wants them together, and
-	 * a station is no more a "functional block" than the feed is an "ingredient".
-	 */
-	public static final ItemGroup GROUP = FabricItemGroup.builder()
-			.icon(() -> new ItemStack(RANCH_ITEM))
-			.displayName(Text.translatable("itemGroup.keyboard_workstations"))
-			.entries((context, entries) -> {
-				entries.add(RANCH_ITEM);
-				entries.add(FARM_ITEM);
-				entries.add(MILK_BARREL_ITEM);
-				entries.add(SEED_BOX_ITEM);
-				entries.add(UNIVERSAL_FEED);
-			})
-			.build();
 
-	public static BlockEntityType<RanchBlockEntity> RANCH_BLOCK_ENTITY;
+
+public static BlockEntityType<RanchBlockEntity> RANCH_BLOCK_ENTITY;
 	public static BlockEntityType<FarmBlockEntity> FARM_BLOCK_ENTITY;
 	public static BlockEntityType<MilkBarrelBlockEntity> MILK_BARREL_BLOCK_ENTITY;
 	public static BlockEntityType<SeedBoxBlockEntity> SEED_BOX_BLOCK_ENTITY;
@@ -90,14 +85,10 @@ public class WorkstationsMod implements ModInitializer {
 
 	/** Both stations are the same wooden table underneath, so they are built the same way. */
 	private static AbstractBlock.Settings stationSettings() {
-		return AbstractBlock.Settings.create()
-				.mapColor(MapColor.OAK_TAN)
+		return AbstractBlock.Settings.of(Material.WOOD, MapColor.OAK_TAN)
 				.strength(1.5F)
 				.sounds(BlockSoundGroup.WOOD)
-				.burnable()
-				.nonOpaque()
-				.pistonBehavior(PistonBehavior.DESTROY)
-				.solidBlock((state, world, pos) -> false);
+				.nonOpaque();
 	}
 
 	/**
@@ -106,68 +97,62 @@ public class WorkstationsMod implements ModInitializer {
 	 * through it is unusual, because the top is open and the inside of the far wall shows.
 	 */
 	private static AbstractBlock.Settings barrelSettings() {
-		return AbstractBlock.Settings.create()
-				.mapColor(MapColor.OAK_TAN)
+		return AbstractBlock.Settings.of(Material.WOOD, MapColor.OAK_TAN)
 				.strength(1.5F)
 				.sounds(BlockSoundGroup.WOOD)
-				.burnable()
 				.nonOpaque();
 	}
 
 	/** A chest in all but name, so it is built out of what vanilla gives its own chests. */
 	private static AbstractBlock.Settings chestSettings() {
-		return AbstractBlock.Settings.create()
-				.mapColor(MapColor.OAK_TAN)
+		return AbstractBlock.Settings.of(Material.WOOD, MapColor.OAK_TAN)
 				.strength(2.5F)
-				.sounds(BlockSoundGroup.WOOD)
-				.burnable();
+				.sounds(BlockSoundGroup.WOOD);
 	}
 
 	@Override
 	public void onInitialize() {
 		ModConfig.get();
 
-		Registry.register(Registries.BLOCK, RANCH_ID, RANCH_BLOCK);
-		Registry.register(Registries.ITEM, RANCH_ID, RANCH_ITEM);
-		RANCH_BLOCK_ENTITY = Registry.register(Registries.BLOCK_ENTITY_TYPE, RANCH_ID,
-				FabricBlockEntityTypeBuilder.create(RanchBlockEntity::new, RANCH_BLOCK).build());
+		Registry.register(Registry.BLOCK, RANCH_ID, RANCH_BLOCK);
+		Registry.register(Registry.ITEM, RANCH_ID, RANCH_ITEM);
+		RANCH_BLOCK_ENTITY = Registry.register(Registry.BLOCK_ENTITY_TYPE, RANCH_ID,
+				BlockEntityType.Builder.create(RanchBlockEntity::new, RANCH_BLOCK).build(null));
 
-		Registry.register(Registries.BLOCK, FARM_ID, FARM_BLOCK);
-		Registry.register(Registries.ITEM, FARM_ID, FARM_ITEM);
-		FARM_BLOCK_ENTITY = Registry.register(Registries.BLOCK_ENTITY_TYPE, FARM_ID,
-				FabricBlockEntityTypeBuilder.create(FarmBlockEntity::new, FARM_BLOCK).build());
+		Registry.register(Registry.BLOCK, FARM_ID, FARM_BLOCK);
+		Registry.register(Registry.ITEM, FARM_ID, FARM_ITEM);
+		FARM_BLOCK_ENTITY = Registry.register(Registry.BLOCK_ENTITY_TYPE, FARM_ID,
+				BlockEntityType.Builder.create(FarmBlockEntity::new, FARM_BLOCK).build(null));
 
 		// No spawn egg and no natural spawning: a station is the only thing that makes a worker.
-		RANCHER = Registry.register(Registries.ENTITY_TYPE, RANCHER_ID,
+		RANCHER = Registry.register(Registry.ENTITY_TYPE, RANCHER_ID,
 				EntityType.Builder.<RancherEntity>create(RancherEntity::new, SpawnGroup.MISC)
 						.setDimensions(0.6F, 1.95F)
 						.maxTrackingRange(10)
 						.build(RANCHER_ID.getPath()));
 		FabricDefaultAttributeRegistry.register(RANCHER, RancherEntity.createRancherAttributes());
 
-		FARMER = Registry.register(Registries.ENTITY_TYPE, FARMER_ID,
+		FARMER = Registry.register(Registry.ENTITY_TYPE, FARMER_ID,
 				EntityType.Builder.<FarmerEntity>create(FarmerEntity::new, SpawnGroup.MISC)
 						.setDimensions(0.6F, 1.95F)
 						.maxTrackingRange(10)
 						.build(FARMER_ID.getPath()));
 		FabricDefaultAttributeRegistry.register(FARMER, FarmerEntity.createFarmerAttributes());
 
-		Registry.register(Registries.BLOCK, MILK_BARREL_ID, MILK_BARREL_BLOCK);
-		Registry.register(Registries.ITEM, MILK_BARREL_ID, MILK_BARREL_ITEM);
-		MILK_BARREL_BLOCK_ENTITY = Registry.register(Registries.BLOCK_ENTITY_TYPE, MILK_BARREL_ID,
-				FabricBlockEntityTypeBuilder.create(MilkBarrelBlockEntity::new, MILK_BARREL_BLOCK).build());
+		Registry.register(Registry.BLOCK, MILK_BARREL_ID, MILK_BARREL_BLOCK);
+		Registry.register(Registry.ITEM, MILK_BARREL_ID, MILK_BARREL_ITEM);
+		MILK_BARREL_BLOCK_ENTITY = Registry.register(Registry.BLOCK_ENTITY_TYPE, MILK_BARREL_ID,
+				BlockEntityType.Builder.create(MilkBarrelBlockEntity::new, MILK_BARREL_BLOCK).build(null));
 
-		Registry.register(Registries.BLOCK, SEED_BOX_ID, SEED_BOX_BLOCK);
-		Registry.register(Registries.ITEM, SEED_BOX_ID, SEED_BOX_ITEM);
-		SEED_BOX_BLOCK_ENTITY = Registry.register(Registries.BLOCK_ENTITY_TYPE, SEED_BOX_ID,
-				FabricBlockEntityTypeBuilder.create(SeedBoxBlockEntity::new, SEED_BOX_BLOCK).build());
+		Registry.register(Registry.BLOCK, SEED_BOX_ID, SEED_BOX_BLOCK);
+		Registry.register(Registry.ITEM, SEED_BOX_ID, SEED_BOX_ITEM);
+		SEED_BOX_BLOCK_ENTITY = Registry.register(Registry.BLOCK_ENTITY_TYPE, SEED_BOX_ID,
+				BlockEntityType.Builder.create(SeedBoxBlockEntity::new, SEED_BOX_BLOCK).build(null));
 
-		Registry.register(Registries.ITEM, UNIVERSAL_FEED_ID, UNIVERSAL_FEED);
-		Registry.register(Registries.ITEM_GROUP, GROUP_ID, GROUP);
+		Registry.register(Registry.ITEM, UNIVERSAL_FEED_ID, UNIVERSAL_FEED);
 
 		StationNetworking.registerServerReceivers();
 		registerSettingsGesture();
-		announceMcaRefusal();
 
 		LOGGER.info("Workstations initialized");
 	}
@@ -197,26 +182,6 @@ public class WorkstationsMod implements ModInitializer {
 
 			return ActionResult.SUCCESS;
 		});
-	}
-
-	/**
-	 * Says once, to each player as they arrive, that the installed Minecraft Comes Alive is not one
-	 * workers can be dressed from.
-	 *
-	 * <p>Sent from the server rather than shown on the client so that it reaches the people who can
-	 * do something about it: on a server it is the jar sitting there that decides how workers look,
-	 * and a player has no way of telling from their own side which of the two ends turned it down.
-	 * Registered only when there is something to say, so the usual case costs nothing at all.
-	 */
-	private static void announceMcaRefusal() {
-		Text notice = McaSupport.refusalNotice();
-
-		if (notice == null) {
-			return;
-		}
-
-		ServerPlayConnectionEvents.JOIN.register((handler, sender, server) ->
-				handler.getPlayer().sendMessage(notice, false));
 	}
 
 	public static Identifier id(String path) {

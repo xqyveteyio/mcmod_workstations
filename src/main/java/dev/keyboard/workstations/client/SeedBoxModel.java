@@ -7,63 +7,47 @@ import net.minecraft.client.model.ModelPart;
 import net.minecraft.client.render.RenderLayer;
 import net.minecraft.client.render.VertexConsumer;
 import net.minecraft.client.render.VertexConsumerProvider;
-import net.minecraft.client.render.entity.model.EntityModelLayers;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.math.Direction;
-import net.minecraft.util.math.RotationAxis;
+import net.minecraft.util.math.Vec3f;
 
-/**
- * A chest, drawn in the seed box's colours out of vanilla's own chest model.
- *
- * <p>The three parts are borrowed rather than built. Vanilla already loads a single chest's base,
- * lid and latch under {@link EntityModelLayers#CHEST}, laid out against a 64 by 64 sheet, so the
- * box's texture only has to follow that same layout to sit on them correctly. Nothing here models
- * anything.
- *
- * <p>Vanilla's chest renderer cannot simply be reused, close as this is to it: which texture it
- * draws with is decided inside it, from whether the block entity is an ender or a trapped chest, so
- * a fourth kind of chest has no way to answer. This exists to supply the texture, and is shared by
- * the placed block and the item in hand.
- */
 class SeedBoxModel {
-	private static final Identifier TEXTURE = WorkstationsMod.id("textures/entity/seed_box.png");
+private static final Identifier TEXTURE = WorkstationsMod.id("textures/entity/seed_box.png");
 
-	private final ModelPart base;
-	private final ModelPart lid;
-	private final ModelPart latch;
+private final ModelPart base;
+private final ModelPart lid;
+private final ModelPart latch;
 
-	SeedBoxModel(ModelPart chest) {
-		base = chest.getChild("bottom");
-		lid = chest.getChild("lid");
-		latch = chest.getChild("lock");
-	}
+SeedBoxModel() {
+base = new ModelPart(64, 64, 0, 19);
+base.addCuboid(1.0F, 0.0F, 1.0F, 14.0F, 10.0F, 14.0F, 0.0F);
 
-	/**
-	 * @param openness how far the lid has swung, 0 shut and 1 wide open. The item in hand is always
-	 *     given 0, having no block entity to have been opened.
-	 */
-	void render(BlockState state, float openness, MatrixStack matrices,
-			VertexConsumerProvider vertexConsumers, int light, int overlay) {
-		matrices.push();
+lid = new ModelPart(64, 64, 0, 0);
+lid.addCuboid(1.0F, 10.0F, 1.0F, 14.0F, 5.0F, 14.0F, 0.0F);
 
-		// Turned about its own middle, so the latch ends up on the face the chest was put down
-		// looking out of rather than swinging the whole body off the block.
-		Direction facing = state.contains(SeedBoxBlock.FACING) ? state.get(SeedBoxBlock.FACING) : Direction.NORTH;
-		matrices.translate(0.5F, 0.5F, 0.5F);
-		matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(-facing.asRotation()));
-		matrices.translate(-0.5F, -0.5F, -0.5F);
+latch = new ModelPart(64, 64, 0, 0);
+latch.addCuboid(7.0F, 9.0F, 15.0F, 2.0F, 4.0F, 1.0F, 0.0F);
+}
 
-		// Vanilla's easing, which sets the lid moving quickly and lets it settle shut.
-		float eased = 1.0F - openness;
-		eased = 1.0F - eased * eased * eased;
+void render(BlockState state, float openness, MatrixStack matrices,
+VertexConsumerProvider vertexConsumers, int light, int overlay) {
+matrices.push();
 
-		VertexConsumer vertices = vertexConsumers.getBuffer(RenderLayer.getEntityCutout(TEXTURE));
-		lid.pitch = -(eased * ((float) Math.PI / 2.0F));
-		latch.pitch = lid.pitch;
-		lid.render(matrices, vertices, light, overlay);
-		latch.render(matrices, vertices, light, overlay);
-		base.render(matrices, vertices, light, overlay);
-		matrices.pop();
-	}
+Direction facing = state.contains(SeedBoxBlock.FACING) ? state.get(SeedBoxBlock.FACING) : Direction.NORTH;
+matrices.translate(0.5F, 0.5F, 0.5F);
+matrices.multiply(Vec3f.POSITIVE_Y.getDegreesQuaternion(-facing.asRotation()));
+matrices.translate(-0.5F, -0.5F, -0.5F);
+
+float eased = 1.0F - openness;
+eased = 1.0F - eased * eased * eased;
+
+VertexConsumer vertices = vertexConsumers.getBuffer(RenderLayer.getEntityCutout(TEXTURE));
+lid.pitch = -(eased * ((float) Math.PI / 2.0F));
+latch.pitch = lid.pitch;
+lid.render(matrices, vertices, light, overlay);
+latch.render(matrices, vertices, light, overlay);
+base.render(matrices, vertices, light, overlay);
+matrices.pop();
+}
 }

@@ -97,7 +97,7 @@ public abstract class SettingOption<S> {
 
 		@Override
 		public void read(S settings, NbtCompound nbt) {
-			if (nbt.contains(key(), NbtElement.BYTE_TYPE)) {
+			if (nbt.contains(key(), 1)) {
 				set(settings, nbt.getBoolean(key()));
 			}
 		}
@@ -145,7 +145,7 @@ public abstract class SettingOption<S> {
 
 		@Override
 		public void read(S settings, NbtCompound nbt) {
-			if (nbt.contains(key(), NbtElement.INT_TYPE)) {
+			if (nbt.contains(key(), 3)) {
 				set(settings, nbt.getInt(key()));
 			}
 		}
@@ -195,7 +195,7 @@ public abstract class SettingOption<S> {
 
 		@Override
 		public void read(S settings, NbtCompound nbt) {
-			if (nbt.contains(key(), NbtElement.INT_TYPE)) {
+			if (nbt.contains(key(), 3)) {
 				set(settings, nbt.getInt(key()));
 			}
 		}

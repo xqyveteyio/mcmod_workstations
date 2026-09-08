@@ -13,12 +13,15 @@ import net.minecraft.sound.SoundEvent;
 import net.minecraft.sound.SoundEvents;
 import net.minecraft.state.StateManager;
 import net.minecraft.state.property.IntProperty;
+import net.minecraft.text.LiteralText;
 import net.minecraft.text.Text;
+import net.minecraft.text.TranslatableText;
 import net.minecraft.util.ActionResult;
 import net.minecraft.util.Hand;
 import net.minecraft.util.hit.BlockHitResult;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.MathHelper;
+import net.minecraft.world.BlockView;
 import net.minecraft.world.World;
 import org.jetbrains.annotations.Nullable;
 
@@ -49,10 +52,9 @@ public class MilkBarrelBlock extends BlockWithEntity {
 		return BlockRenderType.MODEL;
 	}
 
-	@Nullable
 	@Override
-	public BlockEntity createBlockEntity(BlockPos pos, BlockState state) {
-		return new MilkBarrelBlockEntity(pos, state);
+	public BlockEntity createBlockEntity(BlockView view) {
+		return new MilkBarrelBlockEntity();
 	}
 
 	/** Brings the shown level back in line with the amount held, if the two have drifted apart. */
@@ -62,7 +64,7 @@ public class MilkBarrelBlock extends BlockWithEntity {
 						/ (MilkBarrelBlockEntity.CAPACITY / 4));
 
 		if (state.get(LEVEL) != shown) {
-			world.setBlockState(pos, state.with(LEVEL, shown), Block.NOTIFY_ALL);
+			world.setBlockState(pos, state.with(LEVEL, shown), 3);
 		}
 	}
 
@@ -82,13 +84,13 @@ public class MilkBarrelBlock extends BlockWithEntity {
 
 		ItemStack held = player.getStackInHand(hand);
 
-		if (held.isOf(Items.BUCKET) && barrel.drain()) {
+		if (held.getItem() == Items.BUCKET && barrel.drain()) {
 			swap(player, hand, held, new ItemStack(Items.MILK_BUCKET));
 			announce(world, pos, player, barrel, SoundEvents.ITEM_BUCKET_FILL);
 			return ActionResult.CONSUME;
 		}
 
-		if (held.isOf(Items.MILK_BUCKET) && barrel.fill()) {
+		if (held.getItem() == Items.MILK_BUCKET && barrel.fill()) {
 			swap(player, hand, held, new ItemStack(Items.BUCKET));
 			announce(world, pos, player, barrel, SoundEvents.ITEM_BUCKET_EMPTY);
 			return ActionResult.CONSUME;
@@ -106,7 +108,7 @@ public class MilkBarrelBlock extends BlockWithEntity {
 	 * alone, and is given nothing, since the point of the trade was the milk rather than the tin.
 	 */
 	private static void swap(PlayerEntity player, Hand hand, ItemStack held, ItemStack returned) {
-		if (player.getAbilities().creativeMode) {
+		if (player.abilities.creativeMode) {
 			return;
 		}
 
@@ -114,7 +116,7 @@ public class MilkBarrelBlock extends BlockWithEntity {
 
 		if (held.isEmpty()) {
 			player.setStackInHand(hand, returned);
-		} else if (!player.getInventory().insertStack(returned)) {
+		} else if (!player.inventory.insertStack(returned)) {
 			player.dropItem(returned, false);
 		}
 	}
@@ -126,7 +128,7 @@ public class MilkBarrelBlock extends BlockWithEntity {
 	}
 
 	private static Text level(MilkBarrelBlockEntity barrel) {
-		return Text.translatable("message.keyboard_workstations.milk_barrel_level",
+		return new TranslatableText("message.keyboard_workstations.milk_barrel_level",
 				barrel.getStored(), MilkBarrelBlockEntity.CAPACITY);
 	}
 

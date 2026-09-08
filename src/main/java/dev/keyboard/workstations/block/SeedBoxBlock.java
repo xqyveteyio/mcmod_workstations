@@ -7,13 +7,10 @@ import net.minecraft.block.BlockState;
 import net.minecraft.block.BlockWithEntity;
 import net.minecraft.block.ShapeContext;
 import net.minecraft.block.entity.BlockEntity;
-import net.minecraft.block.entity.BlockEntityTicker;
-import net.minecraft.block.entity.BlockEntityType;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.item.ItemPlacementContext;
 import net.minecraft.screen.NamedScreenHandlerFactory;
 import net.minecraft.screen.ScreenHandler;
-import net.minecraft.server.world.ServerWorld;
 import net.minecraft.state.StateManager;
 import net.minecraft.state.property.DirectionProperty;
 import net.minecraft.state.property.Properties;
@@ -25,7 +22,8 @@ import net.minecraft.util.ItemScatterer;
 import net.minecraft.util.hit.BlockHitResult;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Direction;
-import net.minecraft.util.math.random.Random;
+import net.minecraft.server.world.ServerWorld;
+import java.util.Random;
 import net.minecraft.util.shape.VoxelShape;
 import net.minecraft.world.BlockView;
 import net.minecraft.world.World;
@@ -59,7 +57,7 @@ public class SeedBoxBlock extends BlockWithEntity {
 	@Nullable
 	@Override
 	public BlockState getPlacementState(ItemPlacementContext ctx) {
-		return getDefaultState().with(FACING, ctx.getHorizontalPlayerFacing().getOpposite());
+		return getDefaultState().with(FACING, ctx.getPlayer().getHorizontalFacing().getOpposite());
 	}
 
 	@Override
@@ -87,23 +85,10 @@ public class SeedBoxBlock extends BlockWithEntity {
 		return BlockRenderType.ENTITYBLOCK_ANIMATED;
 	}
 
-	@Nullable
 	@Override
-	public BlockEntity createBlockEntity(BlockPos pos, BlockState state) {
-		return new SeedBoxBlockEntity(pos, state);
+	public BlockEntity createBlockEntity(BlockView view) {
+		return new SeedBoxBlockEntity();
 	}
-
-	/** Client side only: the lid's angle is the one thing that has to be kept moving every tick. */
-	@Nullable
-	@Override
-	public <T extends BlockEntity> BlockEntityTicker<T> getTicker(World world, BlockState state, BlockEntityType<T> type) {
-		if (!world.isClient) {
-			return null;
-		}
-
-		return checkType(type, WorkstationsMod.SEED_BOX_BLOCK_ENTITY, SeedBoxBlockEntity::clientTick);
-	}
-
 	@Override
 	public ActionResult onUse(BlockState state, World world, BlockPos pos, PlayerEntity player, Hand hand, BlockHitResult hit) {
 		if (world.isClient) {
@@ -119,7 +104,8 @@ public class SeedBoxBlock extends BlockWithEntity {
 		return ActionResult.CONSUME;
 	}
 
-	/** Recounts who has the box open, so a lid left up by a player who logged out comes back down. */
+
+	/** Recounts who has the box open, so a lid left up after a quit can close again. */
 	@Override
 	public void scheduledTick(BlockState state, ServerWorld world, BlockPos pos, Random random) {
 		if (world.getBlockEntity(pos) instanceof SeedBoxBlockEntity box) {

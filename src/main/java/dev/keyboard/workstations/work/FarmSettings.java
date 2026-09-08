@@ -131,7 +131,7 @@ public final class FarmSettings implements WorkerSettings<FarmSettings> {
 			option.read(this, nbt);
 		}
 
-		if (nbt.contains(MIX_KEY, NbtElement.COMPOUND_TYPE)) {
+		if (nbt.contains(MIX_KEY, 10)) {
 			seedMix.readNbt(nbt.getCompound(MIX_KEY));
 		}
 

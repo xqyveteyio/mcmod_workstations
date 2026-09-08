@@ -7,8 +7,6 @@ import net.minecraft.block.BlockState;
 import net.minecraft.block.BlockWithEntity;
 import net.minecraft.block.ShapeContext;
 import net.minecraft.block.entity.BlockEntity;
-import net.minecraft.block.entity.BlockEntityTicker;
-import net.minecraft.block.entity.BlockEntityType;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.ai.pathing.NavigationType;
 import net.minecraft.entity.player.PlayerEntity;
@@ -20,7 +18,9 @@ import net.minecraft.server.world.ServerWorld;
 import net.minecraft.state.StateManager;
 import net.minecraft.state.property.DirectionProperty;
 import net.minecraft.state.property.Properties;
+import net.minecraft.text.LiteralText;
 import net.minecraft.text.Text;
+import net.minecraft.text.TranslatableText;
 import net.minecraft.util.ActionResult;
 import net.minecraft.util.BlockMirror;
 import net.minecraft.util.BlockRotation;
@@ -62,7 +62,7 @@ public class FarmBlock extends BlockWithEntity {
 	@Nullable
 	@Override
 	public BlockState getPlacementState(ItemPlacementContext ctx) {
-		return getDefaultState().with(FACING, ctx.getHorizontalPlayerFacing().getOpposite());
+		return getDefaultState().with(FACING, ctx.getPlayer().getHorizontalFacing().getOpposite());
 	}
 
 	@Override
@@ -91,22 +91,10 @@ public class FarmBlock extends BlockWithEntity {
 		return BlockRenderType.MODEL;
 	}
 
-	@Nullable
 	@Override
-	public BlockEntity createBlockEntity(BlockPos pos, BlockState state) {
-		return new FarmBlockEntity(pos, state);
+	public BlockEntity createBlockEntity(BlockView view) {
+		return new FarmBlockEntity();
 	}
-
-	@Nullable
-	@Override
-	public <T extends BlockEntity> BlockEntityTicker<T> getTicker(World world, BlockState state, BlockEntityType<T> type) {
-		if (world.isClient) {
-			return null;
-		}
-
-		return checkType(type, WorkstationsMod.FARM_BLOCK_ENTITY, WorkStationBlockEntity::serverTick);
-	}
-
 	@Override
 	public void onPlaced(World world, BlockPos pos, BlockState state, @Nullable LivingEntity placer, ItemStack itemStack) {
 		super.onPlaced(world, pos, state, placer, itemStack);
@@ -122,7 +110,7 @@ public class FarmBlock extends BlockWithEntity {
 		station.summonWorker(serverWorld);
 
 		if (placer instanceof PlayerEntity player) {
-			player.sendMessage(Text.translatable("message.keyboard_workstations.farm_placed", plots), true);
+			player.sendMessage(new TranslatableText("message.keyboard_workstations.farm_placed", plots), true);
 		}
 	}
 

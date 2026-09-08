@@ -12,10 +12,12 @@ import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.item.Item;
 import net.minecraft.nbt.NbtCompound;
 import net.minecraft.network.PacketByteBuf;
-import net.minecraft.registry.Registries;
+import net.minecraft.util.registry.Registry;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.server.world.ServerWorld;
+import net.minecraft.text.LiteralText;
 import net.minecraft.text.Text;
+import net.minecraft.text.TranslatableText;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.math.BlockPos;
 import org.jetbrains.annotations.Nullable;
@@ -84,12 +86,12 @@ public final class StationNetworking {
 			server.execute(() -> {
 				WorkStationBlockEntity<?, ?> station = reachableStation(player, pos);
 
-				if (station == null || !(player.getWorld() instanceof ServerWorld world)) {
+				if (station == null || !(player.getEntityWorld() instanceof ServerWorld world)) {
 					return;
 				}
 
 				// Over the hotbar rather than in the screen, so the answer survives closing it.
-				player.sendMessage(Text.translatable(switch (station.recallWorker(world)) {
+				player.sendMessage(new TranslatableText(switch (station.recallWorker(world)) {
 					case SUMMONED -> "message.keyboard_workstations.worker_summoned";
 					case MOVED -> "message.keyboard_workstations.worker_recalled";
 					case NO_ROOM -> "message.keyboard_workstations.worker_no_room";
@@ -102,11 +104,11 @@ public final class StationNetworking {
 
 			server.execute(() -> {
 				if (!(reachableStation(player, pos) instanceof FarmBlockEntity farm)
-						|| !(player.getWorld() instanceof ServerWorld world)) {
+						|| !(player.getEntityWorld() instanceof ServerWorld world)) {
 					return;
 				}
 
-				player.sendMessage(Text.translatable("message.keyboard_workstations.plots_registered",
+				player.sendMessage(new TranslatableText("message.keyboard_workstations.plots_registered",
 						farm.registerPlots(world)), true);
 			});
 		});
@@ -121,13 +123,13 @@ public final class StationNetworking {
 	public static void openScreen(ServerPlayerEntity player, BlockPos pos) {
 		PacketByteBuf buf = PacketByteBufs.create();
 		buf.writeBlockPos(pos);
-		List<Item> palette = player.getWorld().getBlockEntity(pos) instanceof FarmBlockEntity farm
+		List<Item> palette = player.getEntityWorld().getBlockEntity(pos) instanceof FarmBlockEntity farm
 				? Crops.palette(farm.seedStores())
 				: List.of();
 		buf.writeVarInt(palette.size());
 
 		for (Item seed : palette) {
-			buf.writeIdentifier(Registries.ITEM.getId(seed));
+			buf.writeIdentifier(Registry.ITEM.getId(seed));
 		}
 
 		ServerPlayNetworking.send(player, OPEN_SCREEN, buf);
@@ -143,7 +145,7 @@ public final class StationNetworking {
 			return null;
 		}
 
-		return player.getWorld().getBlockEntity(pos) instanceof WorkStationBlockEntity<?, ?> station
+		return player.getEntityWorld().getBlockEntity(pos) instanceof WorkStationBlockEntity<?, ?> station
 				? station
 				: null;
 	}

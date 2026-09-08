@@ -6,13 +6,13 @@ import net.minecraft.client.render.RenderLayer;
 import net.minecraft.client.render.VertexConsumer;
 import net.minecraft.client.render.VertexConsumerProvider;
 import net.minecraft.client.render.block.entity.BlockEntityRenderer;
-import net.minecraft.client.render.block.entity.BlockEntityRendererFactory;
+import net.minecraft.client.render.block.entity.BlockEntityRenderDispatcher;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Box;
 import net.minecraft.util.math.MathHelper;
-import org.joml.Matrix3f;
-import org.joml.Matrix4f;
+import net.minecraft.util.math.Matrix3f;
+import net.minecraft.util.math.Matrix4f;
 
 /**
  * Draws a worker's work area for debugging: a wireframe box for the whole volume plus a
@@ -22,12 +22,13 @@ import org.joml.Matrix4f;
  * <p>Generic over the kind of station, since every station has an area and none of the drawing
  * cares what the work inside it is.
  */
-public class WorkAreaHighlightRenderer<T extends WorkStationBlockEntity<?, ?>> implements BlockEntityRenderer<T> {
+public class WorkAreaHighlightRenderer<T extends WorkStationBlockEntity<?, ?>> extends BlockEntityRenderer<T> {
 	private static final float FLOOR_OFFSET = 0.02F;
 	private static final float FILL_ALPHA = 0.10F;
 	private static final float LINE_ALPHA = 0.8F;
 
-	public WorkAreaHighlightRenderer(BlockEntityRendererFactory.Context context) {
+	public WorkAreaHighlightRenderer(BlockEntityRenderDispatcher dispatcher) {
+		super(dispatcher);
 	}
 
 	@Override
@@ -35,7 +36,6 @@ public class WorkAreaHighlightRenderer<T extends WorkStationBlockEntity<?, ?>> i
 		return true;
 	}
 
-	@Override
 	public int getRenderDistance() {
 		return 192;
 	}
@@ -70,8 +70,8 @@ public class WorkAreaHighlightRenderer<T extends WorkStationBlockEntity<?, ?>> i
 
 	private void renderFloor(MatrixStack matrices, VertexConsumerProvider vertexConsumers,
 			float minX, float minZ, float maxX, float maxZ) {
-		VertexConsumer buffer = vertexConsumers.getBuffer(RenderLayer.getDebugQuads());
-		Matrix4f matrix = matrices.peek().getPositionMatrix();
+		VertexConsumer buffer = vertexConsumers.getBuffer(RenderLayer.getLines());
+		Matrix4f matrix = matrices.peek().getModel();
 
 		buffer.vertex(matrix, minX, FLOOR_OFFSET, minZ).color(0.3F, 0.85F, 0.95F, FILL_ALPHA).next();
 		buffer.vertex(matrix, minX, FLOOR_OFFSET, maxZ).color(0.3F, 0.85F, 0.95F, FILL_ALPHA).next();
@@ -112,8 +112,8 @@ public class WorkAreaHighlightRenderer<T extends WorkStationBlockEntity<?, ?>> i
 		dy /= length;
 		dz /= length;
 
-		Matrix4f position = entry.getPositionMatrix();
-		Matrix3f normal = entry.getNormalMatrix();
+		Matrix4f position = entry.getModel();
+		Matrix3f normal = entry.getNormal();
 		buffer.vertex(position, x1, y1, z1).color(red, green, blue, LINE_ALPHA).normal(normal, dx, dy, dz).next();
 		buffer.vertex(position, x2, y2, z2).color(red, green, blue, LINE_ALPHA).normal(normal, dx, dy, dz).next();
 	}

@@ -24,7 +24,7 @@ import net.minecraft.inventory.Inventory;
 import net.minecraft.inventory.SimpleInventory;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
-import net.minecraft.registry.Registries;
+import net.minecraft.util.registry.Registry;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.sound.SoundCategory;
 import net.minecraft.sound.SoundEvents;
@@ -187,7 +187,7 @@ public class FarmerBrain {
 	private double closest = Double.MAX_VALUE;
 
 	public void tick(FarmerEntity farmer) {
-		if (!(farmer.getWorld() instanceof ServerWorld world)) {
+		if (!(farmer.getEntityWorld() instanceof ServerWorld world)) {
 			return;
 		}
 
@@ -273,7 +273,7 @@ public class FarmerBrain {
 		}
 
 		if (job == Job.SOW && sowing != null) {
-			text.append(' ').append(Registries.ITEM.getId(sowing).getPath());
+			text.append(' ').append(Registry.ITEM.getId(sowing).getPath());
 		}
 
 		if (state == State.WALKING) {
@@ -401,7 +401,7 @@ public class FarmerBrain {
 	 */
 	private boolean jobValid(ServerWorld world, FarmSettings config) {
 		if (job == Job.COLLECT) {
-			return target != null && target.isAlive() && !target.isRemoved();
+			return target != null && target.isAlive() && !target.removed;
 		}
 
 		if (targetPos == null) {
@@ -849,7 +849,7 @@ public class FarmerBrain {
 
 		for (ItemEntity drop : world.getEntitiesByClass(ItemEntity.class, area.getBox(),
 				item -> item.isAlive() && !item.cannotPickup() && farmer.getCarried().canInsert(item.getStack()))) {
-			if (blockedDrops.get(drop.getId()) <= now) {
+			if (blockedDrops.get(drop.getEntityId()) <= now) {
 				queue.add(drop);
 			}
 		}
@@ -888,7 +888,7 @@ public class FarmerBrain {
 				return drop;
 			}
 
-			blockedDrops.put(drop.getId(), world.getTime() + BLOCKED_COOLDOWN);
+			blockedDrops.put(drop.getEntityId(), world.getTime() + BLOCKED_COOLDOWN);
 			note = "unreachable";
 		}
 
@@ -897,7 +897,7 @@ public class FarmerBrain {
 
 	private void blockCurrentTarget(ServerWorld world) {
 		if (target != null) {
-			blockedDrops.put(target.getId(), world.getTime() + BLOCKED_COOLDOWN);
+			blockedDrops.put(target.getEntityId(), world.getTime() + BLOCKED_COOLDOWN);
 		} else if (targetPos != null && job != Job.DEPOSIT) {
 			blockedPlots.put(targetPos.asLong(), world.getTime() + BLOCKED_COOLDOWN);
 		}
@@ -1040,14 +1040,14 @@ public class FarmerBrain {
 		ItemStack remainder = farmer.getCarried().addStack(item.getStack().copy());
 
 		if (remainder.isEmpty()) {
-			item.discard();
+			item.remove();
 		} else {
 			item.setStack(remainder);
 		}
 
-		farmer.getWorld().playSound(null, farmer.getBlockPos(), SoundEvents.ENTITY_ITEM_PICKUP,
+		farmer.getEntityWorld().playSound(null, farmer.getBlockPos(), SoundEvents.ENTITY_ITEM_PICKUP,
 				SoundCategory.NEUTRAL, 0.15F,
-				(farmer.getRandom().nextFloat() - farmer.getRandom().nextFloat()) * 1.4F + 2.0F);
+				(farmer.getEntityWorld().random.nextFloat() - farmer.getEntityWorld().random.nextFloat()) * 1.4F + 2.0F);
 		phaseWorked = true;
 		return true;
 	}
@@ -1221,7 +1221,7 @@ public class FarmerBrain {
 			for (int slot = 0; slot < box.size(); slot++) {
 				ItemStack existing = box.getStack(slot);
 
-				if (ItemStack.canCombine(existing, stack)) {
+				if (ItemStack.areItemsEqual(existing, stack)) {
 					held += existing.getCount();
 				}
 			}
@@ -1259,7 +1259,7 @@ public class FarmerBrain {
 				break;
 			}
 
-			if (!ItemStack.canCombine(existing, stack)) {
+			if (!ItemStack.areItemsEqual(existing, stack)) {
 				continue;
 			}
 

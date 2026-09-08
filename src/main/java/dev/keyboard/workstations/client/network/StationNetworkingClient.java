@@ -13,7 +13,7 @@ import net.minecraft.client.MinecraftClient;
 import net.minecraft.item.Item;
 import net.minecraft.nbt.NbtCompound;
 import net.minecraft.network.PacketByteBuf;
-import net.minecraft.registry.Registries;
+import net.minecraft.util.registry.Registry;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.World;
@@ -54,9 +54,9 @@ public final class StationNetworkingClient {
 		}
 
 		if (world.getBlockEntity(pos) instanceof FarmBlockEntity farm) {
-			client.setScreen(new FarmSettingsScreen(pos, farm.getSettings().copy(), items(palette)));
+			client.openScreen(new FarmSettingsScreen(pos, farm.getSettings().copy(), items(palette)));
 		} else if (world.getBlockEntity(pos) instanceof RanchBlockEntity ranch) {
-			client.setScreen(new StationSettingsScreen(pos, ranch.getSettings().copy()));
+			client.openScreen(new StationSettingsScreen(pos, ranch.getSettings().copy()));
 		}
 	}
 
@@ -65,8 +65,8 @@ public final class StationNetworkingClient {
 		List<Item> seeds = new ArrayList<>(ids.size());
 
 		for (Identifier id : ids) {
-			if (Registries.ITEM.containsId(id)) {
-				seeds.add(Registries.ITEM.get(id));
+			if (Registry.ITEM.containsId(id)) {
+				seeds.add(Registry.ITEM.get(id));
 			}
 		}
 

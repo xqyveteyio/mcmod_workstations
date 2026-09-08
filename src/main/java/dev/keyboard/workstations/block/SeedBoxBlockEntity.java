@@ -2,10 +2,8 @@ package dev.keyboard.workstations.block;
 
 import dev.keyboard.workstations.WorkstationsMod;
 import net.minecraft.block.BlockState;
-import net.minecraft.block.entity.ChestLidAnimator;
-import net.minecraft.block.entity.LidOpenable;
+import net.minecraft.block.entity.ChestBlockEntity;
 import net.minecraft.block.entity.LootableContainerBlockEntity;
-import net.minecraft.block.entity.ViewerCountManager;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.entity.player.PlayerInventory;
 import net.minecraft.inventory.Inventories;
@@ -17,152 +15,163 @@ import net.minecraft.sound.SoundCategory;
 import net.minecraft.sound.SoundEvent;
 import net.minecraft.sound.SoundEvents;
 import net.minecraft.text.Text;
+import net.minecraft.text.TranslatableText;
+import net.minecraft.util.Tickable;
 import net.minecraft.util.collection.DefaultedList;
 import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.MathHelper;
 import net.minecraft.world.World;
 
-/**
- * Somewhere for a farm station's seed to live that is not the same shelves its produce lands on.
- *
- * <p>Two chests' worth of room, and nothing like a chest underneath it. A double chest is a single
- * container answering to two positions, which a station sweeping its area for boxes would find
- * twice and have to reason about. A plain block with an inventory has none of that: two set side by
- * side stay two boxes, each counted once.
- *
- * <p>The lid is a chest's lid all the same, opened and shut the way vanilla does it, which is why
- * the viewer counting below is worth its length. Nothing but the count crosses to the client: the
- * lid's actual angle is worked out there from how long it has been open.
- */
-public class SeedBoxBlockEntity extends LootableContainerBlockEntity implements LidOpenable {
-	/** Slots. Two chests' worth, which is about what a field's seed and its returns come to. */
-	public static final int INVENTORY_SIZE = 54;
+public class SeedBoxBlockEntity extends LootableContainerBlockEntity implements Tickable {
+public static final int INVENTORY_SIZE = 54;
 
-	/** The block event that carries a changed viewer count out to everyone watching. */
-	private static final int VIEWER_COUNT_EVENT = 1;
+private static final int VIEWER_COUNT_EVENT = 1;
 
-	private DefaultedList<ItemStack> inventory = DefaultedList.ofSize(INVENTORY_SIZE, ItemStack.EMPTY);
-	private final ChestLidAnimator lid = new ChestLidAnimator();
+private DefaultedList<ItemStack> inventory = DefaultedList.ofSize(INVENTORY_SIZE, ItemStack.EMPTY);
 
-	private final ViewerCountManager viewers = new ViewerCountManager() {
-		@Override
-		protected void onContainerOpen(World world, BlockPos pos, BlockState state) {
-			creak(world, pos, SoundEvents.BLOCK_CHEST_OPEN);
-		}
+protected float animationAngle;
+protected float lastAnimationAngle;
+protected int viewerCount;
+private int ticksOpen;
 
-		@Override
-		protected void onContainerClose(World world, BlockPos pos, BlockState state) {
-			creak(world, pos, SoundEvents.BLOCK_CHEST_CLOSE);
-		}
+public SeedBoxBlockEntity() {
+super(WorkstationsMod.SEED_BOX_BLOCK_ENTITY);
+}
 
-		@Override
-		protected void onViewerCountUpdate(World world, BlockPos pos, BlockState state, int from, int to) {
-			world.addSyncedBlockEvent(pos, state.getBlock(), VIEWER_COUNT_EVENT, to);
-		}
+public SeedBoxBlockEntity(BlockPos pos, BlockState state) {
+super(WorkstationsMod.SEED_BOX_BLOCK_ENTITY);
+}
 
-		@Override
-		protected boolean isPlayerViewing(PlayerEntity player) {
-			return player.currentScreenHandler instanceof GenericContainerScreenHandler open
-					&& open.getInventory() == SeedBoxBlockEntity.this;
-		}
-	};
+@Override
+public void tick() {
+BlockPos pos = getPos();
+ticksOpen++;
+viewerCount = ChestBlockEntity.tickViewerCount(world, this, ticksOpen,
+pos.getX(), pos.getY(), pos.getZ(), viewerCount);
+lastAnimationAngle = animationAngle;
 
-	public SeedBoxBlockEntity(BlockPos pos, BlockState state) {
-		super(WorkstationsMod.SEED_BOX_BLOCK_ENTITY, pos, state);
-	}
+if (viewerCount > 0 && animationAngle == 0.0F) {
+playSound(SoundEvents.BLOCK_CHEST_OPEN);
+}
 
-	/** Runs on the client alone, because the lid's angle is the one thing only the client draws. */
-	public static void clientTick(World world, BlockPos pos, BlockState state, SeedBoxBlockEntity box) {
-		box.lid.step();
-	}
+if (viewerCount > 0 || animationAngle > 0.0F) {
+float angle = animationAngle;
 
-	@Override
-	public float getAnimationProgress(float tickDelta) {
-		return lid.getProgress(tickDelta);
-	}
+if (viewerCount > 0) {
+animationAngle += 0.1F;
+} else {
+animationAngle -= 0.1F;
+}
 
-	@Override
-	public boolean onSyncedBlockEvent(int type, int data) {
-		if (type != VIEWER_COUNT_EVENT) {
-			return super.onSyncedBlockEvent(type, data);
-		}
+if (animationAngle > 1.0F) {
+animationAngle = 1.0F;
+}
 
-		lid.setOpen(data > 0);
-		return true;
-	}
+if (animationAngle < 0.0F) {
+animationAngle = 0.0F;
+}
 
-	@Override
-	public void onOpen(PlayerEntity player) {
-		if (world != null && !removed && !player.isSpectator()) {
-			viewers.openContainer(player, world, pos, getCachedState());
-		}
-	}
+if (angle < 0.5F && animationAngle >= 0.5F) {
+playSound(SoundEvents.BLOCK_CHEST_CLOSE);
+}
+}
+}
 
-	@Override
-	public void onClose(PlayerEntity player) {
-		if (world != null && !removed && !player.isSpectator()) {
-			viewers.closeContainer(player, world, pos, getCachedState());
-		}
-	}
+public float getAnimationProgress(float tickDelta) {
+return MathHelper.lerp(tickDelta, lastAnimationAngle, animationAngle);
+}
 
-	/**
-	 * Recounts who is looking in.
-	 *
-	 * <p>Worth doing on a scheduled tick because a chest can be left open: a player who logs out
-	 * with the screen up, or one whose chunk goes away, never closes it, and the count would then
-	 * hold the lid up forever.
-	 */
-	public void recountViewers() {
-		if (world != null && !removed) {
-			viewers.updateViewerCount(world, pos, getCachedState());
-		}
-	}
+@Override
+public boolean onSyncedBlockEvent(int type, int data) {
+if (type == VIEWER_COUNT_EVENT) {
+viewerCount = data;
+return true;
+}
+return super.onSyncedBlockEvent(type, data);
+}
 
-	private void creak(World world, BlockPos pos, SoundEvent sound) {
-		world.playSound(null, pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5, sound,
-				SoundCategory.BLOCKS, 0.5F, world.random.nextFloat() * 0.1F + 0.9F);
-	}
+@Override
+public void onOpen(PlayerEntity player) {
+if (world != null && !removed && !player.isSpectator()) {
+if (viewerCount < 0) {
+viewerCount = 0;
+}
+viewerCount++;
+onInvOpenOrClose();
+}
+}
 
-	@Override
-	public int size() {
-		return INVENTORY_SIZE;
-	}
+@Override
+public void onClose(PlayerEntity player) {
+if (world != null && !removed && !player.isSpectator()) {
+viewerCount--;
+onInvOpenOrClose();
+}
+}
 
-	@Override
-	protected Text getContainerName() {
-		return Text.translatable("container.keyboard_workstations.seed_box");
-	}
+protected void onInvOpenOrClose() {
+if (world != null) {
+world.addSyncedBlockEvent(pos, getCachedState().getBlock(), VIEWER_COUNT_EVENT, viewerCount);
+world.updateNeighborsAlways(pos, getCachedState().getBlock());
+}
+}
 
-	@Override
-	protected DefaultedList<ItemStack> getInvStackList() {
-		return inventory;
-	}
+public void recountViewers() {
+if (world != null) {
+viewerCount = ChestBlockEntity.countViewers(world, this, pos.getX(), pos.getY(), pos.getZ());
+onInvOpenOrClose();
+}
+}
 
-	@Override
-	protected void setInvStackList(DefaultedList<ItemStack> list) {
-		inventory = list;
-	}
+private void playSound(SoundEvent sound) {
+if (world != null) {
+world.playSound(null, pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5, sound,
+SoundCategory.BLOCKS, 0.5F, world.random.nextFloat() * 0.1F + 0.9F);
+}
+}
 
-	@Override
-	protected ScreenHandler createScreenHandler(int syncId, PlayerInventory playerInventory) {
-		return GenericContainerScreenHandler.createGeneric9x6(syncId, playerInventory, this);
-	}
+@Override
+public int size() {
+return INVENTORY_SIZE;
+}
 
-	@Override
-	protected void writeNbt(NbtCompound nbt) {
-		super.writeNbt(nbt);
+@Override
+protected Text getContainerName() {
+return new TranslatableText("container.keyboard_workstations.seed_box");
+}
 
-		if (!serializeLootTable(nbt)) {
-			Inventories.writeNbt(nbt, inventory);
-		}
-	}
+@Override
+protected DefaultedList<ItemStack> getInvStackList() {
+return inventory;
+}
 
-	@Override
-	public void readNbt(NbtCompound nbt) {
-		super.readNbt(nbt);
-		inventory = DefaultedList.ofSize(INVENTORY_SIZE, ItemStack.EMPTY);
+@Override
+protected void setInvStackList(DefaultedList<ItemStack> list) {
+inventory = list;
+}
 
-		if (!deserializeLootTable(nbt)) {
-			Inventories.readNbt(nbt, inventory);
-		}
-	}
+@Override
+protected ScreenHandler createScreenHandler(int syncId, PlayerInventory playerInventory) {
+return GenericContainerScreenHandler.createGeneric9x6(syncId, playerInventory, this);
+}
+
+@Override
+public NbtCompound writeNbt(NbtCompound nbt) {
+super.writeNbt(nbt);
+
+if (!serializeLootTable(nbt)) {
+Inventories.writeNbt(nbt, inventory);
+}
+return nbt;
+}
+
+@Override
+public void fromTag(BlockState state, NbtCompound nbt) {
+super.fromTag(state, nbt);
+inventory = DefaultedList.ofSize(INVENTORY_SIZE, ItemStack.EMPTY);
+
+if (!deserializeLootTable(nbt)) {
+Inventories.readNbt(nbt, inventory);
+}
+}
 }

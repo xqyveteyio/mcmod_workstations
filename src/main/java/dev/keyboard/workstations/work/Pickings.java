@@ -49,8 +49,8 @@ public final class Pickings {
 		int maxX = center.getX() + radius;
 		int minZ = center.getZ() - radius;
 		int maxZ = center.getZ() + radius;
-		int minY = Math.max(world.getBottomY(), center.getY() - area.getHeight());
-		int maxY = Math.min(world.getTopY() - 1, center.getY() + area.getHeight());
+		int minY = Math.max(0, center.getY() - area.getHeight());
+		int maxY = Math.min(255, center.getY() + area.getHeight());
 
 		// Deliberately looser than what actually gets picked, because a palette knows which blocks
 		// a section holds and nothing about where they are. A pumpkin somebody built a wall out of
@@ -80,16 +80,16 @@ public final class Pickings {
 	private static void sweep(ServerWorld world, Chunk chunk, Predicate<BlockState> candidate,
 			BlockBox slice, boolean gourds, boolean mushrooms, List<BlockPos> found) {
 		BlockPos.Mutable cursor = new BlockPos.Mutable();
-		int topSection = ChunkSectionPos.getSectionCoord(slice.getMaxY());
+		int topSection = ChunkSectionPos.getSectionCoord(slice.maxY);
 
-		for (int sectionY = ChunkSectionPos.getSectionCoord(slice.getMinY()); sectionY <= topSection; sectionY++) {
-			int index = chunk.sectionCoordToIndex(sectionY);
+		for (int sectionY = ChunkSectionPos.getSectionCoord(slice.minY); sectionY <= topSection; sectionY++) {
+			int index = sectionY;
 
 			if (index < 0 || index >= chunk.getSectionArray().length) {
 				continue;
 			}
 
-			ChunkSection section = chunk.getSection(index);
+			ChunkSection section = chunk.getSectionArray()[index];
 
 			// The whole point of sweeping this way: one palette lookup rules out four thousand
 			// blocks, and over a farm nearly every section is ruled out.
@@ -97,12 +97,12 @@ public final class Pickings {
 				continue;
 			}
 
-			int fromY = Math.max(slice.getMinY(), ChunkSectionPos.getBlockCoord(sectionY));
-			int toY = Math.min(slice.getMaxY(), ChunkSectionPos.getBlockCoord(sectionY) + 15);
+			int fromY = Math.max(slice.minY, ChunkSectionPos.getBlockCoord(sectionY));
+			int toY = Math.min(slice.maxY, ChunkSectionPos.getBlockCoord(sectionY) + 15);
 
 			for (int y = fromY; y <= toY; y++) {
-				for (int x = slice.getMinX(); x <= slice.getMaxX(); x++) {
-					for (int z = slice.getMinZ(); z <= slice.getMaxZ(); z++) {
+				for (int x = slice.minX; x <= slice.maxX; x++) {
+					for (int z = slice.minZ; z <= slice.maxZ; z++) {
 						cursor.set(x, y, z);
 
 						if (Crops.isPickable(world, cursor, gourds, mushrooms)) {

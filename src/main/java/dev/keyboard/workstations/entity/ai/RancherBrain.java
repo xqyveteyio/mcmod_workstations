@@ -13,6 +13,7 @@ import it.unimi.dsi.fastutil.ints.Int2LongOpenHashMap;
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 import it.unimi.dsi.fastutil.ints.IntSet;
 import net.minecraft.entity.Entity;
+import net.minecraft.entity.damage.DamageSource;
 import net.minecraft.entity.ItemEntity;
 import net.minecraft.entity.Shearable;
 import net.minecraft.entity.ai.pathing.Path;
@@ -243,7 +244,7 @@ public class RancherBrain {
 	private double closest = Double.MAX_VALUE;
 
 	public void tick(RancherEntity rancher) {
-		if (!(rancher.getWorld() instanceof ServerWorld world)) {
+		if (!(rancher.getEntityWorld() instanceof ServerWorld world)) {
 			return;
 		}
 
@@ -477,7 +478,7 @@ public class RancherBrain {
 			return targetPos != null;
 		}
 
-		return target != null && target.isAlive() && !target.isRemoved() && area.contains(target);
+		return target != null && target.isAlive() && !target.removed && area.contains(target);
 	}
 
 	private void perform(RancherEntity rancher, RanchBlockEntity station) {
@@ -793,7 +794,7 @@ public class RancherBrain {
 		List<T> waiting = new ArrayList<>(candidates.size());
 
 		for (T candidate : candidates) {
-			if (!served.contains(candidate.getId())) {
+			if (!served.contains(candidate.getEntityId())) {
 				waiting.add(candidate);
 			}
 		}
@@ -888,7 +889,7 @@ public class RancherBrain {
 		List<T> queue = new ArrayList<>(candidates.size());
 
 		for (T candidate : candidates) {
-			if (blocked.get(candidate.getId()) <= now) {
+			if (blocked.get(candidate.getEntityId()) <= now) {
 				queue.add(candidate);
 			}
 		}
@@ -937,7 +938,7 @@ public class RancherBrain {
 	}
 
 	private void block(ServerWorld world, Entity blockedTarget) {
-		blocked.put(blockedTarget.getId(), world.getTime() + BLOCKED_COOLDOWN);
+		blocked.put(blockedTarget.getEntityId(), world.getTime() + BLOCKED_COOLDOWN);
 	}
 
 	private boolean feed(RancherEntity rancher, RanchBlockEntity station, boolean growUp) {
@@ -969,14 +970,14 @@ public class RancherBrain {
 		rancher.swingHand(Hand.MAIN_HAND);
 
 		if (growUp) {
-			animal.growUp(PassiveEntity.toGrowUpAge(-animal.getBreedingAge()), true);
+			animal.growUp(-animal.getBreedingAge(), true);
 		} else {
 			animal.lovePlayer(null);
 		}
 
 		// Its turn is used up. For babies that is what makes a round finite, and it also stops a
 		// baby that grew to adulthood on this very helping from being served again as an adult.
-		served.add(animal.getId());
+		served.add(animal.getEntityId());
 		phaseWorked = true;
 		celebrate(rancher, animal);
 
@@ -1008,7 +1009,7 @@ public class RancherBrain {
 	}
 
 	private static boolean stillReady(AnimalEntity animal) {
-		return animal.isAlive() && !animal.isRemoved() && animal.getBreedingAge() == 0 && animal.canEat();
+		return animal.isAlive() && !animal.removed && animal.getBreedingAge() == 0 && animal.canEat();
 	}
 
 	private boolean cull(RancherEntity rancher) {
@@ -1022,7 +1023,7 @@ public class RancherBrain {
 			// Still dealt as damage rather than by emptying the health bar, so the loot table, the
 			// looting on the rancher's sword and the death animation all behave as they always do.
 			// The headroom over max health is for anything wearing armour or under resistance.
-			animal.damage(rancher.getDamageSources().mobAttack(rancher),
+			animal.damage(DamageSource.mob(rancher),
 					animal.getMaxHealth() * 10.0F + animal.getAbsorptionAmount() + 10.0F);
 		} else {
 			rancher.tryAttack(animal);
@@ -1055,7 +1056,7 @@ public class RancherBrain {
 
 		// Marked as served whatever happens next, so an animal that turns out not to need it after
 		// all cannot be picked again and stall the round.
-		served.add(animal.getId());
+		served.add(animal.getEntityId());
 
 		if (!(animal instanceof Shearable shearable) || !shearable.isShearable()) {
 			return true;
@@ -1088,7 +1089,7 @@ public class RancherBrain {
 			return true;
 		}
 
-		served.add(animal.getId());
+		served.add(animal.getEntityId());
 
 		if (!(animal instanceof CowEntity) || animal.isBaby()) {
 			return true;
@@ -1116,14 +1117,14 @@ public class RancherBrain {
 		ItemStack remainder = rancher.getCarried().addStack(item.getStack().copy());
 
 		if (remainder.isEmpty()) {
-			item.discard();
+			item.remove();
 		} else {
 			item.setStack(remainder);
 		}
 
-		rancher.getWorld().playSound(null, rancher.getBlockPos(), SoundEvents.ENTITY_ITEM_PICKUP,
+		rancher.getEntityWorld().playSound(null, rancher.getBlockPos(), SoundEvents.ENTITY_ITEM_PICKUP,
 				SoundCategory.NEUTRAL, 0.15F,
-				(rancher.getRandom().nextFloat() - rancher.getRandom().nextFloat()) * 1.4F + 2.0F);
+				(rancher.getEntityWorld().random.nextFloat() - rancher.getEntityWorld().random.nextFloat()) * 1.4F + 2.0F);
 		phaseWorked = true;
 		return true;
 	}
@@ -1262,13 +1263,13 @@ public class RancherBrain {
 		ItemStack remainder = rancher.getCarried().addStack(stack);
 
 		if (!remainder.isEmpty()) {
-			rancher.getWorld().spawnEntity(new ItemEntity(rancher.getWorld(), rancher.getX(),
+			rancher.getEntityWorld().spawnEntity(new ItemEntity(rancher.getEntityWorld(), rancher.getX(),
 					rancher.getY() + 0.5, rancher.getZ(), remainder));
 		}
 	}
 
 	private static void celebrate(RancherEntity rancher, AnimalEntity animal) {
-		if (!(rancher.getWorld() instanceof ServerWorld world)) {
+		if (!(rancher.getEntityWorld() instanceof ServerWorld world)) {
 			return;
 		}
 
@@ -1311,7 +1312,7 @@ public class RancherBrain {
 				return slot;
 			}
 
-			if (universal < 0 && stack.isOf(WorkstationsMod.UNIVERSAL_FEED)) {
+			if (universal < 0 && stack.getItem() == WorkstationsMod.UNIVERSAL_FEED) {
 				universal = slot;
 			}
 		}
@@ -1321,7 +1322,7 @@ public class RancherBrain {
 
 	/** Whether one of these is a helping this animal will accept. */
 	private static boolean feeds(ItemStack stack, AnimalEntity animal) {
-		return !stack.isEmpty() && (animal.isBreedingItem(stack) || stack.isOf(WorkstationsMod.UNIVERSAL_FEED));
+		return !stack.isEmpty() && (animal.isBreedingItem(stack) || stack.getItem() == WorkstationsMod.UNIVERSAL_FEED);
 	}
 
 	/** Moves what fits into {@code target}, mutating and returning the leftover. */
@@ -1335,7 +1336,7 @@ public class RancherBrain {
 				break;
 			}
 
-			if (!ItemStack.canCombine(existing, stack)) {
+			if (!ItemStack.areItemsEqual(existing, stack)) {
 				continue;
 			}
 

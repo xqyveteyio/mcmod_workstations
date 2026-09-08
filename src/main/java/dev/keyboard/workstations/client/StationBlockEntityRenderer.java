@@ -3,7 +3,7 @@ package dev.keyboard.workstations.client;
 import dev.keyboard.workstations.block.RanchBlockEntity;
 import net.minecraft.client.render.VertexConsumerProvider;
 import net.minecraft.client.render.block.entity.BlockEntityRenderer;
-import net.minecraft.client.render.block.entity.BlockEntityRendererFactory;
+import net.minecraft.client.render.block.entity.BlockEntityRenderDispatcher;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.world.World;
 
@@ -11,11 +11,12 @@ import net.minecraft.world.World;
  * Everything the station draws: the work area highlight, and the miniature pen on the tabletop. The
  * two are one renderer because a block entity type may only have one.
  */
-public class StationBlockEntityRenderer implements BlockEntityRenderer<RanchBlockEntity> {
+public class StationBlockEntityRenderer extends BlockEntityRenderer<RanchBlockEntity> {
 	private final WorkAreaHighlightRenderer<RanchBlockEntity> highlight;
 
-	public StationBlockEntityRenderer(BlockEntityRendererFactory.Context context) {
-		this.highlight = new WorkAreaHighlightRenderer<>(context);
+	public StationBlockEntityRenderer(BlockEntityRenderDispatcher dispatcher) {
+		super(dispatcher);
+		this.highlight = new WorkAreaHighlightRenderer<>(dispatcher);
 	}
 
 	@Override
@@ -23,7 +24,6 @@ public class StationBlockEntityRenderer implements BlockEntityRenderer<RanchBloc
 		return true;
 	}
 
-	@Override
 	public int getRenderDistance() {
 		return 192;
 	}

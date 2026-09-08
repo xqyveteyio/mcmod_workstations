@@ -9,7 +9,9 @@ import net.minecraft.block.BlockState;
 import net.minecraft.entity.EntityType;
 import net.minecraft.nbt.NbtCompound;
 import net.minecraft.nbt.NbtElement;
+import net.minecraft.text.LiteralText;
 import net.minecraft.text.Text;
+import net.minecraft.text.TranslatableText;
 import net.minecraft.util.math.BlockPos;
 import org.jetbrains.annotations.Nullable;
 
@@ -27,8 +29,12 @@ public class RanchBlockEntity extends WorkStationBlockEntity<RancherEntity, Stat
 	private final AreaContainers<MilkBarrelBlockEntity> barrels =
 			new AreaContainers<>(MilkBarrelBlockEntity.class);
 
-	public RanchBlockEntity(BlockPos pos, BlockState state) {
-		super(WorkstationsMod.RANCH_BLOCK_ENTITY, pos, state);
+		public RanchBlockEntity() {
+		super(WorkstationsMod.RANCH_BLOCK_ENTITY);
+	}
+
+public RanchBlockEntity(BlockPos pos, BlockState state) {
+		super(WorkstationsMod.RANCH_BLOCK_ENTITY);
 	}
 
 	/**
@@ -76,18 +82,18 @@ public class RanchBlockEntity extends WorkStationBlockEntity<RancherEntity, Stat
 
 	@Override
 	protected Text getContainerName() {
-		return Text.translatable("container.keyboard_workstations.ranch_station");
+		return new TranslatableText("container.keyboard_workstations.ranch_station");
 	}
 
 	@Override
-	public void readNbt(NbtCompound nbt) {
-		super.readNbt(nbt);
+	public void fromTag(BlockState state, NbtCompound nbt) {
+		super.fromTag(state, nbt);
 
 		// Stations saved before settings were per block only recorded the area size. Checked only
 		// when there are no settings to read, so a station that has both because someone merged the
 		// old keys back in is not dragged back to them.
-		if (!nbt.contains(SETTINGS_KEY, NbtElement.COMPOUND_TYPE)
-				&& nbt.contains(LEGACY_RADIUS_KEY, NbtElement.INT_TYPE)) {
+		if (!nbt.contains(SETTINGS_KEY, 10)
+				&& nbt.contains(LEGACY_RADIUS_KEY, 3)) {
 			settings.workRadius = nbt.getInt(LEGACY_RADIUS_KEY);
 			settings.workHeight = nbt.getInt(LEGACY_HEIGHT_KEY);
 			settings.clamp();

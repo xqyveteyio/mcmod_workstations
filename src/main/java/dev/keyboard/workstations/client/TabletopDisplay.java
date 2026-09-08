@@ -6,7 +6,7 @@ import net.minecraft.client.render.entity.EntityRenderDispatcher;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.entity.EntityType;
 import net.minecraft.entity.LivingEntity;
-import net.minecraft.util.math.RotationAxis;
+import net.minecraft.util.math.Vec3f;
 import net.minecraft.world.World;
 import org.jetbrains.annotations.Nullable;
 
@@ -69,7 +69,7 @@ final class TabletopDisplay {
 
 			matrices.push();
 			matrices.translate(slot.x(), TABLETOP, slot.z());
-			matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(slot.yaw()));
+			matrices.multiply(Vec3f.POSITIVE_Y.getDegreesQuaternion(slot.yaw()));
 			float scale = SIZE / Math.max(animal.getWidth(), animal.getHeight());
 			matrices.scale(scale, scale, scale);
 			dispatcher.render(animal, 0.0, 0.0, 0.0, 0.0F, tickDelta, matrices, vertexConsumers, light);
@@ -94,7 +94,7 @@ final class TabletopDisplay {
 	@Nullable
 	private static LivingEntity settle(@Nullable LivingEntity animal) {
 		if (animal != null) {
-			animal.setYaw(0.0F);
+			animal.yaw = 0.0F;
 			animal.prevYaw = 0.0F;
 			animal.headYaw = 0.0F;
 			animal.prevHeadYaw = 0.0F;

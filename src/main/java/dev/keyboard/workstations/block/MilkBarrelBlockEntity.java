@@ -25,8 +25,12 @@ public class MilkBarrelBlockEntity extends BlockEntity {
 
 	private int stored;
 
-	public MilkBarrelBlockEntity(BlockPos pos, BlockState state) {
-		super(WorkstationsMod.MILK_BARREL_BLOCK_ENTITY, pos, state);
+		public MilkBarrelBlockEntity() {
+		super(WorkstationsMod.MILK_BARREL_BLOCK_ENTITY);
+	}
+
+public MilkBarrelBlockEntity(BlockPos pos, BlockState state) {
+		super(WorkstationsMod.MILK_BARREL_BLOCK_ENTITY);
 	}
 
 	public int getStored() {
@@ -73,14 +77,15 @@ public class MilkBarrelBlockEntity extends BlockEntity {
 	}
 
 	@Override
-	public void readNbt(NbtCompound nbt) {
-		super.readNbt(nbt);
+	public void fromTag(BlockState state, NbtCompound nbt) {
+		super.fromTag(state, nbt);
 		stored = MathHelper.clamp(nbt.getInt(MILK_KEY), 0, CAPACITY);
 	}
 
 	@Override
-	protected void writeNbt(NbtCompound nbt) {
+	public NbtCompound writeNbt(NbtCompound nbt) {
 		super.writeNbt(nbt);
 		nbt.putInt(MILK_KEY, stored);
+		return nbt;
 	}
 }

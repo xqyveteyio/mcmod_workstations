@@ -9,7 +9,7 @@ import net.minecraft.sound.BlockSoundGroup;
 import net.minecraft.sound.SoundCategory;
 import net.minecraft.sound.SoundEvents;
 import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.random.Random;
+import java.util.Random;
 import net.minecraft.world.World;
 import org.jetbrains.annotations.Nullable;
 
@@ -57,9 +57,9 @@ public final class WorkerEntrance {
 	private static final byte LEAVE_STATUS = 67;
 
 	/** How long digging up out of the ground takes, in ticks. */
-	private static final int DIG_TICKS = 60;
+	private static final int DIG_TICKS = 40;
 	/** How deep the worker is drawn as it starts digging, in blocks. Buries a villager twice over. */
-	private static final double DIG_DEPTH = 3.0;
+	private static final double DIG_DEPTH = 2.5;
 	/** How long the sparks hold the worker still, in ticks. */
 	private static final int SPARK_TICKS = 10;
 	/**
@@ -99,15 +99,7 @@ public final class WorkerEntrance {
 		this.setBuried = setBuried;
 	}
 
-	/**
-	 * Which entrance suits the spot the worker is about to stand in.
-	 *
-	 * <p>Open sky is asked about in two senses here, because they disagree. Sky light reaches a post
-	 * under a glass roof at full strength, glass costing light nothing at all, so the light alone
-	 * sends the worker up to drop from a sky it cannot get back down out of, and it lands on the
-	 * roof. Light says whether the spot is out of doors; only collision says whether there is a
-	 * shaft to fall down.
-	 */
+	/** Which entrance suits the spot the worker is about to stand in. */
 	public static Style styleFor(World world, BlockPos post) {
 		if (world.isSkyVisibleAllowingSea(post) && isDropClear(world, post)) {
 			return Style.FALL;
@@ -116,29 +108,12 @@ public final class WorkerEntrance {
 		return world.isAir(post.down()) ? Style.SPARK : Style.DIG;
 	}
 
-	/**
-	 * Whether a worker could fall the whole way from where it would be put in to where it belongs.
-	 *
-	 * <p>Asked of collision rather than of what each block is. Being fallen through is the only
-	 * thing being asked of them, so whether they would stop a body is the only property that
-	 * decides it, and glass, its panes, iron bars, barriers and whatever a mod adds in the same
-	 * spirit are all covered without any of them being named. Torches, ladders and long grass go on
-	 * being fallen past, as they should.
-	 *
-	 * <p>One block higher than the drop, because the worker is put in with its feet at the top of
-	 * the shaft and its head above that.
-	 */
 	private static boolean isDropClear(World world, BlockPos post) {
-		BlockPos.Mutable cursor = new BlockPos.Mutable();
-
-		for (int above = 1; above <= FALL_HEIGHT + 1; above++) {
-			cursor.set(post.getX(), post.getY() + above, post.getZ());
-
-			if (!world.getBlockState(cursor).getCollisionShape(world, cursor).isEmpty()) {
+		for (int y = post.getY() + 1; y <= 255; y++) {
+			if (!world.getBlockState(new BlockPos(post.getX(), y, post.getZ())).isAir()) {
 				return false;
 			}
 		}
-
 		return true;
 	}
 
@@ -178,7 +153,7 @@ public final class WorkerEntrance {
 
 	/** Driven from the worker's own tick on both sides: the server times it, the client shows it. */
 	public void tick(MobEntity worker) {
-		if (worker.getWorld().isClient()) {
+		if (worker.getEntityWorld().isClient()) {
 			climb(worker);
 			return;
 		}
@@ -215,8 +190,8 @@ public final class WorkerEntrance {
 
 	/** Sends a worker off in a shower of sparks. Called on the server; the sparks are the clients'. */
 	public static void leave(MobEntity worker) {
-		worker.getWorld().sendEntityStatus(worker, LEAVE_STATUS);
-		worker.discard();
+		worker.getEntityWorld().sendEntityStatus(worker, LEAVE_STATUS);
+		worker.remove();
 	}
 
 	/**
@@ -237,7 +212,7 @@ public final class WorkerEntrance {
 			return;
 		}
 
-		worker.getWorld().sendEntityStatus(worker, LAND_STATUS);
+		worker.getEntityWorld().sendEntityStatus(worker, LAND_STATUS);
 		arriving = null;
 	}
 
@@ -254,7 +229,7 @@ public final class WorkerEntrance {
 	/** Nothing to do but wait for the burst to go off and for it to have finished going off. */
 	private void spark(MobEntity worker) {
 		if (waited == ANNOUNCE_DELAY) {
-			worker.getWorld().sendEntityStatus(worker, SPARK_STATUS);
+			worker.getEntityWorld().sendEntityStatus(worker, SPARK_STATUS);
 		}
 
 		if (waited >= ANNOUNCE_DELAY + SPARK_TICKS) {
@@ -298,8 +273,8 @@ public final class WorkerEntrance {
 			return;
 		}
 
-		World world = worker.getWorld();
-		Random random = worker.getRandom();
+		World world = worker.getEntityWorld();
+		Random random = worker.getEntityWorld().random;
 		// The worker only looks buried: it stands on the floor throughout, so the block under it is
 		// the one it is supposedly clawing through.
 		BlockState under = world.getBlockState(worker.getBlockPos().down());
@@ -324,8 +299,8 @@ public final class WorkerEntrance {
 
 	/** The burst that stands in for an entrance, and doubles as the way every worker leaves. */
 	private static void sparkle(MobEntity worker) {
-		World world = worker.getWorld();
-		Random random = worker.getRandom();
+		World world = worker.getEntityWorld();
+		Random random = worker.getEntityWorld().random;
 		double x = worker.getX();
 		double y = worker.getBodyY(0.5);
 		double z = worker.getZ();
@@ -343,8 +318,8 @@ public final class WorkerEntrance {
 
 	/** The thump at the end of a drop, kicking up dust around the worker's boots. */
 	private static void land(MobEntity worker) {
-		World world = worker.getWorld();
-		Random random = worker.getRandom();
+		World world = worker.getEntityWorld();
+		Random random = worker.getEntityWorld().random;
 		double x = worker.getX();
 		double y = worker.getY();
 		double z = worker.getZ();

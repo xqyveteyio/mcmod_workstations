@@ -7,11 +7,11 @@ import net.minecraft.client.render.RenderLayer;
 import net.minecraft.client.render.VertexConsumer;
 import net.minecraft.client.render.VertexConsumerProvider;
 import net.minecraft.client.render.block.entity.BlockEntityRenderer;
-import net.minecraft.client.render.block.entity.BlockEntityRendererFactory;
+import net.minecraft.client.render.block.entity.BlockEntityRenderDispatcher;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.World;
-import org.joml.Matrix4f;
+import net.minecraft.util.math.Matrix4f;
 
 /**
  * Everything the farm station draws: the work area highlight, and a tile over every plot on its
@@ -22,7 +22,7 @@ import org.joml.Matrix4f;
  * the plots are drawn too. Their colour says what the farmer thinks each one needs, which turns
  * "why has it not planted that row" into something you can see from the gate.
  */
-public class FarmBlockEntityRenderer implements BlockEntityRenderer<FarmBlockEntity> {
+public class FarmBlockEntityRenderer extends BlockEntityRenderer<FarmBlockEntity> {
 	/**
 	 * How far the tiles float above the plot's top face.
 	 *
@@ -47,8 +47,9 @@ public class FarmBlockEntityRenderer implements BlockEntityRenderer<FarmBlockEnt
 
 	private final WorkAreaHighlightRenderer<FarmBlockEntity> highlight;
 
-	public FarmBlockEntityRenderer(BlockEntityRendererFactory.Context context) {
-		this.highlight = new WorkAreaHighlightRenderer<>(context);
+	public FarmBlockEntityRenderer(BlockEntityRenderDispatcher dispatcher) {
+		super(dispatcher);
+		this.highlight = new WorkAreaHighlightRenderer<>(dispatcher);
 	}
 
 	@Override
@@ -56,7 +57,6 @@ public class FarmBlockEntityRenderer implements BlockEntityRenderer<FarmBlockEnt
 		return true;
 	}
 
-	@Override
 	public int getRenderDistance() {
 		return 192;
 	}
@@ -73,8 +73,8 @@ public class FarmBlockEntityRenderer implements BlockEntityRenderer<FarmBlockEnt
 			return;
 		}
 
-		VertexConsumer buffer = vertexConsumers.getBuffer(RenderLayer.getDebugQuads());
-		Matrix4f matrix = matrices.peek().getPositionMatrix();
+		VertexConsumer buffer = vertexConsumers.getBuffer(RenderLayer.getLines());
+		Matrix4f matrix = matrices.peek().getModel();
 		BlockPos origin = station.getPos();
 
 		for (BlockPos plot : station.getPlots()) {

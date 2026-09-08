@@ -15,9 +15,11 @@ import net.minecraft.item.Item;
 import net.minecraft.nbt.NbtCompound;
 import net.minecraft.nbt.NbtElement;
 import net.minecraft.nbt.NbtList;
-import net.minecraft.registry.Registries;
+import net.minecraft.util.registry.Registry;
 import net.minecraft.server.world.ServerWorld;
+import net.minecraft.text.LiteralText;
 import net.minecraft.text.Text;
+import net.minecraft.text.TranslatableText;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.math.BlockPos;
 
@@ -68,8 +70,12 @@ public class FarmBlockEntity extends WorkStationBlockEntity<FarmerEntity, FarmSe
 	/** Whether the one off survey has been taken, so a reloaded station does not retake it. */
 	private boolean surveyed;
 
-	public FarmBlockEntity(BlockPos pos, BlockState state) {
-		super(WorkstationsMod.FARM_BLOCK_ENTITY, pos, state);
+		public FarmBlockEntity() {
+		super(WorkstationsMod.FARM_BLOCK_ENTITY);
+	}
+
+public FarmBlockEntity(BlockPos pos, BlockState state) {
+		super(WorkstationsMod.FARM_BLOCK_ENTITY);
 	}
 
 	@Override
@@ -99,7 +105,7 @@ public class FarmBlockEntity extends WorkStationBlockEntity<FarmerEntity, FarmSe
 
 	@Override
 	protected Text getContainerName() {
-		return Text.translatable("container.keyboard_workstations.farm");
+		return new TranslatableText("container.keyboard_workstations.farm");
 	}
 
 	/**
@@ -180,7 +186,7 @@ public class FarmBlockEntity extends WorkStationBlockEntity<FarmerEntity, FarmSe
 		markDirty();
 
 		if (world != null) {
-			world.updateListeners(pos, getCachedState(), getCachedState(), Block.NOTIFY_LISTENERS);
+			world.updateListeners(pos, getCachedState(), getCachedState(), 2);
 		}
 	}
 
@@ -276,7 +282,7 @@ public class FarmBlockEntity extends WorkStationBlockEntity<FarmerEntity, FarmSe
 	}
 
 	@Override
-	protected void writeNbt(NbtCompound nbt) {
+	public NbtCompound writeNbt(NbtCompound nbt) {
 		super.writeNbt(nbt);
 		nbt.putLongArray(PLOTS_KEY, packedPlots());
 		nbt.putBoolean(SURVEYED_KEY, surveyed);
@@ -285,17 +291,18 @@ public class FarmBlockEntity extends WorkStationBlockEntity<FarmerEntity, FarmSe
 
 		for (Map.Entry<Item, Integer> entry : planted.entrySet()) {
 			NbtCompound row = new NbtCompound();
-			row.putString(SEED_KEY, Registries.ITEM.getId(entry.getKey()).toString());
+			row.putString(SEED_KEY, Registry.ITEM.getId(entry.getKey()).toString());
 			row.putInt(COUNT_KEY, entry.getValue());
 			tally.add(row);
 		}
 
 		nbt.put(PLANTED_KEY, tally);
+		return nbt;
 	}
 
 	@Override
-	public void readNbt(NbtCompound nbt) {
-		super.readNbt(nbt);
+	public void fromTag(BlockState state, NbtCompound nbt) {
+		super.fromTag(state, nbt);
 		plots.clear();
 
 		for (long packed : nbt.getLongArray(PLOTS_KEY)) {
@@ -304,14 +311,14 @@ public class FarmBlockEntity extends WorkStationBlockEntity<FarmerEntity, FarmSe
 
 		surveyed = nbt.getBoolean(SURVEYED_KEY);
 		planted.clear();
-		NbtList tally = nbt.getList(PLANTED_KEY, NbtElement.COMPOUND_TYPE);
+		NbtList tally = nbt.getList(PLANTED_KEY, 10);
 
 		for (int index = 0; index < tally.size(); index++) {
 			NbtCompound row = tally.getCompound(index);
 			Identifier id = Identifier.tryParse(row.getString(SEED_KEY));
 
-			if (id != null && Registries.ITEM.containsId(id)) {
-				planted.put(Registries.ITEM.get(id), row.getInt(COUNT_KEY));
+			if (id != null && Registry.ITEM.containsId(id)) {
+				planted.put(Registry.ITEM.get(id), row.getInt(COUNT_KEY));
 			}
 		}
 	}

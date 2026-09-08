@@ -35,7 +35,7 @@ import java.util.Set;
 public final class Crops {
 	/** Ground a hoe turns into farmland, so a trampled plot can be put back to work. */
 	private static final Set<Block> TILLABLE = Set.of(
-			Blocks.DIRT, Blocks.GRASS_BLOCK, Blocks.DIRT_PATH, Blocks.COARSE_DIRT, Blocks.ROOTED_DIRT);
+			Blocks.DIRT, Blocks.GRASS_BLOCK, Blocks.GRASS_PATH, Blocks.COARSE_DIRT);
 
 	/** The small mushrooms, which spread where they like rather than growing on a plot. */
 	private static final Set<Block> MUSHROOMS = Set.of(Blocks.BROWN_MUSHROOM, Blocks.RED_MUSHROOM);

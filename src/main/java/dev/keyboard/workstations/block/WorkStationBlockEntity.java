@@ -8,6 +8,7 @@ import net.minecraft.block.BlockState;
 import net.minecraft.block.entity.BlockEntity;
 import net.minecraft.block.entity.BlockEntityType;
 import net.minecraft.block.entity.LootableContainerBlockEntity;
+import net.minecraft.util.Tickable;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityType;
 import net.minecraft.entity.mob.MobEntity;
@@ -17,11 +18,11 @@ import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NbtCompound;
 import net.minecraft.nbt.NbtElement;
 import net.minecraft.network.listener.ClientPlayPacketListener;
-import net.minecraft.network.packet.Packet;
 import net.minecraft.network.packet.s2c.play.BlockEntityUpdateS2CPacket;
 import net.minecraft.screen.GenericContainerScreenHandler;
 import net.minecraft.screen.ScreenHandler;
 import net.minecraft.server.world.ServerWorld;
+import net.minecraft.util.registry.Registry;
 import net.minecraft.util.collection.DefaultedList;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Direction;
@@ -42,7 +43,7 @@ import java.util.UUID;
  * @param <S> the orders this kind of station keeps
  */
 public abstract class WorkStationBlockEntity<W extends MobEntity & StationWorker, S extends WorkerSettings<S>>
-		extends LootableContainerBlockEntity {
+		extends LootableContainerBlockEntity implements Tickable {
 	public static final int INVENTORY_SIZE = 27;
 
 	protected static final String SETTINGS_KEY = "Settings";
@@ -53,8 +54,15 @@ public abstract class WorkStationBlockEntity<W extends MobEntity & StationWorker
 	private UUID workerUuid;
 	private int respawnTimer;
 
-	protected WorkStationBlockEntity(BlockEntityType<?> type, BlockPos pos, BlockState state) {
-		super(type, pos, state);
+	protected WorkStationBlockEntity(BlockEntityType<?> type) {
+		super(type);
+	}
+
+	
+	public void tick() {
+		if (!world.isClient) {
+			serverTick(world, pos, getCachedState(), this);
+		}
 	}
 
 	/**
@@ -114,7 +122,7 @@ public abstract class WorkStationBlockEntity<W extends MobEntity & StationWorker
 		markDirty();
 
 		if (world != null) {
-			world.updateListeners(pos, getCachedState(), getCachedState(), Block.NOTIFY_LISTENERS);
+			world.updateListeners(pos, getCachedState(), getCachedState(), 2);
 		}
 	}
 
@@ -271,7 +279,7 @@ public abstract class WorkStationBlockEntity<W extends MobEntity & StationWorker
 	}
 
 	@Override
-	protected void writeNbt(NbtCompound nbt) {
+	public NbtCompound writeNbt(NbtCompound nbt) {
 		super.writeNbt(nbt);
 
 		if (!serializeLootTable(nbt)) {
@@ -283,11 +291,12 @@ public abstract class WorkStationBlockEntity<W extends MobEntity & StationWorker
 		}
 
 		nbt.put(SETTINGS_KEY, settingsNbt());
+		return nbt;
 	}
 
 	@Override
-	public void readNbt(NbtCompound nbt) {
-		super.readNbt(nbt);
+	public void fromTag(BlockState state, NbtCompound nbt) {
+		super.fromTag(state, nbt);
 		inventory = DefaultedList.ofSize(INVENTORY_SIZE, ItemStack.EMPTY);
 
 		if (!deserializeLootTable(nbt)) {
@@ -296,7 +305,7 @@ public abstract class WorkStationBlockEntity<W extends MobEntity & StationWorker
 
 		workerUuid = nbt.containsUuid(WORKER_KEY) ? nbt.getUuid(WORKER_KEY) : null;
 
-		if (nbt.contains(SETTINGS_KEY, NbtElement.COMPOUND_TYPE)) {
+		if (nbt.contains(SETTINGS_KEY, 10)) {
 			getSettings().readNbt(nbt.getCompound(SETTINGS_KEY));
 		}
 	}
@@ -317,7 +326,7 @@ public abstract class WorkStationBlockEntity<W extends MobEntity & StationWorker
 
 	@Nullable
 	@Override
-	public Packet<ClientPlayPacketListener> toUpdatePacket() {
-		return BlockEntityUpdateS2CPacket.create(this, BlockEntity::toInitialChunkDataNbt);
+	public BlockEntityUpdateS2CPacket toUpdatePacket() {
+		return new BlockEntityUpdateS2CPacket(pos, Registry.BLOCK_ENTITY_TYPE.getRawId(getType()), toInitialChunkDataNbt());
 	}
 }
