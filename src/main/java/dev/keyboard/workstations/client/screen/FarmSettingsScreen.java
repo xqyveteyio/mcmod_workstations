@@ -53,12 +53,12 @@ public class FarmSettingsScreen extends WorkerSettingsScreen<FarmSettings> {
 	@Override
 	protected void addExtraRows(String category, Consumer<Row> add) {
 		if (FarmSettings.FIELD.equals(category)) {
-			add.accept(new Row(Text.translatable("config.workstations.rescan_plots"),
-					ButtonWidget.builder(Text.translatable("config.workstations.rescan_plots.action"),
+			add.accept(new Row(Text.translatable("config.keyboard_workstations.rescan_plots"),
+					ButtonWidget.builder(Text.translatable("config.keyboard_workstations.rescan_plots.action"),
 									button -> surveyAndLeave())
 							.dimensions(0, 0, CONTROL_WIDTH, CONTROL_HEIGHT)
 							.build(),
-					Text.translatable("config.workstations.rescan_plots.tooltip")));
+					Text.translatable("config.keyboard_workstations.rescan_plots.tooltip")));
 			return;
 		}
 
@@ -69,13 +69,13 @@ public class FarmSettingsScreen extends WorkerSettingsScreen<FarmSettings> {
 		// An empty container is the usual reason this tab looks broken, so it says so rather than
 		// showing nothing at all.
 		if (palette.isEmpty()) {
-			add.accept(new Row(Text.translatable("config.workstations.no_seeds")));
+			add.accept(new Row(Text.translatable("config.keyboard_workstations.no_seeds")));
 			return;
 		}
 
 		for (Item seed : palette) {
 			add.accept(new Row(seed.getName().copy(), new SeedSlider(seed),
-					Text.translatable("config.workstations.seed_weight.tooltip")));
+					Text.translatable("config.keyboard_workstations.seed_weight.tooltip")));
 		}
 	}
 
@@ -100,7 +100,7 @@ public class FarmSettingsScreen extends WorkerSettingsScreen<FarmSettings> {
 
 		@Override
 		protected void updateMessage() {
-			setMessage(Text.translatable("config.workstations.seed_weight",
+			setMessage(Text.translatable("config.keyboard_workstations.seed_weight",
 					settings.seedMix.weight(seed), settings.seedMix.share(seed, palette)));
 		}
 

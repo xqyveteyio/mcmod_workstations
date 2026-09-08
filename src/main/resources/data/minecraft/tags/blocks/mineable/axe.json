@@ -1,9 +1,9 @@
 {
 	"replace": false,
 	"values": [
-		"workstations:ranch_station",
-		"workstations:farm_station",
-		"workstations:milk_barrel",
-		"workstations:seed_box"
+		"keyboard_workstations:ranch_station",
+		"keyboard_workstations:farm_station",
+		"keyboard_workstations:milk_barrel",
+		"keyboard_workstations:seed_box"
 	]
 }

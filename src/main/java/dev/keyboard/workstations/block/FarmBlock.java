@@ -122,7 +122,7 @@ public class FarmBlock extends BlockWithEntity {
 		station.summonWorker(serverWorld);
 
 		if (placer instanceof PlayerEntity player) {
-			player.sendMessage(Text.translatable("message.workstations.farm_placed", plots), true);
+			player.sendMessage(Text.translatable("message.keyboard_workstations.farm_placed", plots), true);
 		}
 	}
 

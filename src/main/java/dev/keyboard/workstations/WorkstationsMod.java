@@ -41,7 +41,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class WorkstationsMod implements ModInitializer {
-	public static final String MOD_ID = "workstations";
+	public static final String MOD_ID = "keyboard_workstations";
 	public static final Logger LOGGER = LoggerFactory.getLogger(MOD_ID);
 
 	public static final Identifier RANCH_ID = id("ranch_station");
@@ -51,7 +51,7 @@ public class WorkstationsMod implements ModInitializer {
 	public static final Identifier MILK_BARREL_ID = id("milk_barrel");
 	public static final Identifier SEED_BOX_ID = id("seed_box");
 	public static final Identifier UNIVERSAL_FEED_ID = id("universal_feed");
-	public static final Identifier GROUP_ID = id("workstations");
+	public static final Identifier GROUP_ID = id("keyboard_workstations");
 
 	public static final RanchBlock RANCH_BLOCK = new RanchBlock(stationSettings());
 	public static final FarmBlock FARM_BLOCK = new FarmBlock(stationSettings());
@@ -71,7 +71,7 @@ public class WorkstationsMod implements ModInitializer {
 	 */
 	public static final ItemGroup GROUP = FabricItemGroup.builder()
 			.icon(() -> new ItemStack(RANCH_ITEM))
-			.displayName(Text.translatable("itemGroup.workstations"))
+			.displayName(Text.translatable("itemGroup.keyboard_workstations"))
 			.entries((context, entries) -> {
 				entries.add(RANCH_ITEM);
 				entries.add(FARM_ITEM);

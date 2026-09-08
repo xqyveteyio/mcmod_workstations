@@ -1,0 +1,19 @@
+{
+	"variants": {
+		"facing=north": {
+			"model": "keyboard_workstations:block/farm_station"
+		},
+		"facing=east": {
+			"model": "keyboard_workstations:block/farm_station",
+			"y": 90
+		},
+		"facing=south": {
+			"model": "keyboard_workstations:block/farm_station",
+			"y": 180
+		},
+		"facing=west": {
+			"model": "keyboard_workstations:block/farm_station",
+			"y": 270
+		}
+	}
+}

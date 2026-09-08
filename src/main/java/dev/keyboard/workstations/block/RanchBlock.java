@@ -130,7 +130,7 @@ public class RanchBlock extends BlockWithEntity {
 		station.summonWorker(serverWorld);
 
 		if (placer instanceof PlayerEntity player) {
-			player.sendMessage(Text.translatable("message.workstations.station_placed",
+			player.sendMessage(Text.translatable("message.keyboard_workstations.station_placed",
 					station.getWorkArea().getRadius()), true);
 		}
 	}

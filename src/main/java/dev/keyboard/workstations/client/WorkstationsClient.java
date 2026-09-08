@@ -17,10 +17,10 @@ import org.lwjgl.glfw.GLFW;
 
 public class WorkstationsClient implements ClientModInitializer {
 	public static final KeyBinding TOGGLE_HIGHLIGHT = KeyBindingHelper.registerKeyBinding(new KeyBinding(
-			"key.workstations.toggle_highlight",
+			"key.keyboard_workstations.toggle_highlight",
 			InputUtil.Type.KEYSYM,
 			GLFW.GLFW_KEY_G,
-			"category.workstations"));
+			"category.keyboard_workstations"));
 
 	@Override
 	public void onInitializeClient() {
@@ -46,8 +46,8 @@ public class WorkstationsClient implements ClientModInitializer {
 
 				if (client.player != null) {
 					client.player.sendMessage(Text.translatable(enabled
-							? "message.workstations.highlight_on"
-							: "message.workstations.highlight_off"), true);
+							? "message.keyboard_workstations.highlight_on"
+							: "message.keyboard_workstations.highlight_off"), true);
 				}
 			}
 		});

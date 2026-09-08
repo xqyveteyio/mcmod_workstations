@@ -38,7 +38,7 @@ public final class StationSettings implements WorkerSettings<StationSettings> {
 	/** Position in {@link WorkerSkin#RANCHER} of the look this station's rancher wears. */
 	public int workerSkin;
 
-	/** Groups for the settings screen, in tab order. Keys are {@code config.workstations.*}. */
+	/** Groups for the settings screen, in tab order. Keys are {@code config.keyboard_workstations.*}. */
 	public static final String BREEDING = "category.breeding";
 	public static final String CULLING = "category.culling";
 	public static final String HARVEST = "category.harvest";

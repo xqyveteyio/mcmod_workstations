@@ -37,7 +37,7 @@ public final class FarmSettings implements WorkerSettings<FarmSettings> {
 
 	private static final String MIX_KEY = "SeedMix";
 
-	/** Groups for the settings screen, in tab order. Keys are {@code config.workstations.*}. */
+	/** Groups for the settings screen, in tab order. Keys are {@code config.keyboard_workstations.*}. */
 	public static final String FIELD = "category.field";
 	/** The tab the seed ratio rows are built onto, which has no fixed options of its own. */
 	public static final String SEEDS = "category.seeds";

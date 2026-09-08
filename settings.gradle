@@ -9,4 +9,4 @@ pluginManagement {
 	}
 }
 
-rootProject.name = 'workstations'
+rootProject.name = 'keyboard_workstations'

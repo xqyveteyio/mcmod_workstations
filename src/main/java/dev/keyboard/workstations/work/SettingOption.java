@@ -59,7 +59,7 @@ public abstract class SettingOption<S> {
 	}
 
 	public String labelKey() {
-		return "config.workstations." + key;
+		return "config.keyboard_workstations." + key;
 	}
 
 	public String tooltipKey() {

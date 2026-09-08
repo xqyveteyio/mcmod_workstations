@@ -28,7 +28,7 @@ import java.util.function.Consumer;
  *
  * <p>Rows are generated from the station's own option list, so a new setting appears here with no
  * work: it lands under its own tab with the label and description already wired to the existing
- * {@code config.workstations.*} translations. Categories become the row of buttons along the
+ * {@code config.keyboard_workstations.*} translations. Categories become the row of buttons along the
  * top, the current one marked by colouring its label rather than by any change of shape.
  *
  * <p>Everything here belongs to the station that was clicked. The one exception is the highlight
@@ -82,7 +82,7 @@ public abstract class WorkerSettingsScreen<S extends WorkerSettings<S>> extends 
 
 		for (String category : categories) {
 			boolean selected = category.equals(activeCategory);
-			Text label = Text.translatable("config.workstations." + category);
+			Text label = Text.translatable("config.keyboard_workstations." + category);
 
 			addDrawableChild(ButtonWidget.builder(selected ? label.copy().formatted(Formatting.YELLOW) : label,
 							button -> showCategory(category))
@@ -98,12 +98,12 @@ public abstract class WorkerSettingsScreen<S extends WorkerSettings<S>> extends 
 		int footerX = width / 2 - BUTTON_ROW_WIDTH / 2;
 		int footerY = height - FOOTER_HEIGHT + 10;
 
-		addDrawableChild(ButtonWidget.builder(Text.translatable("config.workstations.worker_recall"),
+		addDrawableChild(ButtonWidget.builder(Text.translatable("config.keyboard_workstations.worker_recall"),
 						button -> StationNetworkingClient.recallWorker(pos))
 				.dimensions(footerX, footerY, footerWidth, CONTROL_HEIGHT)
 				.build());
 
-		addDrawableChild(ButtonWidget.builder(Text.translatable("config.workstations.reset"),
+		addDrawableChild(ButtonWidget.builder(Text.translatable("config.keyboard_workstations.reset"),
 						button -> resetToDefaults())
 				.dimensions(footerX + footerWidth + BUTTON_GAP, footerY, footerWidth, CONTROL_HEIGHT)
 				.build());
@@ -255,9 +255,9 @@ public abstract class WorkerSettingsScreen<S extends WorkerSettings<S>> extends 
 			addExtraRows(category, this::addEntry);
 
 			if (WorkerSettings.DISPLAY.equals(category)) {
-				addEntry(new Row(Text.translatable("config.workstations.highlight_always_on"),
+				addEntry(new Row(Text.translatable("config.keyboard_workstations.highlight_always_on"),
 						highlightControl(),
-						Text.translatable("config.workstations.highlight_always_on.tooltip")));
+						Text.translatable("config.keyboard_workstations.highlight_always_on.tooltip")));
 			}
 		}
 

@@ -1,0 +1,13 @@
+{
+	"type": "minecraft:crafting_shapeless",
+	"ingredients": [
+		{ "item": "minecraft:wheat" },
+		{ "item": "minecraft:wheat" },
+		{ "item": "minecraft:wheat_seeds" },
+		{ "item": "minecraft:carrot" }
+	],
+	"result": {
+		"item": "keyboard_workstations:universal_feed",
+		"count": 4
+	}
+}
