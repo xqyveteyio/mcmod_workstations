@@ -2,6 +2,7 @@ package dev.keyboard.workstations.block;
 
 import dev.keyboard.workstations.WorkstationsMod;
 import dev.keyboard.workstations.entity.FarmerEntity;
+import dev.keyboard.workstations.work.AreaContainers;
 import dev.keyboard.workstations.work.Crops;
 import dev.keyboard.workstations.work.FarmSettings;
 import dev.keyboard.workstations.work.PlotSurvey;
@@ -58,6 +59,8 @@ public class FarmBlockEntity extends WorkStationBlockEntity<FarmerEntity, FarmSe
 	private static final String COUNT_KEY = "Count";
 
 	private final FarmSettings settings = new FarmSettings();
+	/** Seed boxes standing anywhere in the work area, looked up afresh now and then. */
+	private final AreaContainers<SeedBoxBlockEntity> boxes = new AreaContainers<>(SeedBoxBlockEntity.class);
 	/** Insertion ordered so the farmer works a field in a stable, roughly nearest first order. */
 	private final Set<BlockPos> plots = new LinkedHashSet<>();
 	/** Plots given to each seed so far, which is what turns the mix's weights into real ratios. */
@@ -207,24 +210,24 @@ public class FarmBlockEntity extends WorkStationBlockEntity<FarmerEntity, FarmSe
 	}
 
 	/**
-	 * The seed boxes set against this station, if any, in the order to draw on them.
+	 * The seed boxes anywhere in this station's work area, nearest first.
 	 *
 	 * <p>Separate from {@link #seedStores()} because the boxes are where seed is meant to end up
 	 * and the station is only what catches the overflow, a distinction that matters when deciding
 	 * how much of something belongs in a box in the first place.
 	 */
 	public List<Inventory> seedBoxes() {
-		return world == null ? List.of() : List.copyOf(SeedBoxBlockEntity.adjoining(world, pos));
+		return List.copyOf(boxes.in(world, getWorkArea()));
 	}
 
 	/**
 	 * Everywhere this station's seed might be, the place to reach for first listed first.
 	 *
-	 * <p>Seed boxes touching the station come before the station's own shelves: seed is taken out
-	 * of a box while one holds any, which is what keeps the station's own space clear for the
-	 * produce coming the other way. The station is last rather than absent so seed left on its
-	 * shelves by hand is still sown, and with no box beside it the station is the only store there
-	 * is and everything works as it did before boxes existed.
+	 * <p>Seed boxes come before the station's own shelves: seed is taken out of a box while one
+	 * holds any, which is what keeps the station's own space clear for the produce coming the other
+	 * way. The station is last rather than absent so seed left on its shelves by hand is still
+	 * sown, and with no box in the area the station is the only store there is and everything works
+	 * as it did before boxes existed.
 	 */
 	public List<Inventory> seedStores() {
 		List<Inventory> stores = new ArrayList<>(seedBoxes());

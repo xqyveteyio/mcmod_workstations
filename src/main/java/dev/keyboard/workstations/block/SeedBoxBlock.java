@@ -36,9 +36,9 @@ import org.jetbrains.annotations.Nullable;
  *
  * <p>An ordinary chest to look at and to open, drawn from vanilla's own chest model, but not a
  * {@code ChestBlock} underneath: two of these never join into one double chest. That is not a
- * limitation to work around. A station finds its box by feeling along its own six sides, and a
- * container spread across two positions makes that question ambiguous in a way a plain block never
- * is, so the joining is the part deliberately left out.
+ * limitation to work around. A station sweeps its work area and takes on every box it finds, and a
+ * container spread across two positions would turn up twice in that sweep, so the joining is the
+ * part deliberately left out.
  */
 public class SeedBoxBlock extends BlockWithEntity {
 	public static final DirectionProperty FACING = Properties.HORIZONTAL_FACING;

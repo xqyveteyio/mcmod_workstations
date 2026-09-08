@@ -768,7 +768,7 @@ public class RancherBrain {
 		// Milk with nowhere to go is milk poured away, so a cow is left unmilked until there is a
 		// barrel with room in it. Asked here rather than on arrival so that the rancher spends the
 		// phase on something useful instead of walking out to a cow it will have to turn down.
-		if (config.enableMilking && MilkBarrelBlockEntity.adjoining(world, station.getPos()) != null) {
+		if (config.enableMilking && station.milkBarrel() != null) {
 			AnimalEntity cow = nearestReachable(rancher, world,
 					unserved(survey.milkCandidates()), ANIMAL_PATH_DISTANCE);
 
@@ -1094,7 +1094,7 @@ public class RancherBrain {
 			return true;
 		}
 
-		MilkBarrelBlockEntity barrel = MilkBarrelBlockEntity.adjoining(rancher.getWorld(), station.getPos());
+		MilkBarrelBlockEntity barrel = station.milkBarrel();
 
 		if (barrel == null || !barrel.fill()) {
 			note = "no room for milk";

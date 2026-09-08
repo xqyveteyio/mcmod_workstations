@@ -36,12 +36,26 @@ public class FarmSettingsScreen extends WorkerSettingsScreen<FarmSettings> {
 		StationNetworkingClient.saveFarmSettings(pos, settings);
 	}
 
+	/**
+	 * Surveys the field and gets out of the way, so the count comes up over the hotbar with nothing
+	 * covering the ground it is talking about.
+	 *
+	 * <p>Saved before the survey rather than on the way out. The area is what the survey reads, so
+	 * a radius widened in this very screen has to reach the station first or the sweep would go by
+	 * the old one and report a number that does not match what was just asked for.
+	 */
+	private void surveyAndLeave() {
+		save();
+		StationNetworkingClient.rescanPlots(pos);
+		dismiss();
+	}
+
 	@Override
 	protected void addExtraRows(String category, Consumer<Row> add) {
 		if (FarmSettings.FIELD.equals(category)) {
 			add.accept(new Row(Text.translatable("config.workstations.rescan_plots"),
 					ButtonWidget.builder(Text.translatable("config.workstations.rescan_plots.action"),
-									button -> StationNetworkingClient.rescanPlots(pos))
+									button -> surveyAndLeave())
 							.dimensions(0, 0, CONTROL_WIDTH, CONTROL_HEIGHT)
 							.build(),
 					Text.translatable("config.workstations.rescan_plots.tooltip")));

@@ -148,6 +148,14 @@ public abstract class WorkerSettingsScreen<S extends WorkerSettings<S>> extends 
 		super.close();
 	}
 
+	/**
+	 * Leaves the screen without saving, for a button that has already saved on its own account and
+	 * would otherwise send the same settings twice.
+	 */
+	protected void dismiss() {
+		super.close();
+	}
+
 	protected static Text onOff(boolean value) {
 		return value ? ScreenTexts.ON : ScreenTexts.OFF;
 	}

@@ -5,10 +5,7 @@ import net.minecraft.block.BlockState;
 import net.minecraft.block.entity.BlockEntity;
 import net.minecraft.nbt.NbtCompound;
 import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Direction;
 import net.minecraft.util.math.MathHelper;
-import net.minecraft.world.World;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * The milk a barrel is holding, in buckets.
@@ -73,25 +70,6 @@ public class MilkBarrelBlockEntity extends BlockEntity {
 			MilkBarrelBlock.showLevel(world, pos, getCachedState(), stored);
 			world.updateComparators(pos, getCachedState().getBlock());
 		}
-	}
-
-	/**
-	 * The barrel a station pours into: the first one touching it with room to spare.
-	 *
-	 * <p>All six sides count, so a barrel can be sunk into the floor under the station or tucked
-	 * behind it, and a station with barrels on several sides simply fills whichever it finds first
-	 * and moves along to the next once that one is full.
-	 */
-	@Nullable
-	public static MilkBarrelBlockEntity adjoining(World world, BlockPos station) {
-		for (Direction side : Direction.values()) {
-			if (world.getBlockEntity(station.offset(side)) instanceof MilkBarrelBlockEntity barrel
-					&& !barrel.isFull()) {
-				return barrel;
-			}
-		}
-
-		return null;
 	}
 
 	@Override

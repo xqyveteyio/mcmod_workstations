@@ -19,19 +19,15 @@ import net.minecraft.sound.SoundEvents;
 import net.minecraft.text.Text;
 import net.minecraft.util.collection.DefaultedList;
 import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Direction;
 import net.minecraft.world.World;
-
-import java.util.ArrayList;
-import java.util.List;
 
 /**
  * Somewhere for a farm station's seed to live that is not the same shelves its produce lands on.
  *
  * <p>Two chests' worth of room, and nothing like a chest underneath it. A double chest is a single
- * container answering to two positions, so a station finding its box by touch would have to work
- * out which half of one it was touching and whether the other half counted as adjoining too. A
- * plain block with an inventory has none of that: two set side by side stay two boxes.
+ * container answering to two positions, which a station sweeping its area for boxes would find
+ * twice and have to reason about. A plain block with an inventory has none of that: two set side by
+ * side stay two boxes, each counted once.
  *
  * <p>The lid is a chest's lid all the same, opened and shut the way vanilla does it, which is why
  * the viewer counting below is worth its length. Nothing but the count crosses to the client: the
@@ -72,30 +68,6 @@ public class SeedBoxBlockEntity extends LootableContainerBlockEntity implements 
 
 	public SeedBoxBlockEntity(BlockPos pos, BlockState state) {
 		super(WorkstationsMod.SEED_BOX_BLOCK_ENTITY, pos, state);
-	}
-
-	/**
-	 * Every box touching a station, in the order it should draw on them.
-	 *
-	 * <p>All six sides count, the same as the milk barrel, so a box can be sunk into the floor
-	 * under the station or tucked in behind it. Six of them all count too: a station short of room
-	 * is given more by setting down another box, and nothing about the order needs explaining
-	 * because seed is taken from the first box holding it and put into the first box with room.
-	 *
-	 * <p>The order is {@link Direction}'s own and so does not depend on which box was built first,
-	 * which matters because it decides which box fills up and a shuffling answer would move seed
-	 * about for no reason.
-	 */
-	public static List<SeedBoxBlockEntity> adjoining(World world, BlockPos station) {
-		List<SeedBoxBlockEntity> boxes = new ArrayList<>();
-
-		for (Direction side : Direction.values()) {
-			if (world.getBlockEntity(station.offset(side)) instanceof SeedBoxBlockEntity box) {
-				boxes.add(box);
-			}
-		}
-
-		return boxes;
 	}
 
 	/** Runs on the client alone, because the lid's angle is the one thing only the client draws. */

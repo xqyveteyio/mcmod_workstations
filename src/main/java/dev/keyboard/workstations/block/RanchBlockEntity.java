@@ -2,6 +2,7 @@ package dev.keyboard.workstations.block;
 
 import dev.keyboard.workstations.WorkstationsMod;
 import dev.keyboard.workstations.entity.RancherEntity;
+import dev.keyboard.workstations.work.AreaContainers;
 import dev.keyboard.workstations.work.StationSettings;
 import dev.keyboard.workstations.work.WorkArea;
 import net.minecraft.block.BlockState;
@@ -10,6 +11,7 @@ import net.minecraft.nbt.NbtCompound;
 import net.minecraft.nbt.NbtElement;
 import net.minecraft.text.Text;
 import net.minecraft.util.math.BlockPos;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * The ranch station: storage for feed going in and produce coming out, plus the owner of one
@@ -21,9 +23,30 @@ public class RanchBlockEntity extends WorkStationBlockEntity<RancherEntity, Stat
 	private static final String LEGACY_HEIGHT_KEY = "Height";
 
 	private final StationSettings settings = new StationSettings();
+	/** Milk barrels standing anywhere in the work area, looked up afresh now and then. */
+	private final AreaContainers<MilkBarrelBlockEntity> barrels =
+			new AreaContainers<>(MilkBarrelBlockEntity.class);
 
 	public RanchBlockEntity(BlockPos pos, BlockState state) {
 		super(WorkstationsMod.RANCH_BLOCK_ENTITY, pos, state);
+	}
+
+	/**
+	 * The barrel to pour into: the nearest one in the work area with room in it, or null when there
+	 * is nowhere for milk to go.
+	 *
+	 * <p>Full barrels are passed over rather than reported, so a ranch with one barrel filled and
+	 * another still empty keeps milking instead of stopping at the first thing it finds.
+	 */
+	@Nullable
+	public MilkBarrelBlockEntity milkBarrel() {
+		for (MilkBarrelBlockEntity barrel : barrels.in(world, getWorkArea())) {
+			if (!barrel.isFull()) {
+				return barrel;
+			}
+		}
+
+		return null;
 	}
 
 	@Override
