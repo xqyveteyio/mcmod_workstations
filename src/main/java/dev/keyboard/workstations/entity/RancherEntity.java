@@ -65,8 +65,17 @@ public class RancherEntity extends PathAwareEntity implements StationWorker, Wor
 	private static final TrackedData<Integer> BURIED =
 			DataTracker.registerData(RancherEntity.class, TrackedDataHandlerRegistry.INTEGER);
 
+	/**
+	 * The villager another mod has lent this rancher its looks from, or nothing at all, which is
+	 * the usual case. Settled once on the server and carried from there so that every player sees
+	 * the same rancher and it is still the same one after a restart.
+	 */
+	private static final TrackedData<NbtCompound> DISGUISE =
+			DataTracker.registerData(RancherEntity.class, TrackedDataHandlerRegistry.NBT_COMPOUND);
+
 	private static final String STATION_KEY = "Station";
 	private static final String CARRIED_KEY = "Carried";
+	private static final String DISGUISE_KEY = "Disguise";
 	/** Grace period before a rancher whose station is gone gives up, in ticks. */
 	private static final int HOMELESS_LIMIT = 200;
 	/** How often the state label may be rewritten, in ticks. Four times a second reads fine. */
@@ -100,6 +109,7 @@ public class RancherEntity extends PathAwareEntity implements StationWorker, Wor
 		super.initDataTracker();
 		dataTracker.startTracking(SKIN, 0);
 		dataTracker.startTracking(BURIED, 0);
+		dataTracker.startTracking(DISGUISE, new NbtCompound());
 	}
 
 	public static DefaultAttributeContainer.Builder createRancherAttributes() {
@@ -157,6 +167,13 @@ public class RancherEntity extends PathAwareEntity implements StationWorker, Wor
 		// Kept up before the entrance is checked, so the rancher is dressed on the way down.
 		dataTracker.set(SKIN, getSettings().workerSkin);
 
+		// Borrowed looks are rolled once and then kept for good. Done here rather than at the
+		// moment of summoning so that ranchers hired before the mod that lends them was installed
+		// are dressed too, and up here with the skin so it happens on the way in.
+		if (WorkerDisguise.canRoll() && dataTracker.get(DISGUISE).isEmpty()) {
+			dataTracker.set(DISGUISE, WorkerDisguise.roll(this));
+		}
+
 		// Still dropping out of the sky or clawing its way up through the ground. Whatever the
 		// animals are up to can wait until it has both feet on the floor.
 		if (entrance.isArriving()) {
@@ -202,6 +219,21 @@ public class RancherEntity extends PathAwareEntity implements StationWorker, Wor
 		super.tick();
 	}
 
+	/**
+	 * Carries a swing of the arm forward once one has been started.
+	 *
+	 * <p>Swinging is two halves, and vanilla only gives passive mobs the first. {@code swingHand}
+	 * raises the arm and tells every client watching, but something has to walk the swing back down
+	 * a tick at a time, and the only things vanilla has doing that are players and hostile mobs. A
+	 * worker is neither, so without this the arm goes up on the first job and stays there: the
+	 * rancher shears, feeds and butchers its way around the pen without ever moving.
+	 */
+	@Override
+	public void tickMovement() {
+		tickHandSwing();
+		super.tickMovement();
+	}
+
 	@Override
 	public void arriveBy(WorkerEntrance.Style style) {
 		entrance.begin(style);
@@ -222,6 +254,14 @@ public class RancherEntity extends PathAwareEntity implements StationWorker, Wor
 	/** Which of {@link WorkerSkin#RANCHER} this rancher wears, readable on either side. */
 	public int getSkin() {
 		return dataTracker.get(SKIN);
+	}
+
+	/**
+	 * The villager this rancher has borrowed its looks from, empty when it is wearing its own. Only
+	 * the renderer has any use for this, and only when the mod it came from is installed.
+	 */
+	public NbtCompound getDisguise() {
+		return dataTracker.get(DISGUISE);
 	}
 
 	/** A rancher that dies in a gateway must not leave the pen standing open behind it. */
@@ -365,14 +405,20 @@ public class RancherEntity extends PathAwareEntity implements StationWorker, Wor
 		return null;
 	}
 
+	/**
+	 * A rancher wearing somebody else's face should not answer in the vanilla villager's voice, so
+	 * a disguise brings its own along with it.
+	 */
 	@Override
 	protected SoundEvent getHurtSound(DamageSource source) {
-		return SoundEvents.ENTITY_VILLAGER_HURT;
+		SoundEvent borrowed = WorkerDisguise.voice(getDisguise(), WorkerDisguise.Voice.HURT);
+		return borrowed == null ? SoundEvents.ENTITY_VILLAGER_HURT : borrowed;
 	}
 
 	@Override
 	protected SoundEvent getDeathSound() {
-		return SoundEvents.ENTITY_VILLAGER_DEATH;
+		SoundEvent borrowed = WorkerDisguise.voice(getDisguise(), WorkerDisguise.Voice.DEATH);
+		return borrowed == null ? SoundEvents.ENTITY_VILLAGER_DEATH : borrowed;
 	}
 
 	@Override
@@ -384,6 +430,12 @@ public class RancherEntity extends PathAwareEntity implements StationWorker, Wor
 		}
 
 		nbt.put(CARRIED_KEY, carried.toNbtList());
+
+		NbtCompound disguise = getDisguise();
+
+		if (!disguise.isEmpty()) {
+			nbt.put(DISGUISE_KEY, disguise);
+		}
 	}
 
 	@Override
@@ -395,5 +447,9 @@ public class RancherEntity extends PathAwareEntity implements StationWorker, Wor
 		}
 
 		carried.readNbtList(nbt.getList(CARRIED_KEY, NbtElement.COMPOUND_TYPE));
+
+		if (nbt.contains(DISGUISE_KEY, NbtElement.COMPOUND_TYPE)) {
+			dataTracker.set(DISGUISE, nbt.getCompound(DISGUISE_KEY));
+		}
 	}
 }

@@ -2,6 +2,7 @@ package dev.keyboard.workstations.client;
 
 import dev.keyboard.workstations.entity.FarmerEntity;
 import dev.keyboard.workstations.work.WorkerSkin;
+import net.minecraft.client.render.VertexConsumerProvider;
 import net.minecraft.client.render.entity.EntityRendererFactory;
 import net.minecraft.client.render.entity.MobEntityRenderer;
 import net.minecraft.client.render.entity.model.EntityModelLayers;
@@ -34,6 +35,22 @@ public class FarmerEntityRenderer extends MobEntityRenderer<FarmerEntity, Villag
 
 	private static WorkerSkin skin(FarmerEntity entity) {
 		return WorkerSkin.get(WorkerSkin.FARMER, entity.getSkin());
+	}
+
+	/** Hands the body to Minecraft Comes Alive, exactly as {@link RancherEntityRenderer} does. */
+	@Override
+	public void render(FarmerEntity entity, float yaw, float tickDelta, MatrixStack matrices,
+			VertexConsumerProvider vertexConsumers, int light) {
+		if (WorkerLook.renderAsMcaVillager(entity, entity.getDisguise(), yaw, tickDelta, matrices,
+				vertexConsumers, light)) {
+			if (hasLabel(entity)) {
+				renderLabelIfPresent(entity, entity.getDisplayName(), matrices, vertexConsumers, light);
+			}
+
+			return;
+		}
+
+		super.render(entity, yaw, tickDelta, matrices, vertexConsumers, light);
 	}
 
 	@Override

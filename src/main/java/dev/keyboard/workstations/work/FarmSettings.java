@@ -19,6 +19,8 @@ public final class FarmSettings implements WorkerSettings<FarmSettings> {
 	public boolean enableTilling;
 	public boolean enableSowing;
 	public boolean enableHarvesting;
+	public boolean harvestGourds;
+	public boolean harvestMushrooms;
 	public boolean consumeSeeds;
 	public boolean openFenceGates;
 	public boolean shoveBlockers;
@@ -48,6 +50,8 @@ public final class FarmSettings implements WorkerSettings<FarmSettings> {
 			SettingOption.flag(FIELD, "enable_tilling", s -> s.enableTilling, (s, v) -> s.enableTilling = v),
 			SettingOption.flag(FIELD, "enable_sowing", s -> s.enableSowing, (s, v) -> s.enableSowing = v),
 			SettingOption.flag(FIELD, "enable_harvesting", s -> s.enableHarvesting, (s, v) -> s.enableHarvesting = v),
+			SettingOption.flag(FIELD, "harvest_gourds", s -> s.harvestGourds, (s, v) -> s.harvestGourds = v),
+			SettingOption.flag(FIELD, "harvest_mushrooms", s -> s.harvestMushrooms, (s, v) -> s.harvestMushrooms = v),
 			SettingOption.flag(FIELD, "consume_seeds", s -> s.consumeSeeds, (s, v) -> s.consumeSeeds = v),
 			SettingOption.range(FIELD, "farm_interval_ticks", 1, 200, s -> s.farmIntervalTicks, (s, v) -> s.farmIntervalTicks = v),
 
@@ -70,6 +74,8 @@ public final class FarmSettings implements WorkerSettings<FarmSettings> {
 		enableTilling = config.enableTilling;
 		enableSowing = config.enableSowing;
 		enableHarvesting = config.enableHarvesting;
+		harvestGourds = config.harvestGourds;
+		harvestMushrooms = config.harvestMushrooms;
 		consumeSeeds = config.consumeSeeds;
 		openFenceGates = config.openFenceGates;
 		shoveBlockers = config.shoveBlockers;

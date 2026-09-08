@@ -1,6 +1,7 @@
 package dev.keyboard.workstations.entity.ai;
 
 import dev.keyboard.workstations.work.StationSettings;
+import dev.keyboard.workstations.block.MilkBarrelBlockEntity;
 import dev.keyboard.workstations.block.RanchBlockEntity;
 import dev.keyboard.workstations.entity.RancherEntity;
 import dev.keyboard.workstations.work.HerdSurvey;
@@ -20,7 +21,6 @@ import net.minecraft.inventory.Inventory;
 import net.minecraft.inventory.SimpleInventory;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
 import net.minecraft.particle.ParticleTypes;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.sound.SoundCategory;
@@ -490,7 +490,7 @@ public class RancherBrain {
 			case GROW -> feed(rancher, station, true);
 			case CULL -> cull(rancher);
 			case SHEAR -> shear(rancher);
-			case MILK -> milk(rancher);
+			case MILK -> milk(rancher, station);
 			case COLLECT -> collect(rancher);
 			case DEPOSIT -> deposit(rancher, station);
 		};
@@ -701,7 +701,7 @@ public class RancherBrain {
 			case COLLECT -> takeCollect(rancher, world, area);
 			case BREED -> takeBreed(rancher, world, area, station, config);
 			case GROW -> takeGrow(rancher, world, area, station, config);
-			case HARVEST -> takeHarvest(rancher, world, area, config);
+			case HARVEST -> takeHarvest(rancher, world, area, station, config);
 		};
 	}
 
@@ -750,7 +750,8 @@ public class RancherBrain {
 		return baby != null && take(Job.GROW, baby);
 	}
 
-	private boolean takeHarvest(RancherEntity rancher, ServerWorld world, WorkArea area, StationSettings config) {
+	private boolean takeHarvest(RancherEntity rancher, ServerWorld world, WorkArea area,
+			RanchBlockEntity station, StationSettings config) {
 		HerdSurvey survey = survey(world, area);
 
 		if (config.enableShearing) {
@@ -762,7 +763,10 @@ public class RancherBrain {
 			}
 		}
 
-		if (config.enableMilking) {
+		// Milk with nowhere to go is milk poured away, so a cow is left unmilked until there is a
+		// barrel with room in it. Asked here rather than on arrival so that the rancher spends the
+		// phase on something useful instead of walking out to a cow it will have to turn down.
+		if (config.enableMilking && MilkBarrelBlockEntity.adjoining(world, station.getPos()) != null) {
 			AnimalEntity cow = nearestReachable(rancher, world,
 					unserved(survey.milkCandidates()), ANIMAL_PATH_DISTANCE);
 
@@ -1063,8 +1067,20 @@ public class RancherBrain {
 		return true;
 	}
 
-	/** Fills a bucket the rancher did not have to be given, for the same reason as shearing. */
-	private boolean milk(RancherEntity rancher) {
+	/**
+	 * Empties a cow into the barrel standing against the station.
+	 *
+	 * <p>The milk goes to the barrel rather than into the rancher's pack, which is the whole point
+	 * of the barrel: a bucket takes a slot each and a pen of cows would bury the station in them
+	 * within a few rounds, while a barrel swallows the lot and hands it back a bucket at a time to
+	 * whoever comes for it.
+	 *
+	 * <p>The barrel is looked up again here rather than remembered from when the job was taken. It
+	 * is a walk away, and in the meantime it can be filled by another station, emptied by a player,
+	 * or broken outright, so the only reading worth acting on is the one taken at the moment the
+	 * milk needs somewhere to go.
+	 */
+	private boolean milk(RancherEntity rancher, RanchBlockEntity station) {
 		if (!(target instanceof AnimalEntity animal)) {
 			return true;
 		}
@@ -1075,11 +1091,15 @@ public class RancherBrain {
 			return true;
 		}
 
+		MilkBarrelBlockEntity barrel = MilkBarrelBlockEntity.adjoining(rancher.getWorld(), station.getPos());
+
+		if (barrel == null || !barrel.fill()) {
+			note = "no room for milk";
+			return true;
+		}
+
 		rancher.swingHand(Hand.MAIN_HAND);
 		animal.playSound(SoundEvents.ENTITY_COW_MILK, 1.0F, 1.0F);
-		// Straight into the pack rather than onto the floor, which is where a bucket would go if it
-		// were handed over the vanilla way.
-		keepOrDrop(rancher, new ItemStack(Items.MILK_BUCKET));
 		actionCooldown = ATTACK_INTERVAL;
 		phaseWorked = true;
 		return true;

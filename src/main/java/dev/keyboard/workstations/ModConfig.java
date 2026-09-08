@@ -39,10 +39,10 @@ public class ModConfig {
 	/** Shear anything wearing a coat. The wool lands on the ground and is swept up straight after. */
 	public boolean enableShearing = true;
 	/**
-	 * Milk grown cows. Off by default, and not because it is expensive: a milk bucket does not
-	 * stack, so every cow milked costs a whole slot and a station of 27 fills in a few rounds.
+	 * Milk grown cows into a milk barrel standing against the station. On but idle until a barrel is
+	 * there to take it: buckets in the station's own shelves would bury everything else it produces.
 	 */
-	public boolean enableMilking = false;
+	public boolean enableMilking = true;
 	/** Whether anything is allowed to hurt the worker. On by default; {@code /kill} still works. */
 	public boolean invulnerable = true;
 	/** Horizontal reach of the work area, measured out from the station block. */
@@ -86,6 +86,14 @@ public class ModConfig {
 	public boolean enableSowing = true;
 	/** Harvest grown crops. The produce lands on the ground and is swept up straight after. */
 	public boolean enableHarvesting = true;
+	/**
+	 * Pick melons and pumpkins that grew off a stem. Off by default, because unlike the rest of
+	 * the field this reaches past the plots the station registered and onto whatever ground the
+	 * fruit happened to grow on.
+	 */
+	public boolean harvestGourds = false;
+	/** Pick mushrooms anywhere in the work area. Off by default for the same reason. */
+	public boolean harvestMushrooms = false;
 	/**
 	 * When true sowing spends seeds out of the farm station, so the field only runs as long as you
 	 * keep it stocked. Off by default: what is in the container then only says which seeds the

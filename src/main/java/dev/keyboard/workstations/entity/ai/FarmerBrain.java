@@ -4,6 +4,7 @@ import dev.keyboard.workstations.block.FarmBlockEntity;
 import dev.keyboard.workstations.entity.FarmerEntity;
 import dev.keyboard.workstations.work.Crops;
 import dev.keyboard.workstations.work.FarmSettings;
+import dev.keyboard.workstations.work.Pickings;
 import dev.keyboard.workstations.work.PlotSurvey;
 import dev.keyboard.workstations.work.WorkArea;
 import it.unimi.dsi.fastutil.ints.Int2LongMap;
@@ -35,6 +36,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
+import java.util.function.UnaryOperator;
 
 /**
  * The farmer's whole decision loop, as one explicit state machine driven from {@code mobTick()}
@@ -79,6 +81,8 @@ public class FarmerBrain {
 		TILL,
 		SOW,
 		HARVEST,
+		/** A melon, a pumpkin or a mushroom: produce that grew beside the plots rather than on one. */
+		GATHER,
 		COLLECT,
 		DEPOSIT
 	}
@@ -148,6 +152,9 @@ public class FarmerBrain {
 	/** One look at the field per scan, shared by whichever phases get asked during it. */
 	@Nullable
 	private PlotSurvey scanSurvey;
+	/** The same for the melons, pumpkins and mushrooms growing off the register, if any are wanted. */
+	@Nullable
+	private List<BlockPos> scanPickings;
 	@Nullable
 	private Job job;
 	@Nullable
@@ -305,7 +312,7 @@ public class FarmerBrain {
 	}
 
 	private void runJob(FarmerEntity farmer, ServerWorld world, FarmBlockEntity station) {
-		if (!jobValid(world)) {
+		if (!jobValid(world, station.getSettings())) {
 			note = "target gone";
 			clearJob(farmer);
 			return;
@@ -385,7 +392,7 @@ public class FarmerBrain {
 	 * against the plot still existing, because somebody may have hoed, sown or harvested it in the
 	 * time the farmer spent walking over.
 	 */
-	private boolean jobValid(ServerWorld world) {
+	private boolean jobValid(ServerWorld world, FarmSettings config) {
 		if (job == Job.COLLECT) {
 			return target != null && target.isAlive() && !target.isRemoved();
 		}
@@ -399,6 +406,7 @@ public class FarmerBrain {
 			case TILL -> Crops.isTillable(world.getBlockState(targetPos)) && Crops.isClearAbove(world, targetPos);
 			case SOW -> Crops.isFarmland(world.getBlockState(targetPos)) && Crops.isClearAbove(world, targetPos);
 			case HARVEST -> Crops.isRipe(world, targetPos);
+			case GATHER -> Crops.isPickable(world, targetPos, config.harvestGourds, config.harvestMushrooms);
 			default -> false;
 		};
 	}
@@ -414,6 +422,7 @@ public class FarmerBrain {
 			case TILL -> till(farmer, world);
 			case SOW -> sow(farmer, world, station);
 			case HARVEST -> harvest(farmer, world);
+			case GATHER -> gather(farmer, world);
 			case COLLECT -> collect(farmer);
 			case DEPOSIT -> deposit(farmer, station);
 		};
@@ -433,7 +442,7 @@ public class FarmerBrain {
 		}
 
 		return switch (job) {
-			case TILL, SOW, HARVEST -> farmer.canWorkNow();
+			case TILL, SOW, HARVEST, GATHER -> farmer.canWorkNow();
 			default -> true;
 		};
 	}
@@ -506,6 +515,7 @@ public class FarmerBrain {
 		FarmSettings config = station.getSettings();
 		note = "";
 		scanSurvey = null;
+		scanPickings = null;
 
 		// A full pack interrupts whatever is running. Carrying on would mean harvesting crops there
 		// is nowhere left to put.
@@ -577,7 +587,8 @@ public class FarmerBrain {
 		return switch (phase) {
 			case TILL -> config.enableTilling;
 			case SOW -> config.enableSowing;
-			case HARVEST -> config.enableHarvesting;
+			// Three switches feed this one phase, and any of them is reason enough to run it.
+			case HARVEST -> config.enableHarvesting || config.harvestGourds || config.harvestMushrooms;
 			case COLLECT -> true;
 		};
 	}
@@ -614,7 +625,7 @@ public class FarmerBrain {
 		return switch (phase) {
 			case TILL -> takePlotJob(farmer, world, Job.TILL, survey(world, station).tillable());
 			case SOW -> takeSow(farmer, world, station, config);
-			case HARVEST -> takePlotJob(farmer, world, Job.HARVEST, survey(world, station).ripe());
+			case HARVEST -> takeHarvest(farmer, world, area, station, config);
 			case COLLECT -> takeCollect(farmer, world, area);
 		};
 	}
@@ -629,6 +640,38 @@ public class FarmerBrain {
 		job = newJob;
 		target = null;
 		targetPos = plot;
+		sowing = null;
+		return true;
+	}
+
+	/**
+	 * Ripe crops first, then whatever melons, pumpkins and mushrooms the settings allow.
+	 *
+	 * <p>All one phase, because they are all harvesting: each leaves its produce on the ground, and
+	 * grouping them means the sweep that follows the phase clears up after every one of them at
+	 * once rather than being owed a separate trip for each.
+	 */
+	private boolean takeHarvest(FarmerEntity farmer, ServerWorld world, WorkArea area,
+			FarmBlockEntity station, FarmSettings config) {
+		if (config.enableHarvesting && takePlotJob(farmer, world, Job.HARVEST, survey(world, station).ripe())) {
+			return true;
+		}
+
+		// Pathfinding declining to answer says nothing about the pickings either, and asking again
+		// from a farmer that is still in the air would only get the same non-answer.
+		if (pathPending) {
+			return false;
+		}
+
+		BlockPos pick = nearestReachablePick(farmer, world, pickings(world, area, config));
+
+		if (pick == null) {
+			return false;
+		}
+
+		job = Job.GATHER;
+		target = null;
+		targetPos = pick;
 		sowing = null;
 		return true;
 	}
@@ -701,8 +744,16 @@ public class FarmerBrain {
 		return scanSurvey;
 	}
 
+	private List<BlockPos> pickings(ServerWorld world, WorkArea area, FarmSettings config) {
+		if (scanPickings == null) {
+			scanPickings = Pickings.find(world, area, config.harvestGourds, config.harvestMushrooms);
+		}
+
+		return scanPickings;
+	}
+
 	/**
-	 * Closest plot the farmer can actually walk up to, nearest tried first.
+	 * Closest plot the farmer can actually walk up to.
 	 *
 	 * <p>Paths aim at the block above the plot rather than at the plot itself. That block is where
 	 * the farmer would be standing, and it is a node pathfinding can name; farmland is solid, so
@@ -710,12 +761,36 @@ public class FarmerBrain {
 	 */
 	@Nullable
 	private BlockPos nearestReachablePlot(FarmerEntity farmer, ServerWorld world, List<BlockPos> plots) {
-		long now = world.getTime();
-		List<BlockPos> queue = new ArrayList<>(plots.size());
+		return nearestReachable(farmer, world, plots, BlockPos::up, 0);
+	}
 
-		for (BlockPos plot : plots) {
-			if (blockedPlots.get(plot.asLong()) <= now && !served.contains(plot.asLong())) {
-				queue.add(plot);
+	/**
+	 * Closest melon, pumpkin or mushroom the farmer can get to.
+	 *
+	 * <p>These are worked from beside rather than from on top: there is no standing on a mushroom,
+	 * and a melon has nothing above it to aim at. So the path is only asked to finish within reach
+	 * of the block instead of at one particular square.
+	 */
+	@Nullable
+	private BlockPos nearestReachablePick(FarmerEntity farmer, ServerWorld world, List<BlockPos> picks) {
+		return nearestReachable(farmer, world, picks, pos -> pos, 1);
+	}
+
+	/**
+	 * Nearest of a list of positions that can actually be walked to, closest tried first.
+	 *
+	 * @param stand where the path should aim, given the position being worked
+	 * @param slack how far short of that the path may stop and still count as having got there
+	 */
+	@Nullable
+	private BlockPos nearestReachable(FarmerEntity farmer, ServerWorld world, List<BlockPos> spots,
+			UnaryOperator<BlockPos> stand, int slack) {
+		long now = world.getTime();
+		List<BlockPos> queue = new ArrayList<>(spots.size());
+
+		for (BlockPos spot : spots) {
+			if (blockedPlots.get(spot.asLong()) <= now && !served.contains(spot.asLong())) {
+				queue.add(spot);
 			}
 		}
 
@@ -723,37 +798,37 @@ public class FarmerBrain {
 			return null;
 		}
 
-		queue.sort(Comparator.comparingDouble(plot -> farmer.squaredDistanceTo(Vec3d.ofCenter(plot))));
+		queue.sort(Comparator.comparingDouble(spot -> farmer.squaredDistanceTo(Vec3d.ofCenter(spot))));
 
 		// Each miss costs a pathfind, so a scan only probes the few nearest and leaves the rest for
 		// later. Anything ruled out goes on the blocked list, so the next scan starts further down.
 		for (int index = 0; index < Math.min(queue.size(), MAX_PATH_CHECKS); index++) {
-			BlockPos plot = queue.get(index);
+			BlockPos spot = queue.get(index);
 
 			// Beyond pathfinding's reach the answer comes back "no" whatever the ground is like, so
-			// there is nothing worth asking. Such a plot is accepted and walked at in stages; if it
+			// there is nothing worth asking. Such a spot is accepted and walked at in stages; if it
 			// does turn out to be unreachable, the stall detector writes it off once the farmer is
 			// near enough for a refusal to actually mean something.
-			if (WorkerMovement.isFarOff(farmer, Vec3d.ofCenter(plot))) {
-				return plot;
+			if (WorkerMovement.isFarOff(farmer, Vec3d.ofCenter(spot))) {
+				return spot;
 			}
 
-			Path path = farmer.getNavigation().findPathTo(plot.up(), 0);
+			Path path = farmer.getNavigation().findPathTo(stand.apply(spot), slack);
 
 			if (path == null) {
 				// Pathfinding declines to answer at all while the farmer is off the ground, which
 				// happens constantly to a walking mob. That is a fact about the farmer and not
-				// about the plot, so nothing may be written off here.
+				// about the target, so nothing may be written off here.
 				note = "no path yet";
 				pathPending = true;
 				return null;
 			}
 
 			if (path.reachesTarget()) {
-				return plot;
+				return spot;
 			}
 
-			blockedPlots.put(plot.asLong(), world.getTime() + BLOCKED_COOLDOWN);
+			blockedPlots.put(spot.asLong(), world.getTime() + BLOCKED_COOLDOWN);
 			note = "unreachable";
 		}
 
@@ -921,6 +996,27 @@ public class FarmerBrain {
 		return true;
 	}
 
+	/**
+	 * Breaks a melon, a pumpkin or a mushroom where it grew. The block itself is the target here,
+	 * rather than the ground under it as with a plot, because nothing registered it in the first
+	 * place. Otherwise it is harvesting like any other: the drops are left for the sweep.
+	 */
+	private boolean gather(FarmerEntity farmer, ServerWorld world) {
+		BlockPos pick = targetPos;
+
+		if (pick == null) {
+			return true;
+		}
+
+		served.add(pick.asLong());
+		farmer.swingHand(Hand.MAIN_HAND);
+		world.breakBlock(pick, true, farmer);
+		farmer.startWorkCooldown();
+		actionCooldown = SWING_INTERVAL;
+		phaseWorked = true;
+		return true;
+	}
+
 	private boolean collect(FarmerEntity farmer) {
 		if (!(target instanceof ItemEntity item) || item.cannotPickup()) {
 			return true;
@@ -1017,9 +1113,9 @@ public class FarmerBrain {
 			return;
 		}
 
-		if (job == Job.DEPOSIT) {
-			// This overload already settles for a block next to the target, which it has to: the
-			// station itself is solid and can only ever be walked up to.
+		if (job == Job.DEPOSIT || job == Job.GATHER) {
+			// This overload already settles for a block next to the target, which it has to: a
+			// station and a melon are both solid and can only ever be walked up to.
 			farmer.getNavigation().startMovingTo(targetPos.getX() + 0.5, targetPos.getY(),
 					targetPos.getZ() + 0.5, WALK_SPEED);
 			return;

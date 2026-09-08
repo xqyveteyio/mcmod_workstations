@@ -1,5 +1,6 @@
 package dev.keyboard.workstations.work;
 
+import net.minecraft.block.AttachedStemBlock;
 import net.minecraft.block.Block;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.Blocks;
@@ -9,12 +10,14 @@ import net.minecraft.item.BlockItem;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.Direction;
 import net.minecraft.world.BlockView;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -23,13 +26,24 @@ import java.util.Set;
  *
  * <p>Only {@link CropBlock} counts as a crop. That covers wheat, carrots, potatoes, beetroot and
  * torchflowers: everything with an age that ripens in place, which is the whole of what harvesting
- * a square of farmland means. Melon and pumpkin stems are deliberately left out, because their
- * fruit grows on a neighbouring block and managing them is a different job from managing a plot.
+ * a square of farmland means. Melon and pumpkin stems are deliberately left out of that, because
+ * their fruit grows on a neighbouring block rather than on the plot.
+ *
+ * <p>That fruit, and mushrooms, are picked up separately: they are found by looking around the
+ * work area rather than by consulting the plot register, which is what {@link Pickings} is for.
  */
 public final class Crops {
 	/** Ground a hoe turns into farmland, so a trampled plot can be put back to work. */
 	private static final Set<Block> TILLABLE = Set.of(
 			Blocks.DIRT, Blocks.GRASS_BLOCK, Blocks.DIRT_PATH, Blocks.COARSE_DIRT, Blocks.ROOTED_DIRT);
+
+	/** The small mushrooms, which spread where they like rather than growing on a plot. */
+	private static final Set<Block> MUSHROOMS = Set.of(Blocks.BROWN_MUSHROOM, Blocks.RED_MUSHROOM);
+
+	/** Each fruit alongside the stem that would still be holding onto it if it had grown there. */
+	private static final Map<Block, Block> GOURD_STEMS = Map.of(
+			Blocks.MELON, Blocks.ATTACHED_MELON_STEM,
+			Blocks.PUMPKIN, Blocks.ATTACHED_PUMPKIN_STEM);
 
 	private Crops() {
 	}
@@ -96,5 +110,46 @@ public final class Crops {
 		BlockPos above = plot.up();
 		BlockState state = world.getBlockState(above);
 		return state.getBlock() instanceof CropBlock crop && crop.isMature(state);
+	}
+
+	public static boolean isMushroom(BlockState state) {
+		return MUSHROOMS.contains(state.getBlock());
+	}
+
+	/** Whether a block is a melon or a pumpkin, however it came to be there. */
+	public static boolean isGourd(BlockState state) {
+		return GOURD_STEMS.containsKey(state.getBlock());
+	}
+
+	/**
+	 * Whether a melon or pumpkin grew where it stands, told by a stem beside it still holding on.
+	 *
+	 * <p>Worth asking, because a pumpkin is a building block every bit as much as it is produce.
+	 * Taking every one inside the work area would have the farmer quietly dismantle a wall or a
+	 * lantern somebody put up, and an attached stem is the one thing that says this one was grown.
+	 */
+	public static boolean isGrownGourd(BlockView world, BlockPos pos) {
+		Block stem = GOURD_STEMS.get(world.getBlockState(pos).getBlock());
+
+		if (stem == null) {
+			return false;
+		}
+
+		for (Direction side : Direction.Type.HORIZONTAL) {
+			BlockState neighbour = world.getBlockState(pos.offset(side));
+
+			// Pointing back at this fruit. A stem facing elsewhere grew the one next door, and
+			// taking its neighbour on the strength of it would be reaching.
+			if (neighbour.isOf(stem) && neighbour.get(AttachedStemBlock.FACING) == side.getOpposite()) {
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	/** Whether a block is one of the loose pickings a station has been set to take. */
+	public static boolean isPickable(BlockView world, BlockPos pos, boolean gourds, boolean mushrooms) {
+		return (mushrooms && isMushroom(world.getBlockState(pos))) || (gourds && isGrownGourd(world, pos));
 	}
 }
