@@ -14,7 +14,6 @@
 	"block.workstations.milk_barrel": "奶槽",
 	"message.workstations.milk_barrel_level": "奶槽：%1$s / %2$s 桶牛奶",
 	"item.workstations.universal_feed": "通用饲料",
-	"item.workstations.universal_feed.tooltip": "牧场工可以用它喂养任何动物，不论那种动物平时吃什么。和小麦、种子一起放进工作站时，只有那些吃不了小麦种子的动物才会消耗它。",
 	"message.workstations.mca_version": "[工作站] 当前安装的凡家物语：重生 %1$s 不是工人能借用村民外观的版本，需要 %2$s 及以上、%3$s 以下。工人会使用自己原本的外观，两个模组的其他功能都不受影响。",
 	"config.workstations.worker_recall": "召回工人",
 	"config.workstations.reset": "恢复默认",

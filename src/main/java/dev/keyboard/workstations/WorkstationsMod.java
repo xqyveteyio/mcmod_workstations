@@ -9,7 +9,6 @@ import dev.keyboard.workstations.block.RanchBlockEntity;
 import dev.keyboard.workstations.block.WorkStationBlockEntity;
 import dev.keyboard.workstations.entity.FarmerEntity;
 import dev.keyboard.workstations.entity.RancherEntity;
-import dev.keyboard.workstations.item.UniversalFeedItem;
 import dev.keyboard.workstations.network.StationNetworking;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.event.player.UseBlockCallback;
@@ -58,7 +57,7 @@ public class WorkstationsMod implements ModInitializer {
 	public static final BlockItem RANCH_ITEM = new BlockItem(RANCH_BLOCK, new Item.Settings());
 	public static final BlockItem FARM_ITEM = new BlockItem(FARM_BLOCK, new Item.Settings());
 	public static final BlockItem MILK_BARREL_ITEM = new BlockItem(MILK_BARREL_BLOCK, new Item.Settings());
-	public static final UniversalFeedItem UNIVERSAL_FEED = new UniversalFeedItem(new Item.Settings());
+	public static final Item UNIVERSAL_FEED = new Item(new Item.Settings());
 
 	/**
 	 * One creative tab for everything the mod adds, rather than scattering four things through the

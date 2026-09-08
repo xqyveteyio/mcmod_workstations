@@ -12,15 +12,6 @@ base {
 
 repositories {
 	mavenCentral()
-
-	// Minecraft Comes Alive, for the optional integration that dresses workers as its villagers.
-	maven {
-		name = "Conczin"
-		url = "https://maven.conczin.net/Artifacts"
-		content {
-			includeGroup "net.mca"
-		}
-	}
 }
 
 dependencies {
@@ -29,15 +20,11 @@ dependencies {
 	modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
 	modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
 
-	// Compile only, and never listed as a dependency: the classes that touch it are reached solely
-	// through a mod loaded check, so the mod runs identically with MCA absent.
-	//
-	// Not transitive. MCA is built on Architectury, but none of the handful of its types we name
-	// carry an Architectury type in their signature, so pulling the whole platform in to compile
-	// against would buy nothing but another repository to depend on.
-	modCompileOnly("net.mca:mca:${project.mca_version}") {
-		transitive = false
-	}
+	// Minecraft Comes Alive is deliberately absent. The optional integration that dresses workers
+	// as its villagers finds the few classes it needs by name at runtime, because MCA's only
+	// current download for this version renames its packages and no compiled name matches both
+	// layouts. See McaVillagers. Nothing to compile against therefore means nothing to keep in
+	// step, and no repository to depend on for a build that has to work without MCA anyway.
 }
 
 processResources {

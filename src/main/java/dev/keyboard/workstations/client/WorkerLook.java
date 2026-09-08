@@ -10,15 +10,10 @@ import net.minecraft.nbt.NbtCompound;
 /**
  * Whether a worker is drawn as itself or borrowed from another mod.
  *
- * <p>This class names no class from any of those mods, which is the whole point of it. A class is
- * not loaded until a line naming it actually runs, so {@link McaSupport} is what keeps the game
- * from going looking for classes that are not installed, or installed in a version that no longer
- * has them.
- *
- * <p>The safety net has to live out here too, rather than inside the bridge it guards. A version
- * that passes the check is still no promise that the classes compiled against are the ones present:
- * MCA can be repackaged, in which case the failure is not something the bridge throws but the
- * bridge itself failing to load. A net cast inside it would go down with it.
+ * <p>{@link McaVillagers} is what decides whether there is anything to borrow, and none of what it
+ * reaches for is an API MCA offers. So the safety net lives out here, where one failure can put
+ * every worker back in its own skin for the rest of the session rather than throwing once a frame
+ * for as long as the world is open.
  */
 public final class WorkerLook {
 	/** Set once the MCA side has failed even once, which puts every worker back in its own skin. */
@@ -37,7 +32,7 @@ public final class WorkerLook {
 	 */
 	public static boolean renderAsMcaVillager(MobEntity worker, NbtCompound disguise, float yaw,
 			float tickDelta, MatrixStack matrices, VertexConsumerProvider vertexConsumers, int light) {
-		if (!McaSupport.available() || mcaGivenUp || disguise.isEmpty()) {
+		if (!McaVillagers.usable() || mcaGivenUp || disguise.isEmpty()) {
 			return false;
 		}
 
@@ -45,10 +40,9 @@ public final class WorkerLook {
 			return McaVillagerLook.render(worker, disguise, yaw, tickDelta, matrices, vertexConsumers, light);
 		} catch (Throwable failure) {
 			mcaGivenUp = true;
-			WorkstationsMod.LOGGER.warn("""
-					Could not dress workers as Minecraft Comes Alive villagers, so they will keep their own look. \
-					If MCA was installed as its combined "universal" download, swap it for the Fabric one: the \
-					combined build renames every class inside it, so nothing outside it can find them.""", failure);
+			WorkstationsMod.LOGGER.warn(
+					"Could not dress workers as Minecraft Comes Alive villagers, so they will keep their own look",
+					failure);
 			return false;
 		}
 	}

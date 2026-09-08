@@ -19,8 +19,9 @@ import org.jetbrains.annotations.Nullable;
  * held still across the 7.5 and 7.6 lines; a major bump is a rewrite, and guessing that it kept the
  * same shape is exactly the guess that ends in a crash report.
  *
- * <p>Names no MCA class, on purpose. A class is not loaded until a line naming it runs, and this is
- * the line that decides whether any of those lines ever run.
+ * <p>Only the version is read here. Whether the classes behind that version are laid out somewhere
+ * findable is {@link McaVillagers}' question, and a build can fail either test on its own: a 9.0
+ * laid out exactly as expected is still turned away by this one.
  */
 public final class McaSupport {
 	private static final String MCA_ID = "mca";
