@@ -48,6 +48,7 @@ public abstract class WorkStationBlockEntity<W extends MobEntity & StationWorker
 
 	protected static final String SETTINGS_KEY = "Settings";
 	private static final String WORKER_KEY = "Worker";
+	private static final String RESPAWN_KEY = "Respawn";
 
 	private DefaultedList<ItemStack> inventory = DefaultedList.ofSize(INVENTORY_SIZE, ItemStack.EMPTY);
 	@Nullable
@@ -119,7 +120,16 @@ public abstract class WorkStationBlockEntity<W extends MobEntity & StationWorker
 		}
 	}
 
-	/** The worker belonging to this station, or {@code null} if it died or is not loaded. */
+	/**
+	 * The worker belonging to this station, or {@code null} if it died or is not loaded.
+	 *
+	 * <p>The saved id is kept even when the worker cannot be found. The worker's chunk can unload
+	 * without the station's, and the entity region is read separately from this block, so the
+	 * worker may simply not be in the world yet. Forgetting the id in either case would leave the
+	 * station unable to recognise its own worker when that worker comes back. A worker that is
+	 * truly gone is replaced once the hire delay runs out, which writes a new id through
+	 * {@link #adopt}.
+	 */
 	@Nullable
 	public W getWorker(ServerWorld world) {
 		if (workerUuid != null) {
@@ -128,10 +138,15 @@ public abstract class WorkStationBlockEntity<W extends MobEntity & StationWorker
 			if (workerClass().isInstance(entity) && entity.isAlive()) {
 				return workerClass().cast(entity);
 			}
+
+			// Still claiming a worker that is not in the world right now. Looking around for a
+			// substitute would take on whoever happens to be standing nearby, and the claimed
+			// worker would then be the one sent away.
+			return null;
 		}
 
-		// The saved id goes stale whenever the worker's chunk unloads without the station's, so
-		// before summoning a replacement, look for one already standing in the area.
+		// No one is on the books, so take on a worker already standing in the area before
+		// summoning a new one.
 		List<W> strays = world.getEntitiesByClass(workerClass(), getWorkArea().getBox().expand(4.0),
 				worker -> worker.isAlive() && pos.equals(worker.getStationPos()));
 
@@ -140,12 +155,15 @@ public abstract class WorkStationBlockEntity<W extends MobEntity & StationWorker
 			return strays.get(0);
 		}
 
-		if (workerUuid != null) {
-			workerUuid = null;
-			markDirty();
-		}
-
 		return null;
+	}
+
+	/**
+	 * Whether this station has taken on a worker, and it is not {@code worker}. A station that has
+	 * taken no one on yet is still choosing, so nobody should stand down for that.
+	 */
+	public boolean hasAdoptedOtherThan(UUID worker) {
+		return workerUuid != null && !workerUuid.equals(worker);
 	}
 
 	public void summonWorker(ServerWorld world) {
@@ -219,8 +237,13 @@ public abstract class WorkStationBlockEntity<W extends MobEntity & StationWorker
 		workerUuid = null;
 	}
 
+	/**
+	 * Takes {@code worker} on as the one this station employs. The hire delay starts over, because
+	 * a station that has just filled the post has no reason to keep counting down to a replacement.
+	 */
 	private void adopt(W worker) {
 		workerUuid = worker.getUuid();
+		respawnTimer = respawnTicks();
 		markDirty();
 	}
 
@@ -283,6 +306,7 @@ public abstract class WorkStationBlockEntity<W extends MobEntity & StationWorker
 			nbt.putUuid(WORKER_KEY, workerUuid);
 		}
 
+		nbt.putInt(RESPAWN_KEY, respawnTimer);
 		nbt.put(SETTINGS_KEY, settingsNbt());
 	}
 
@@ -299,6 +323,19 @@ public abstract class WorkStationBlockEntity<W extends MobEntity & StationWorker
 
 		if (nbt.contains(SETTINGS_KEY, NbtElement.COMPOUND_TYPE)) {
 			getSettings().readNbt(nbt.getCompound(SETTINGS_KEY));
+		}
+
+		// The worker lives in the entity region, not with this block, and the two are loaded on
+		// their own clocks. A station that has just come back must wait the full hire delay
+		// before deciding its worker is gone, or it will hire another while the first is still
+		// being read in. A countdown already written is resumed so a station saved mid-wait does
+		// not start over; a station that has none is given a full delay, because the field would
+		// otherwise be zero and the wait would be over on the first tick. respawnTicks() is asked
+		// after the settings have been read, which is where that delay is kept.
+		if (nbt.contains(RESPAWN_KEY, NbtElement.INT_TYPE)) {
+			respawnTimer = nbt.getInt(RESPAWN_KEY);
+		} else {
+			respawnTimer = respawnTicks();
 		}
 	}
 
