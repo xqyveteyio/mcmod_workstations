@@ -208,10 +208,16 @@ public class RancherEntity extends PathAwareEntity implements StationWorker, Wor
 		}
 
 		// A rancher outliving its station would keep working an area nobody owns any more.
-		if (getStation() == null) {
+		RanchBlockEntity station = getStation();
+
+		if (station == null) {
 			if (++homelessTicks > HOMELESS_LIMIT) {
 				WorkerEntrance.leave(this);
 			}
+		} else if (station.hasAdoptedOtherThan(getUuid())) {
+			// The station has taken someone else on. Staying would leave two ranchers working the
+			// same pen, and only the one on the books is meant to be.
+			WorkerEntrance.leave(this);
 		} else {
 			homelessTicks = 0;
 		}
