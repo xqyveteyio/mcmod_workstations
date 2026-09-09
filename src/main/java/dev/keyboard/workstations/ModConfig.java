@@ -8,12 +8,13 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 
 /**
- * Starting values for newly placed stations, stored in {@code config/workstations.json}.
+ * Starting values for newly placed stations, and the values the settings screen's reset button
+ * restores, stored in {@code config/keyboard_workstations.json}.
  *
  * <p>Ranchers do not read this, with three exceptions noted below. Each station keeps its own
  * {@link dev.keyboard.workstations.work.StationSettings}, copied from here when the block is
- * placed and edited from the block's own screen afterwards, so changing the file only affects
- * stations built from then on.
+ * placed and edited from the block's own screen afterwards. Changing the file only affects
+ * stations built from then on, unless an existing station is reset from its settings screen.
  *
  * <p>{@link #requireFeedItems}, {@link #consumeSeeds} and {@link #invulnerable} are the exceptions.
  * They are read straight from here every time they are needed, are not copied into any station and
@@ -74,9 +75,9 @@ public class ModConfig {
 	 */
 	public boolean requireFeedItems = true;
 	/** Adults of one species kept as breeding stock. Anything above this gets slaughtered. */
-	public int keepAdultsPerType = 4;
+	public int keepAdultsPerType = 8;
 	/** Animals of one species allowed inside the area before breeding pauses. */
-	public int maxAnimalsPerType = 16;
+	public int maxAnimalsPerType = 12;
 	/** Also feed babies to speed up their growth. Off by default because it eats through feed quickly. */
 	public boolean feedBabies = false;
 	/** Play the eating sound every time an animal is fed. Off by default since a busy ranch gets noisy. */

@@ -125,6 +125,7 @@ public abstract class WorkerSettingsScreen<S extends WorkerSettings<S>> extends 
 		}
 	}
 
+	/** Restores this station to the values in the config file. */
 	private void resetToDefaults() {
 		settings.copyFrom(settings.shippedDefaults());
 		clearAndInit();

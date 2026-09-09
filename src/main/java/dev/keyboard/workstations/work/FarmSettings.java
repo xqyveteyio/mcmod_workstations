@@ -97,7 +97,7 @@ public final class FarmSettings implements WorkerSettings<FarmSettings> {
 
 	@Override
 	public FarmSettings shippedDefaults() {
-		return new FarmSettings(new ModConfig());
+		return new FarmSettings();
 	}
 
 	@Override

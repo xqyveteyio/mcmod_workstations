@@ -29,8 +29,8 @@ public interface WorkerSettings<S extends WorkerSettings<S>> {
 	S copy();
 
 	/**
-	 * The values the mod ships with, rather than whatever the config file has been changed to, so
-	 * the reset button means the same thing on a server whose config you have never seen.
+	 * The values from {@code config/keyboard_workstations.json}, so the reset button restores what
+	 * a newly placed station would start with.
 	 */
 	S shippedDefaults();
 

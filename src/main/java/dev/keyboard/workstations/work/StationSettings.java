@@ -104,7 +104,7 @@ public final class StationSettings implements WorkerSettings<StationSettings> {
 
 	@Override
 	public StationSettings shippedDefaults() {
-		return new StationSettings(new ModConfig());
+		return new StationSettings();
 	}
 
 	@Override
