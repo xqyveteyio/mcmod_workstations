@@ -2,7 +2,6 @@ package dev.keyboard.workstations.client;
 
 import dev.keyboard.workstations.entity.RancherEntity;
 import dev.keyboard.workstations.work.WorkerSkin;
-import net.minecraft.client.render.VertexConsumerProvider;
 import net.minecraft.client.render.entity.EntityRendererFactory;
 import net.minecraft.client.render.entity.MobEntityRenderer;
 import net.minecraft.client.render.entity.model.EntityModelLayers;
@@ -39,26 +38,6 @@ public class RancherEntityRenderer extends MobEntityRenderer<RancherEntity, Vill
 
 	private static WorkerSkin skin(RancherEntity entity) {
 		return WorkerSkin.get(WorkerSkin.RANCHER, entity.getSkin());
-	}
-
-	/**
-	 * Hands the body over to Minecraft Comes Alive when that mod is installed, so that a rancher
-	 * standing among its villagers does not look like the one squidward left in the room. The name
-	 * plate stays this renderer's own, since the stand in MCA draws knows nothing about ranching.
-	 */
-	@Override
-	public void render(RancherEntity entity, float yaw, float tickDelta, MatrixStack matrices,
-			VertexConsumerProvider vertexConsumers, int light) {
-		if (WorkerLook.renderAsMcaVillager(entity, entity.getDisguise(), yaw, tickDelta, matrices,
-				vertexConsumers, light)) {
-			if (hasLabel(entity)) {
-				renderLabelIfPresent(entity, entity.getDisplayName(), matrices, vertexConsumers, light);
-			}
-
-			return;
-		}
-
-		super.render(entity, yaw, tickDelta, matrices, vertexConsumers, light);
 	}
 
 	@Override

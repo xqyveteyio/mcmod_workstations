@@ -15,7 +15,6 @@ import dev.keyboard.workstations.network.StationNetworking;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.event.player.UseBlockCallback;
 import net.fabricmc.fabric.api.itemgroup.v1.FabricItemGroup;
-import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 import net.fabricmc.fabric.api.object.builder.v1.block.entity.FabricBlockEntityTypeBuilder;
 import net.fabricmc.fabric.api.object.builder.v1.entity.FabricDefaultAttributeRegistry;
 import net.minecraft.block.AbstractBlock;
@@ -167,7 +166,6 @@ public class WorkstationsMod implements ModInitializer {
 
 		StationNetworking.registerServerReceivers();
 		registerSettingsGesture();
-		announceMcaRefusal();
 
 		LOGGER.info("Workstations initialized");
 	}
@@ -197,26 +195,6 @@ public class WorkstationsMod implements ModInitializer {
 
 			return ActionResult.SUCCESS;
 		});
-	}
-
-	/**
-	 * Says once, to each player as they arrive, that the installed Minecraft Comes Alive is not one
-	 * workers can be dressed from.
-	 *
-	 * <p>Sent from the server rather than shown on the client so that it reaches the people who can
-	 * do something about it: on a server it is the jar sitting there that decides how workers look,
-	 * and a player has no way of telling from their own side which of the two ends turned it down.
-	 * Registered only when there is something to say, so the usual case costs nothing at all.
-	 */
-	private static void announceMcaRefusal() {
-		Text notice = McaSupport.refusalNotice();
-
-		if (notice == null) {
-			return;
-		}
-
-		ServerPlayConnectionEvents.JOIN.register((handler, sender, server) ->
-				handler.getPlayer().sendMessage(notice, false));
 	}
 
 	public static Identifier id(String path) {

@@ -67,17 +67,8 @@ public class FarmerEntity extends PathAwareEntity implements StationWorker, Work
 	private static final TrackedData<Integer> BURIED =
 			DataTracker.registerData(FarmerEntity.class, TrackedDataHandlerRegistry.INTEGER);
 
-	/**
-	 * The villager another mod has lent this farmer its looks from, or nothing at all, which is the
-	 * usual case. Settled once on the server and carried from there so that every player sees the
-	 * same farmer and it is still the same one after a restart.
-	 */
-	private static final TrackedData<NbtCompound> DISGUISE =
-			DataTracker.registerData(FarmerEntity.class, TrackedDataHandlerRegistry.NBT_COMPOUND);
-
 	private static final String STATION_KEY = "Station";
 	private static final String CARRIED_KEY = "Carried";
-	private static final String DISGUISE_KEY = "Disguise";
 	/** Grace period before a farmer whose station is gone gives up, in ticks. */
 	private static final int HOMELESS_LIMIT = 200;
 	/** How often the state label may be rewritten, in ticks. Four times a second reads fine. */
@@ -110,7 +101,6 @@ public class FarmerEntity extends PathAwareEntity implements StationWorker, Work
 		super.initDataTracker();
 		dataTracker.startTracking(SKIN, 0);
 		dataTracker.startTracking(BURIED, 0);
-		dataTracker.startTracking(DISGUISE, new NbtCompound());
 	}
 
 	public static DefaultAttributeContainer.Builder createFarmerAttributes() {
@@ -182,13 +172,6 @@ public class FarmerEntity extends PathAwareEntity implements StationWorker, Work
 		// Setting tracked data it already holds costs nothing, so this needs no change detection.
 		// Kept up before the entrance is checked, so the farmer is dressed on the way down.
 		dataTracker.set(SKIN, getSettings().workerSkin);
-
-		// Borrowed looks are rolled once and then kept for good. Done here rather than at the
-		// moment of summoning so that farmers hired before the mod that lends them was installed
-		// are dressed too, and up here with the skin so it happens on the way in.
-		if (WorkerDisguise.canRoll() && dataTracker.get(DISGUISE).isEmpty()) {
-			dataTracker.set(DISGUISE, WorkerDisguise.roll(this));
-		}
 
 		// Still dropping out of the sky or clawing its way up through the ground. The field will
 		// keep until it has both feet on the floor.
@@ -265,14 +248,6 @@ public class FarmerEntity extends PathAwareEntity implements StationWorker, Work
 	/** Which of {@link WorkerSkin#FARMER} this farmer wears, readable on either side. */
 	public int getSkin() {
 		return dataTracker.get(SKIN);
-	}
-
-	/**
-	 * The villager this farmer has borrowed its looks from, empty when it is wearing its own. Only
-	 * the renderer has any use for this, and only when the mod it came from is installed.
-	 */
-	public NbtCompound getDisguise() {
-		return dataTracker.get(DISGUISE);
 	}
 
 	/**
@@ -421,20 +396,14 @@ public class FarmerEntity extends PathAwareEntity implements StationWorker, Work
 		return null;
 	}
 
-	/**
-	 * A farmer wearing somebody else's face should not answer in the vanilla villager's voice, so
-	 * a disguise brings its own along with it.
-	 */
 	@Override
 	protected SoundEvent getHurtSound(DamageSource source) {
-		SoundEvent borrowed = WorkerDisguise.voice(getDisguise(), WorkerDisguise.Voice.HURT);
-		return borrowed == null ? SoundEvents.ENTITY_VILLAGER_HURT : borrowed;
+		return SoundEvents.ENTITY_VILLAGER_HURT;
 	}
 
 	@Override
 	protected SoundEvent getDeathSound() {
-		SoundEvent borrowed = WorkerDisguise.voice(getDisguise(), WorkerDisguise.Voice.DEATH);
-		return borrowed == null ? SoundEvents.ENTITY_VILLAGER_DEATH : borrowed;
+		return SoundEvents.ENTITY_VILLAGER_DEATH;
 	}
 
 	@Override
@@ -446,12 +415,6 @@ public class FarmerEntity extends PathAwareEntity implements StationWorker, Work
 		}
 
 		nbt.put(CARRIED_KEY, carried.toNbtList());
-
-		NbtCompound disguise = getDisguise();
-
-		if (!disguise.isEmpty()) {
-			nbt.put(DISGUISE_KEY, disguise);
-		}
 	}
 
 	@Override
@@ -463,9 +426,5 @@ public class FarmerEntity extends PathAwareEntity implements StationWorker, Work
 		}
 
 		carried.readNbtList(nbt.getList(CARRIED_KEY, NbtElement.COMPOUND_TYPE));
-
-		if (nbt.contains(DISGUISE_KEY, NbtElement.COMPOUND_TYPE)) {
-			dataTracker.set(DISGUISE, nbt.getCompound(DISGUISE_KEY));
-		}
 	}
 }

@@ -16,7 +16,6 @@
 	"item.keyboard_workstations.universal_feed": "Universal Feed",
 	"block.keyboard_workstations.seed_box": "Seed Box",
 	"container.keyboard_workstations.seed_box": "Seed Box",
-	"message.keyboard_workstations.mca_version": "[Workstations] Minecraft Comes Alive %1$s is not a version workers can borrow a villager look from - that needs %2$s or newer, below %3$s. Workers will look like themselves instead. Nothing else about either mod is affected.",
 	"config.keyboard_workstations.worker_recall": "Recall worker",
 	"config.keyboard_workstations.reset": "Reset to defaults",
 	"config.keyboard_workstations.category.breeding": "Breeding",

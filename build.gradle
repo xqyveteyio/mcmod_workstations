@@ -19,12 +19,6 @@ dependencies {
 	mappings "net.fabricmc:yarn:${project.yarn_mappings}:v2"
 	modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
 	modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
-
-	// Minecraft Comes Alive is deliberately absent. The optional integration that dresses workers
-	// as its villagers finds the few classes it needs by name at runtime, because MCA's only
-	// current download for this version renames its packages and no compiled name matches both
-	// layouts. See McaVillagers. Nothing to compile against therefore means nothing to keep in
-	// step, and no repository to depend on for a build that has to work without MCA anyway.
 }
 
 processResources {

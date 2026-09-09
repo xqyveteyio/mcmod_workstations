@@ -16,7 +16,6 @@
 	"item.keyboard_workstations.universal_feed": "通用饲料",
 	"block.keyboard_workstations.seed_box": "种子箱",
 	"container.keyboard_workstations.seed_box": "种子箱",
-	"message.keyboard_workstations.mca_version": "[工作站] 当前安装的凡家物语：重生 %1$s 不是工人能借用村民外观的版本，需要 %2$s 及以上、%3$s 以下。工人会使用自己原本的外观，两个模组的其他功能都不受影响。",
 	"config.keyboard_workstations.worker_recall": "召回工人",
 	"config.keyboard_workstations.reset": "恢复默认",
 	"config.keyboard_workstations.category.breeding": "繁殖",
