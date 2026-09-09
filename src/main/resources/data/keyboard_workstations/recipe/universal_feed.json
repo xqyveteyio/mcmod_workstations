@@ -7,7 +7,7 @@
 		{ "item": "minecraft:carrot" }
 	],
 	"result": {
-		"item": "keyboard_workstations:universal_feed",
+		"id": "keyboard_workstations:universal_feed",
 		"count": 4
 	}
 }

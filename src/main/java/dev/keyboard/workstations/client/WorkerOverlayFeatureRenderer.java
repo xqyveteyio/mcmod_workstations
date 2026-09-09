@@ -44,6 +44,6 @@ public class WorkerOverlayFeatureRenderer<T extends LivingEntity>
 		}
 
 		VertexConsumer consumer = vertexConsumers.getBuffer(RenderLayer.getEntityCutoutNoCull(texture.apply(entity)));
-		getContextModel().render(matrices, consumer, light, OverlayTexture.DEFAULT_UV, 1.0F, 1.0F, 1.0F, 1.0F);
+		getContextModel().render(matrices, consumer, light, OverlayTexture.DEFAULT_UV);
 	}
 }

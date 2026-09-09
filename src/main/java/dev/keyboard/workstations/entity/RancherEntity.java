@@ -96,10 +96,10 @@ public class RancherEntity extends PathAwareEntity implements StationWorker, Wor
 	}
 
 	@Override
-	protected void initDataTracker() {
-		super.initDataTracker();
-		dataTracker.startTracking(SKIN, 0);
-		dataTracker.startTracking(BURIED, 0);
+	protected void initDataTracker(DataTracker.Builder builder) {
+		super.initDataTracker(builder);
+		builder.add(SKIN, 0);
+		builder.add(BURIED, 0);
 	}
 
 	public static DefaultAttributeContainer.Builder createRancherAttributes() {
@@ -417,17 +417,22 @@ public class RancherEntity extends PathAwareEntity implements StationWorker, Wor
 			nbt.put(STATION_KEY, NbtHelper.fromBlockPos(stationPos));
 		}
 
-		nbt.put(CARRIED_KEY, carried.toNbtList());
+		nbt.put(CARRIED_KEY, carried.toNbtList(getRegistryManager()));
 	}
 
 	@Override
 	public void readCustomDataFromNbt(NbtCompound nbt) {
 		super.readCustomDataFromNbt(nbt);
 
-		if (nbt.contains(STATION_KEY, NbtElement.COMPOUND_TYPE)) {
-			stationPos = NbtHelper.toBlockPos(nbt.getCompound(STATION_KEY));
-		}
+		stationPos = NbtHelper.toBlockPos(nbt, STATION_KEY).orElseGet(() -> {
+			if (!nbt.contains(STATION_KEY, NbtElement.COMPOUND_TYPE)) {
+				return null;
+			}
 
-		carried.readNbtList(nbt.getList(CARRIED_KEY, NbtElement.COMPOUND_TYPE));
+			NbtCompound pos = nbt.getCompound(STATION_KEY);
+			return new BlockPos(pos.getInt("X"), pos.getInt("Y"), pos.getInt("Z"));
+		});
+
+		carried.readNbtList(nbt.getList(CARRIED_KEY, NbtElement.COMPOUND_TYPE), getRegistryManager());
 	}
 }

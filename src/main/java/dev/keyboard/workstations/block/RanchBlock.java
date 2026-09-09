@@ -1,5 +1,6 @@
 package dev.keyboard.workstations.block;
 
+import com.mojang.serialization.MapCodec;
 import dev.keyboard.workstations.WorkstationsMod;
 import net.minecraft.block.Block;
 import net.minecraft.block.BlockRenderType;
@@ -24,7 +25,6 @@ import net.minecraft.text.Text;
 import net.minecraft.util.ActionResult;
 import net.minecraft.util.BlockMirror;
 import net.minecraft.util.BlockRotation;
-import net.minecraft.util.Hand;
 import net.minecraft.util.ItemScatterer;
 import net.minecraft.util.hit.BlockHitResult;
 import net.minecraft.util.math.BlockPos;
@@ -36,6 +36,7 @@ import net.minecraft.world.World;
 import org.jetbrains.annotations.Nullable;
 
 public class RanchBlock extends BlockWithEntity {
+	public static final MapCodec<RanchBlock> CODEC = createCodec(RanchBlock::new);
 	public static final DirectionProperty FACING = Properties.HORIZONTAL_FACING;
 	/**
 	 * Matches the table model: legs at the corners, the top they carry, and the miniature fence
@@ -56,6 +57,11 @@ public class RanchBlock extends BlockWithEntity {
 	public RanchBlock(Settings settings) {
 		super(settings);
 		setDefaultState(getStateManager().getDefaultState().with(FACING, Direction.NORTH));
+	}
+
+	@Override
+	protected MapCodec<? extends RanchBlock> getCodec() {
+		return CODEC;
 	}
 
 	@Override
@@ -92,7 +98,7 @@ public class RanchBlock extends BlockWithEntity {
 	 * and is the one part of the shape the path never accounted for.
 	 */
 	@Override
-	public boolean canPathfindThrough(BlockState state, BlockView world, BlockPos pos, NavigationType type) {
+	protected boolean canPathfindThrough(BlockState state, NavigationType type) {
 		return false;
 	}
 
@@ -114,7 +120,7 @@ public class RanchBlock extends BlockWithEntity {
 			return null;
 		}
 
-		return checkType(type, WorkstationsMod.RANCH_BLOCK_ENTITY, WorkStationBlockEntity::serverTick);
+		return validateTicker(type, WorkstationsMod.RANCH_BLOCK_ENTITY, WorkStationBlockEntity::serverTick);
 	}
 
 	@Override
@@ -136,7 +142,7 @@ public class RanchBlock extends BlockWithEntity {
 	}
 
 	@Override
-	public ActionResult onUse(BlockState state, World world, BlockPos pos, PlayerEntity player, Hand hand, BlockHitResult hit) {
+	protected ActionResult onUse(BlockState state, World world, BlockPos pos, PlayerEntity player, BlockHitResult hit) {
 		if (world.isClient) {
 			return ActionResult.SUCCESS;
 		}

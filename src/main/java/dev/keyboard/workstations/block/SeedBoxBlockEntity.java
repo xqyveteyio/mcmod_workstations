@@ -11,6 +11,7 @@ import net.minecraft.entity.player.PlayerInventory;
 import net.minecraft.inventory.Inventories;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NbtCompound;
+import net.minecraft.registry.RegistryWrapper;
 import net.minecraft.screen.GenericContainerScreenHandler;
 import net.minecraft.screen.ScreenHandler;
 import net.minecraft.sound.SoundCategory;
@@ -133,12 +134,12 @@ public class SeedBoxBlockEntity extends LootableContainerBlockEntity implements 
 	}
 
 	@Override
-	protected DefaultedList<ItemStack> getInvStackList() {
+	protected DefaultedList<ItemStack> getHeldStacks() {
 		return inventory;
 	}
 
 	@Override
-	protected void setInvStackList(DefaultedList<ItemStack> list) {
+	protected void setHeldStacks(DefaultedList<ItemStack> list) {
 		inventory = list;
 	}
 
@@ -148,21 +149,21 @@ public class SeedBoxBlockEntity extends LootableContainerBlockEntity implements 
 	}
 
 	@Override
-	protected void writeNbt(NbtCompound nbt) {
-		super.writeNbt(nbt);
+	protected void writeNbt(NbtCompound nbt, RegistryWrapper.WrapperLookup registryLookup) {
+		super.writeNbt(nbt, registryLookup);
 
-		if (!serializeLootTable(nbt)) {
-			Inventories.writeNbt(nbt, inventory);
+		if (!writeLootTable(nbt)) {
+			Inventories.writeNbt(nbt, inventory, registryLookup);
 		}
 	}
 
 	@Override
-	public void readNbt(NbtCompound nbt) {
-		super.readNbt(nbt);
+	protected void readNbt(NbtCompound nbt, RegistryWrapper.WrapperLookup registryLookup) {
+		super.readNbt(nbt, registryLookup);
 		inventory = DefaultedList.ofSize(INVENTORY_SIZE, ItemStack.EMPTY);
 
-		if (!deserializeLootTable(nbt)) {
-			Inventories.readNbt(nbt, inventory);
+		if (!readLootTable(nbt)) {
+			Inventories.readNbt(nbt, inventory, registryLookup);
 		}
 	}
 }

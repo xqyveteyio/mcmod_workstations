@@ -139,14 +139,14 @@ public class WorkstationsMod implements ModInitializer {
 		// No spawn egg and no natural spawning: a station is the only thing that makes a worker.
 		RANCHER = Registry.register(Registries.ENTITY_TYPE, RANCHER_ID,
 				EntityType.Builder.<RancherEntity>create(RancherEntity::new, SpawnGroup.MISC)
-						.setDimensions(0.6F, 1.95F)
+						.dimensions(0.6F, 1.95F)
 						.maxTrackingRange(10)
 						.build(RANCHER_ID.getPath()));
 		FabricDefaultAttributeRegistry.register(RANCHER, RancherEntity.createRancherAttributes());
 
 		FARMER = Registry.register(Registries.ENTITY_TYPE, FARMER_ID,
 				EntityType.Builder.<FarmerEntity>create(FarmerEntity::new, SpawnGroup.MISC)
-						.setDimensions(0.6F, 1.95F)
+						.dimensions(0.6F, 1.95F)
 						.maxTrackingRange(10)
 						.build(FARMER_ID.getPath()));
 		FabricDefaultAttributeRegistry.register(FARMER, FarmerEntity.createFarmerAttributes());
@@ -198,6 +198,6 @@ public class WorkstationsMod implements ModInitializer {
 	}
 
 	public static Identifier id(String path) {
-		return new Identifier(MOD_ID, path);
+		return Identifier.of(MOD_ID, path);
 	}
 }

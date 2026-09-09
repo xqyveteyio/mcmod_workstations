@@ -6,13 +6,13 @@
 		"BDB"
 	],
 	"key": {
-		"A": { "item": "minecraft:wheat_seeds" },
+		"A": { "item": "minecraft:hay_block" },
 		"B": { "tag": "minecraft:wooden_fences" },
 		"C": { "item": "minecraft:emerald_block" },
 		"D": { "item": "minecraft:chest" }
 	},
 	"result": {
-		"item": "keyboard_workstations:farm_station",
+		"id": "keyboard_workstations:ranch_station",
 		"count": 1
 	}
 }

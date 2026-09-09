@@ -1221,7 +1221,7 @@ public class FarmerBrain {
 			for (int slot = 0; slot < box.size(); slot++) {
 				ItemStack existing = box.getStack(slot);
 
-				if (ItemStack.canCombine(existing, stack)) {
+				if (ItemStack.areItemsAndComponentsEqual(existing, stack)) {
 					held += existing.getCount();
 				}
 			}
@@ -1259,7 +1259,7 @@ public class FarmerBrain {
 				break;
 			}
 
-			if (!ItemStack.canCombine(existing, stack)) {
+			if (!ItemStack.areItemsAndComponentsEqual(existing, stack)) {
 				continue;
 			}
 

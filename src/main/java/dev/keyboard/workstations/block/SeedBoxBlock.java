@@ -1,5 +1,6 @@
 package dev.keyboard.workstations.block;
 
+import com.mojang.serialization.MapCodec;
 import dev.keyboard.workstations.WorkstationsMod;
 import net.minecraft.block.Block;
 import net.minecraft.block.BlockRenderType;
@@ -20,7 +21,6 @@ import net.minecraft.state.property.Properties;
 import net.minecraft.util.ActionResult;
 import net.minecraft.util.BlockMirror;
 import net.minecraft.util.BlockRotation;
-import net.minecraft.util.Hand;
 import net.minecraft.util.ItemScatterer;
 import net.minecraft.util.hit.BlockHitResult;
 import net.minecraft.util.math.BlockPos;
@@ -41,6 +41,7 @@ import org.jetbrains.annotations.Nullable;
  * part deliberately left out.
  */
 public class SeedBoxBlock extends BlockWithEntity {
+	public static final MapCodec<SeedBoxBlock> CODEC = createCodec(SeedBoxBlock::new);
 	public static final DirectionProperty FACING = Properties.HORIZONTAL_FACING;
 
 	/** A chest's own outline: a hair inside the block on every side but the bottom. */
@@ -49,6 +50,11 @@ public class SeedBoxBlock extends BlockWithEntity {
 	public SeedBoxBlock(Settings settings) {
 		super(settings);
 		setDefaultState(getStateManager().getDefaultState().with(FACING, Direction.NORTH));
+	}
+
+	@Override
+	protected MapCodec<? extends SeedBoxBlock> getCodec() {
+		return CODEC;
 	}
 
 	@Override
@@ -101,11 +107,11 @@ public class SeedBoxBlock extends BlockWithEntity {
 			return null;
 		}
 
-		return checkType(type, WorkstationsMod.SEED_BOX_BLOCK_ENTITY, SeedBoxBlockEntity::clientTick);
+		return validateTicker(type, WorkstationsMod.SEED_BOX_BLOCK_ENTITY, SeedBoxBlockEntity::clientTick);
 	}
 
 	@Override
-	public ActionResult onUse(BlockState state, World world, BlockPos pos, PlayerEntity player, Hand hand, BlockHitResult hit) {
+	protected ActionResult onUse(BlockState state, World world, BlockPos pos, PlayerEntity player, BlockHitResult hit) {
 		if (world.isClient) {
 			return ActionResult.SUCCESS;
 		}

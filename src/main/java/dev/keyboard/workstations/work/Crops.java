@@ -5,6 +5,7 @@ import net.minecraft.block.Block;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.Blocks;
 import net.minecraft.block.CropBlock;
+import net.minecraft.component.DataComponentTypes;
 import net.minecraft.inventory.Inventory;
 import net.minecraft.item.BlockItem;
 import net.minecraft.item.Item;
@@ -65,7 +66,7 @@ public final class Crops {
 	 * is treated the same way.
 	 */
 	public static boolean isEdibleSeed(ItemStack stack) {
-		return isSeed(stack) && stack.isFood();
+		return isSeed(stack) && stack.contains(DataComponentTypes.FOOD);
 	}
 
 	/** The crop a seed grows into, or null when the item is not a seed at all. */

@@ -136,12 +136,6 @@ public abstract class WorkerSettingsScreen<S extends WorkerSettings<S>> extends 
 		clearAndInit();
 	}
 
-	@Override
-	public void render(DrawContext context, int mouseX, int mouseY, float delta) {
-		renderBackground(context);
-		super.render(context, mouseX, mouseY, delta);
-	}
-
 	/** Closing saves, so leaving by Escape keeps the changes rather than quietly binning them. */
 	@Override
 	public void close() {
@@ -244,7 +238,7 @@ public abstract class WorkerSettingsScreen<S extends WorkerSettings<S>> extends 
 	private class OptionList extends ElementListWidget<Row> {
 		OptionList(String category, int top, int bottom) {
 			super(WorkerSettingsScreen.this.client, WorkerSettingsScreen.this.width,
-					WorkerSettingsScreen.this.height, top, bottom, CONTROL_HEIGHT + 5);
+					bottom - top, top, CONTROL_HEIGHT + 5);
 
 			for (SettingOption<S> option : settings.options()) {
 				if (option.category().equals(category)) {
@@ -268,7 +262,7 @@ public abstract class WorkerSettingsScreen<S extends WorkerSettings<S>> extends 
 		}
 
 		@Override
-		protected int getScrollbarPositionX() {
+		protected int getScrollbarX() {
 			return WorkerSettingsScreen.this.width / 2 + ROW_WIDTH / 2 + 8;
 		}
 	}

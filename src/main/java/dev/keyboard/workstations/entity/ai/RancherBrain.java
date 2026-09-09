@@ -1335,7 +1335,7 @@ public class RancherBrain {
 				break;
 			}
 
-			if (!ItemStack.canCombine(existing, stack)) {
+			if (!ItemStack.areItemsAndComponentsEqual(existing, stack)) {
 				continue;
 			}
 

@@ -11,7 +11,6 @@ import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Box;
 import net.minecraft.util.math.MathHelper;
-import org.joml.Matrix3f;
 import org.joml.Matrix4f;
 
 /**
@@ -73,10 +72,10 @@ public class WorkAreaHighlightRenderer<T extends WorkStationBlockEntity<?, ?>> i
 		VertexConsumer buffer = vertexConsumers.getBuffer(RenderLayer.getDebugQuads());
 		Matrix4f matrix = matrices.peek().getPositionMatrix();
 
-		buffer.vertex(matrix, minX, FLOOR_OFFSET, minZ).color(0.3F, 0.85F, 0.95F, FILL_ALPHA).next();
-		buffer.vertex(matrix, minX, FLOOR_OFFSET, maxZ).color(0.3F, 0.85F, 0.95F, FILL_ALPHA).next();
-		buffer.vertex(matrix, maxX, FLOOR_OFFSET, maxZ).color(0.3F, 0.85F, 0.95F, FILL_ALPHA).next();
-		buffer.vertex(matrix, maxX, FLOOR_OFFSET, minZ).color(0.3F, 0.85F, 0.95F, FILL_ALPHA).next();
+		buffer.vertex(matrix, minX, FLOOR_OFFSET, minZ).color(0.3F, 0.85F, 0.95F, FILL_ALPHA);
+		buffer.vertex(matrix, minX, FLOOR_OFFSET, maxZ).color(0.3F, 0.85F, 0.95F, FILL_ALPHA);
+		buffer.vertex(matrix, maxX, FLOOR_OFFSET, maxZ).color(0.3F, 0.85F, 0.95F, FILL_ALPHA);
+		buffer.vertex(matrix, maxX, FLOOR_OFFSET, minZ).color(0.3F, 0.85F, 0.95F, FILL_ALPHA);
 	}
 
 	private void box(VertexConsumer buffer, MatrixStack.Entry entry, float minX, float minY, float minZ,
@@ -112,9 +111,7 @@ public class WorkAreaHighlightRenderer<T extends WorkStationBlockEntity<?, ?>> i
 		dy /= length;
 		dz /= length;
 
-		Matrix4f position = entry.getPositionMatrix();
-		Matrix3f normal = entry.getNormalMatrix();
-		buffer.vertex(position, x1, y1, z1).color(red, green, blue, LINE_ALPHA).normal(normal, dx, dy, dz).next();
-		buffer.vertex(position, x2, y2, z2).color(red, green, blue, LINE_ALPHA).normal(normal, dx, dy, dz).next();
+		buffer.vertex(entry, x1, y1, z1).color(red, green, blue, LINE_ALPHA).normal(entry, dx, dy, dz);
+		buffer.vertex(entry, x2, y2, z2).color(red, green, blue, LINE_ALPHA).normal(entry, dx, dy, dz);
 	}
 }

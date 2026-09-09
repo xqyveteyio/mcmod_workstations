@@ -1,5 +1,6 @@
 package dev.keyboard.workstations.block;
 
+import com.mojang.serialization.MapCodec;
 import dev.keyboard.workstations.WorkstationsMod;
 import net.minecraft.block.Block;
 import net.minecraft.block.BlockRenderType;
@@ -24,7 +25,6 @@ import net.minecraft.text.Text;
 import net.minecraft.util.ActionResult;
 import net.minecraft.util.BlockMirror;
 import net.minecraft.util.BlockRotation;
-import net.minecraft.util.Hand;
 import net.minecraft.util.ItemScatterer;
 import net.minecraft.util.hit.BlockHitResult;
 import net.minecraft.util.math.BlockPos;
@@ -40,6 +40,7 @@ import org.jetbrains.annotations.Nullable;
  * container, sneak and use opens the settings screen, and breaking it takes the farmer with it.
  */
 public class FarmBlock extends BlockWithEntity {
+	public static final MapCodec<FarmBlock> CODEC = createCodec(FarmBlock::new);
 	public static final DirectionProperty FACING = Properties.HORIZONTAL_FACING;
 	/** Legs at the corners carrying a tray of soil, which is the model with the crops left out. */
 	private static final VoxelShape SHAPE = VoxelShapes.union(
@@ -52,6 +53,11 @@ public class FarmBlock extends BlockWithEntity {
 	public FarmBlock(Settings settings) {
 		super(settings);
 		setDefaultState(getStateManager().getDefaultState().with(FACING, Direction.NORTH));
+	}
+
+	@Override
+	protected MapCodec<? extends FarmBlock> getCodec() {
+		return CODEC;
 	}
 
 	@Override
@@ -82,7 +88,7 @@ public class FarmBlock extends BlockWithEntity {
 
 	/** Kept out of planned paths for the reason {@link RanchBlock} spells out: legs are not a cube. */
 	@Override
-	public boolean canPathfindThrough(BlockState state, BlockView world, BlockPos pos, NavigationType type) {
+	protected boolean canPathfindThrough(BlockState state, NavigationType type) {
 		return false;
 	}
 
@@ -104,7 +110,7 @@ public class FarmBlock extends BlockWithEntity {
 			return null;
 		}
 
-		return checkType(type, WorkstationsMod.FARM_BLOCK_ENTITY, WorkStationBlockEntity::serverTick);
+		return validateTicker(type, WorkstationsMod.FARM_BLOCK_ENTITY, WorkStationBlockEntity::serverTick);
 	}
 
 	@Override
@@ -127,7 +133,7 @@ public class FarmBlock extends BlockWithEntity {
 	}
 
 	@Override
-	public ActionResult onUse(BlockState state, World world, BlockPos pos, PlayerEntity player, Hand hand, BlockHitResult hit) {
+	protected ActionResult onUse(BlockState state, World world, BlockPos pos, PlayerEntity player, BlockHitResult hit) {
 		if (world.isClient) {
 			return ActionResult.SUCCESS;
 		}

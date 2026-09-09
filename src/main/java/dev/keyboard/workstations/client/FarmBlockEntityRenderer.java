@@ -111,9 +111,9 @@ public class FarmBlockEntityRenderer implements BlockEntityRenderer<FarmBlockEnt
 		// The top of the plot, which is one block above the plot's own coordinate.
 		float y = plot.getY() - origin.getY() + 1.0F + SURFACE_OFFSET;
 
-		buffer.vertex(matrix, minX, y, minZ).color(colour[0], colour[1], colour[2], ALPHA).next();
-		buffer.vertex(matrix, minX, y, maxZ).color(colour[0], colour[1], colour[2], ALPHA).next();
-		buffer.vertex(matrix, maxX, y, maxZ).color(colour[0], colour[1], colour[2], ALPHA).next();
-		buffer.vertex(matrix, maxX, y, minZ).color(colour[0], colour[1], colour[2], ALPHA).next();
+		buffer.vertex(matrix, minX, y, minZ).color(colour[0], colour[1], colour[2], ALPHA);
+		buffer.vertex(matrix, minX, y, maxZ).color(colour[0], colour[1], colour[2], ALPHA);
+		buffer.vertex(matrix, maxX, y, maxZ).color(colour[0], colour[1], colour[2], ALPHA);
+		buffer.vertex(matrix, maxX, y, minZ).color(colour[0], colour[1], colour[2], ALPHA);
 	}
 }

@@ -27,7 +27,7 @@ public class StationItemRenderer implements BuiltinItemRendererRegistry.DynamicI
 
 		// No world means no animals to borrow, so the item is a bare table until you are in one.
 		if (world != null) {
-			TabletopDisplay.render(world, client.getTickDelta(), matrices, vertexConsumers, light);
+			TabletopDisplay.render(world, client.getRenderTickCounter().getTickDelta(false), matrices, vertexConsumers, light);
 		}
 	}
 }

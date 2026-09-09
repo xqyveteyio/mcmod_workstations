@@ -10,7 +10,7 @@
 		"B": { "item": "minecraft:bucket" }
 	},
 	"result": {
-		"item": "keyboard_workstations:milk_barrel",
+		"id": "keyboard_workstations:milk_barrel",
 		"count": 1
 	}
 }

@@ -19,6 +19,7 @@ import net.minecraft.nbt.NbtElement;
 import net.minecraft.network.listener.ClientPlayPacketListener;
 import net.minecraft.network.packet.Packet;
 import net.minecraft.network.packet.s2c.play.BlockEntityUpdateS2CPacket;
+import net.minecraft.registry.RegistryWrapper;
 import net.minecraft.screen.GenericContainerScreenHandler;
 import net.minecraft.screen.ScreenHandler;
 import net.minecraft.server.world.ServerWorld;
@@ -203,7 +204,7 @@ public abstract class WorkStationBlockEntity<W extends MobEntity & StationWorker
 
 		// The path it was walking leads from where it used to be, so it has to be thrown away.
 		worker.getNavigation().stop();
-		worker.teleport(spawnPos.getX() + 0.5, spawnPos.getY(), spawnPos.getZ() + 0.5);
+		worker.requestTeleport(spawnPos.getX() + 0.5, spawnPos.getY(), spawnPos.getZ() + 0.5);
 		return Recall.MOVED;
 	}
 
@@ -256,12 +257,12 @@ public abstract class WorkStationBlockEntity<W extends MobEntity & StationWorker
 	}
 
 	@Override
-	protected DefaultedList<ItemStack> getInvStackList() {
+	protected DefaultedList<ItemStack> getHeldStacks() {
 		return inventory;
 	}
 
 	@Override
-	protected void setInvStackList(DefaultedList<ItemStack> list) {
+	protected void setHeldStacks(DefaultedList<ItemStack> list) {
 		inventory = list;
 	}
 
@@ -271,11 +272,11 @@ public abstract class WorkStationBlockEntity<W extends MobEntity & StationWorker
 	}
 
 	@Override
-	protected void writeNbt(NbtCompound nbt) {
-		super.writeNbt(nbt);
+	protected void writeNbt(NbtCompound nbt, RegistryWrapper.WrapperLookup registryLookup) {
+		super.writeNbt(nbt, registryLookup);
 
-		if (!serializeLootTable(nbt)) {
-			Inventories.writeNbt(nbt, inventory);
+		if (!writeLootTable(nbt)) {
+			Inventories.writeNbt(nbt, inventory, registryLookup);
 		}
 
 		if (workerUuid != null) {
@@ -286,12 +287,12 @@ public abstract class WorkStationBlockEntity<W extends MobEntity & StationWorker
 	}
 
 	@Override
-	public void readNbt(NbtCompound nbt) {
-		super.readNbt(nbt);
+	protected void readNbt(NbtCompound nbt, RegistryWrapper.WrapperLookup registryLookup) {
+		super.readNbt(nbt, registryLookup);
 		inventory = DefaultedList.ofSize(INVENTORY_SIZE, ItemStack.EMPTY);
 
-		if (!deserializeLootTable(nbt)) {
-			Inventories.readNbt(nbt, inventory);
+		if (!readLootTable(nbt)) {
+			Inventories.readNbt(nbt, inventory, registryLookup);
 		}
 
 		workerUuid = nbt.containsUuid(WORKER_KEY) ? nbt.getUuid(WORKER_KEY) : null;
@@ -309,7 +310,7 @@ public abstract class WorkStationBlockEntity<W extends MobEntity & StationWorker
 
 	/** Clients get the settings, which the highlight and the settings screen read, but no contents. */
 	@Override
-	public NbtCompound toInitialChunkDataNbt() {
+	public NbtCompound toInitialChunkDataNbt(RegistryWrapper.WrapperLookup registryLookup) {
 		NbtCompound nbt = new NbtCompound();
 		nbt.put(SETTINGS_KEY, settingsNbt());
 		return nbt;
@@ -318,6 +319,6 @@ public abstract class WorkStationBlockEntity<W extends MobEntity & StationWorker
 	@Nullable
 	@Override
 	public Packet<ClientPlayPacketListener> toUpdatePacket() {
-		return BlockEntityUpdateS2CPacket.create(this, BlockEntity::toInitialChunkDataNbt);
+		return BlockEntityUpdateS2CPacket.create(this);
 	}
 }

@@ -1,5 +1,6 @@
 package dev.keyboard.workstations.block;
 
+import com.mojang.serialization.MapCodec;
 import net.minecraft.block.Block;
 import net.minecraft.block.BlockRenderType;
 import net.minecraft.block.BlockState;
@@ -16,6 +17,7 @@ import net.minecraft.state.property.IntProperty;
 import net.minecraft.text.Text;
 import net.minecraft.util.ActionResult;
 import net.minecraft.util.Hand;
+import net.minecraft.util.ItemActionResult;
 import net.minecraft.util.hit.BlockHitResult;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.MathHelper;
@@ -31,12 +33,18 @@ import org.jetbrains.annotations.Nullable;
  * ever matters on the server.
  */
 public class MilkBarrelBlock extends BlockWithEntity {
+	public static final MapCodec<MilkBarrelBlock> CODEC = createCodec(MilkBarrelBlock::new);
 	/** How full the barrel looks, in quarters. The count behind it is far finer than the model. */
 	public static final IntProperty LEVEL = IntProperty.of("level", 0, 4);
 
 	public MilkBarrelBlock(Settings settings) {
 		super(settings);
 		setDefaultState(getStateManager().getDefaultState().with(LEVEL, 0));
+	}
+
+	@Override
+	protected MapCodec<? extends MilkBarrelBlock> getCodec() {
+		return CODEC;
 	}
 
 	@Override
@@ -71,27 +79,39 @@ public class MilkBarrelBlock extends BlockWithEntity {
 	 * else in hand, or an empty hand, just reads the level off instead.
 	 */
 	@Override
-	public ActionResult onUse(BlockState state, World world, BlockPos pos, PlayerEntity player, Hand hand, BlockHitResult hit) {
+	protected ItemActionResult onUseWithItem(ItemStack stack, BlockState state, World world, BlockPos pos,
+			PlayerEntity player, Hand hand, BlockHitResult hit) {
+		if (world.isClient) {
+			return ItemActionResult.SUCCESS;
+		}
+
+		if (!(world.getBlockEntity(pos) instanceof MilkBarrelBlockEntity barrel)) {
+			return ItemActionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
+		}
+
+		if (stack.isOf(Items.BUCKET) && barrel.drain()) {
+			swap(player, hand, stack, new ItemStack(Items.MILK_BUCKET));
+			announce(world, pos, player, barrel, SoundEvents.ITEM_BUCKET_FILL);
+			return ItemActionResult.CONSUME;
+		}
+
+		if (stack.isOf(Items.MILK_BUCKET) && barrel.fill()) {
+			swap(player, hand, stack, new ItemStack(Items.BUCKET));
+			announce(world, pos, player, barrel, SoundEvents.ITEM_BUCKET_EMPTY);
+			return ItemActionResult.CONSUME;
+		}
+
+		return ItemActionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
+	}
+
+	@Override
+	protected ActionResult onUse(BlockState state, World world, BlockPos pos, PlayerEntity player, BlockHitResult hit) {
 		if (world.isClient) {
 			return ActionResult.SUCCESS;
 		}
 
 		if (!(world.getBlockEntity(pos) instanceof MilkBarrelBlockEntity barrel)) {
 			return ActionResult.PASS;
-		}
-
-		ItemStack held = player.getStackInHand(hand);
-
-		if (held.isOf(Items.BUCKET) && barrel.drain()) {
-			swap(player, hand, held, new ItemStack(Items.MILK_BUCKET));
-			announce(world, pos, player, barrel, SoundEvents.ITEM_BUCKET_FILL);
-			return ActionResult.CONSUME;
-		}
-
-		if (held.isOf(Items.MILK_BUCKET) && barrel.fill()) {
-			swap(player, hand, held, new ItemStack(Items.BUCKET));
-			announce(world, pos, player, barrel, SoundEvents.ITEM_BUCKET_EMPTY);
-			return ActionResult.CONSUME;
 		}
 
 		// Nothing changed hands, but saying how full it is still answers what the player asked.
