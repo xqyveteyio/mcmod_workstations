@@ -126,6 +126,13 @@ public class ModConfig {
 
 	/** Fell every tree standing inside the work area. */
 	public boolean enableChopping = true;
+	/**
+	 * Break the canopy of a tree the lumberjack has just felled, rather than leaving the leaves
+	 * to decay. Off by default: decay is slow and the saplings come out of those leaves, so
+	 * turning this on is how the wood restocks itself from what it cuts, and leaving it off
+	 * means replanting runs on whatever the station is already holding.
+	 */
+	public boolean breakLeaves = false;
 	/** Plant a sapling again where a tree just came down. */
 	public boolean enableReplanting = true;
 	/**

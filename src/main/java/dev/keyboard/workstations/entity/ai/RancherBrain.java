@@ -376,7 +376,7 @@ public class RancherBrain {
 			text.append(" | cull ").append(cullCooldown);
 		}
 
-		int carried = countCarried(rancher);
+		int carried = WorkerPack.count(rancher.getCarried());
 
 		if (carried > 0) {
 			text.append(" | pack ").append(carried).append('/').append(RancherEntity.CARRY_SLOTS);
@@ -593,10 +593,24 @@ public class RancherBrain {
 		note = "";
 		scanSurvey = null;
 
-		// A full pack interrupts whatever is running. Carrying on would mean killing animals and
-		// shearing sheep whose drops there is nowhere left to put.
-		if (isPackFull(rancher)) {
+		// A pack that has built up interrupts whatever is running. Waiting until every slot is
+		// occupied is what left a pile on the ground: the last swings have nowhere to put what
+		// they produce. Walking back a little earlier costs a trip; carrying on until the pack
+		// is jammed costs the slaughter.
+		//
+		// The early trip stands down while the station is known full, or the rancher would wait
+		// at a station that cannot take anything instead of working the slots it still has. A
+		// pack with no room left has nowhere to put a carcass either way, so that one still bites.
+		if (WorkerPack.isFull(rancher.getCarried())
+				|| (!stationFull && WorkerPack.shouldDeposit(rancher.getCarried()))) {
 			return takeDeposit(area);
+		}
+
+		// Whatever the last swing just produced, before walking on. The phase is left alone, so
+		// the next scan resumes the same cull rather than starting the rotation over; a drop
+		// across the pen is the sweep's problem, not this one's.
+		if (takeUnderfoot(rancher, world, area)) {
+			return true;
 		}
 
 		if (phase != null) {
@@ -713,10 +727,35 @@ public class RancherBrain {
 		return victim != null && take(Job.CULL, victim);
 	}
 
+	/**
+	 * Pockets a drop sitting at the rancher's feet without touching {@link #phase}. Taking a job
+	 * outside the phase is how a full pack already interrupts work; the same pattern lets a grab
+	 * happen between animals and then hands the phase back the next scan.
+	 *
+	 * <p>Pathfinding declining to answer is a fact about the rancher, usually that it is mid
+	 * stride, and must not pause the phase. An unreachable drop is written off as usual so the
+	 * same one cannot stall every scan from here on.
+	 */
+	private boolean takeUnderfoot(RancherEntity rancher, ServerWorld world, WorkArea area) {
+		List<ItemEntity> nearby = WorkerPack.underfoot(rancher, world, area.getBox(), rancher.getCarried());
+
+		if (nearby.isEmpty()) {
+			return false;
+		}
+
+		ItemEntity drop = nearestReachable(rancher, world, nearby, COLLECT_PATH_DISTANCE);
+
+		if (drop == null) {
+			pathPending = false;
+			return false;
+		}
+
+		return take(Job.COLLECT, drop);
+	}
+
 	private boolean takeCollect(RancherEntity rancher, ServerWorld world, WorkArea area) {
-		ItemEntity drop = nearestReachable(rancher, world, world.getEntitiesByClass(ItemEntity.class, area.getBox(),
-				item -> item.isAlive() && !item.cannotPickup() && rancher.getCarried().canInsert(item.getStack())),
-				COLLECT_PATH_DISTANCE);
+		ItemEntity drop = nearestReachable(rancher, world,
+				WorkerPack.looseIn(world, area.getBox(), rancher.getCarried()), COLLECT_PATH_DISTANCE);
 
 		if (drop != null) {
 			return take(Job.COLLECT, drop);
@@ -1037,8 +1076,9 @@ public class RancherBrain {
 		// The interval paces one animal to the next, so it starts on the blow that finished this
 		// one rather than on merely having swung at it.
 		rancher.startCullCooldown();
-		// What it dropped is left where it fell. Culling always hands over to a sweep, so the
-		// carcass is collected as part of finishing the same piece of work.
+		// What it dropped is left where it fell. Whatever lands at the rancher's feet is
+		// pocketed before the next animal, and a sweep still follows the phase for anything
+		// that scattered further out.
 		phaseWorked = true;
 		return true;
 	}
@@ -1238,23 +1278,6 @@ public class RancherBrain {
 		}
 
 		return targetPos == null ? 0.0 : Math.sqrt(rancher.squaredDistanceTo(Vec3d.ofCenter(targetPos)));
-	}
-
-	private static int countCarried(RancherEntity rancher) {
-		SimpleInventory carried = rancher.getCarried();
-		int used = 0;
-
-		for (int slot = 0; slot < carried.size(); slot++) {
-			if (!carried.getStack(slot).isEmpty()) {
-				used++;
-			}
-		}
-
-		return used;
-	}
-
-	private static boolean isPackFull(RancherEntity rancher) {
-		return countCarried(rancher) == rancher.getCarried().size();
 	}
 
 	/** Drops the rancher cannot pocket land at its feet rather than disappearing. */

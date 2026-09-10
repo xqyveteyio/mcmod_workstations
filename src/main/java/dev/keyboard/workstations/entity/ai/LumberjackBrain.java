@@ -261,7 +261,7 @@ public class LumberjackBrain {
 			text.append(" | skip ").append(blockedPlots.size() + blockedDrops.size());
 		}
 
-		int carried = countCarried(lumberjack);
+		int carried = WorkerPack.count(lumberjack.getCarried());
 
 		if (carried > 0) {
 			text.append(" | pack ").append(carried).append('/').append(LumberjackEntity.CARRY_SLOTS);
@@ -444,8 +444,24 @@ public class LumberjackBrain {
 		note = "";
 		scanSurvey = null;
 
-		if (isPackFull(lumberjack)) {
+		// A pack that has built up interrupts whatever is running. Waiting until every slot is
+		// occupied is what left a pile on the ground: the last swings have nowhere to put what
+		// they produce. Walking back a little earlier costs a trip; carrying on until the pack
+		// is jammed costs the wood.
+		//
+		// The early trip stands down while the station is known full, or the lumberjack would
+		// wait at a station that cannot take anything instead of working the slots it still has.
+		// A pack with no room left has nowhere to put a log either way, so that one still bites.
+		if (WorkerPack.isFull(lumberjack.getCarried())
+				|| (!stationFull && WorkerPack.shouldDeposit(lumberjack.getCarried()))) {
 			return takeDeposit(area);
+		}
+
+		// Whatever the last swing just produced, before walking on. The phase is left alone, so
+		// the next scan resumes the same felling rather than starting the rotation over; a drop
+		// across the wood is the sweep's problem, not this one's.
+		if (takeUnderfoot(lumberjack, world, area)) {
+			return true;
 		}
 
 		if (phase != null) {
@@ -684,6 +700,37 @@ public class LumberjackBrain {
 		return true;
 	}
 
+	/**
+	 * Pockets a drop sitting at the lumberjack's feet without touching {@link #phase}. Taking a
+	 * job outside the phase is how a full pack already interrupts work; the same pattern lets
+	 * a grab happen between swings and then hands the phase back the next scan.
+	 *
+	 * <p>Pathfinding declining to answer is a fact about the lumberjack, usually that it is mid
+	 * stride, and must not pause the phase. An unreachable drop is written off as usual so the
+	 * same one cannot stall every scan from here on.
+	 */
+	private boolean takeUnderfoot(LumberjackEntity lumberjack, ServerWorld world, WorkArea area) {
+		List<ItemEntity> nearby = WorkerPack.underfoot(lumberjack, world, area.getBox(), lumberjack.getCarried());
+
+		if (nearby.isEmpty()) {
+			return false;
+		}
+
+		ItemEntity drop = nearestReachableDrop(lumberjack, world, nearby);
+
+		if (drop == null) {
+			pathPending = false;
+			return false;
+		}
+
+		job = Job.COLLECT;
+		target = drop;
+		targetPos = null;
+		felling = null;
+		planting = null;
+		return true;
+	}
+
 	private boolean takeCollect(LumberjackEntity lumberjack, ServerWorld world, WorkArea area) {
 		ItemEntity drop = nearestReachableDrop(lumberjack, world, area);
 
@@ -758,11 +805,15 @@ public class LumberjackBrain {
 
 	@Nullable
 	private ItemEntity nearestReachableDrop(LumberjackEntity lumberjack, ServerWorld world, WorkArea area) {
+		return nearestReachableDrop(lumberjack, world, WorkerPack.looseIn(world, area.getBox(), lumberjack.getCarried()));
+	}
+
+	@Nullable
+	private ItemEntity nearestReachableDrop(LumberjackEntity lumberjack, ServerWorld world, List<ItemEntity> candidates) {
 		long now = world.getTime();
 		List<ItemEntity> queue = new ArrayList<>();
 
-		for (ItemEntity drop : world.getEntitiesByClass(ItemEntity.class, area.getBox(),
-				item -> item.isAlive() && !item.cannotPickup() && lumberjack.getCarried().canInsert(item.getStack()))) {
+		for (ItemEntity drop : candidates) {
 			if (blockedDrops.get(drop.getId()) <= now) {
 				queue.add(drop);
 			}
@@ -815,9 +866,11 @@ public class LumberjackBrain {
 	}
 
 	/**
-	 * Breaks the next batch of the tree being felled. Logs first, then the canopy: saplings come
-	 * out of the leaves, and leaving them until the trunk is gone means a half-chopped tree does
-	 * not drop its seed onto a log the lumberjack is about to break.
+	 * Breaks the next batch of the tree being felled. Logs first, then the canopy when the
+	 * station is set to take it: saplings come out of the leaves, and leaving them until the
+	 * trunk is gone means a half-chopped tree does not drop its seed onto a log the lumberjack
+	 * is about to break. With the canopy left standing the leaf list is empty and the job ends
+	 * with the last log.
 	 *
 	 * <p>Returning false keeps the job running so the next swing continues the same tree rather
 	 * than walking off and back again.
@@ -1125,22 +1178,5 @@ public class LumberjackBrain {
 		}
 
 		return targetPos == null ? 0.0 : Math.sqrt(lumberjack.squaredDistanceTo(Vec3d.ofCenter(targetPos)));
-	}
-
-	private static int countCarried(LumberjackEntity lumberjack) {
-		SimpleInventory carried = lumberjack.getCarried();
-		int used = 0;
-
-		for (int slot = 0; slot < carried.size(); slot++) {
-			if (!carried.getStack(slot).isEmpty()) {
-				used++;
-			}
-		}
-
-		return used;
-	}
-
-	private static boolean isPackFull(LumberjackEntity lumberjack) {
-		return countCarried(lumberjack) == lumberjack.getCarried().size();
 	}
 }

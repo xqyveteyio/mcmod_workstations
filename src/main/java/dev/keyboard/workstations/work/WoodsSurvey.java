@@ -19,7 +19,9 @@ import java.util.Set;
  * <p>Trees are found the way {@link Pickings} finds a melon: a section palette says whether a
  * chunk even holds a log, and only then are the blocks read. Each log starts a flood fill, and
  * logs already claimed by an earlier fill are skipped, so a wood of twenty trees costs twenty
- * walks rather than one per log.
+ * walks rather than one per log. Whether the canopy is walked with the trunk is the station's
+ * break-leaves setting, threaded through so a wood that is leaving decay to do that work does
+ * not pay for a flood fill it would only ignore.
  *
  * <p>Auto-planting does not walk every column. It steps by {@link Woods#PLANT_SPACING}, which is
  * also the gap the plantings themselves keep, so the survey and the rule agree and a 129-across
@@ -42,7 +44,7 @@ public final class WoodsSurvey {
 	}
 
 	public static WoodsSurvey of(ServerWorld world, WorkArea area, Collection<BlockPos> stumps,
-			boolean autoPlant) {
+			boolean autoPlant, boolean breakLeaves) {
 		WoodsSurvey survey = new WoodsSurvey();
 		Set<BlockPos> claimed = new HashSet<>();
 
@@ -54,7 +56,7 @@ public final class WoodsSurvey {
 				continue;
 			}
 
-			Woods.Tree tree = Woods.gather(world, log);
+			Woods.Tree tree = Woods.gather(world, log, breakLeaves);
 			claimed.addAll(tree.logs());
 			survey.trees.add(tree);
 		}

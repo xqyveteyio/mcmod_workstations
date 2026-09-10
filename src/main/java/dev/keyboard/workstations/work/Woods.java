@@ -37,10 +37,13 @@ import java.util.Set;
  * sideways or dips; stopping at the six cardinal faces would leave an acacia half standing. The
  * walk is capped so a giant jungle or a mod's world tree cannot hold the tick hostage.
  *
- * <p>Leaves that belong to the felled tree are broken with it rather than left to decay. Decay is
- * random and only runs while a leaf is still near a log, so a tree whose last log has just gone
- * can sit for a long time dropping nothing, and the saplings the lumberjack needs to replant come
- * out of the leaf loot table. The same cap applies, and only tagged leaves are broken.
+ * <p>Whether the canopy comes down with the trunk is a station setting. Decay is random and only
+ * runs while a leaf is still near a log, so a tree whose last log has just gone can sit for a
+ * long time dropping nothing, and the saplings the lumberjack needs to replant come out of the
+ * leaf loot table. Breaking the leaves makes that harvest immediate and reliable; leaving them
+ * is cheaper and quieter, and replanting then runs on whatever saplings the station already
+ * holds. The flood fill that would walk the canopy is skipped entirely when the setting is off.
+ * The same cap applies when it is on, and only tagged leaves are broken.
  */
 public final class Woods {
 	/**
@@ -135,8 +138,11 @@ public final class Woods {
 	 * <p>Logs outside the work area are still taken once the fill has started: leaving a trunk
 	 * standing because a branch crossed the line would be a tree half felled, and the cap is what
 	 * stops that from walking the rest of the world.
+	 *
+	 * @param includeLeaves whether to walk the canopy. Off leaves the list empty, which is a
+	 * tree the lumberjack will fell for its logs and otherwise leave standing to decay.
 	 */
-	public static Tree gather(ServerWorld world, BlockPos start) {
+	public static Tree gather(ServerWorld world, BlockPos start, boolean includeLeaves) {
 		List<BlockPos> logs = new ArrayList<>();
 		Set<BlockPos> seen = new LinkedHashSet<>();
 		Queue<BlockPos> queue = new ArrayDeque<>();
@@ -184,7 +190,7 @@ public final class Woods {
 			return new Tree(start.toImmutable(), List.of(), List.of());
 		}
 
-		return new Tree(stumpOf(world, logs), logs, canopy(world, logs));
+		return new Tree(stumpOf(world, logs), logs, includeLeaves ? canopy(world, logs) : List.of());
 	}
 
 	/**
@@ -367,7 +373,8 @@ public final class Woods {
 
 	/**
 	 * One tree, already walked: the stump to stand at, the logs to break, and the leaves that
-	 * will drop the saplings.
+	 * will drop the saplings. The leaf list is empty when the station is leaving the canopy
+	 * to decay, which is still a usable tree — there is simply nothing to break after the trunk.
 	 */
 	public record Tree(BlockPos stump, List<BlockPos> logs, List<BlockPos> leaves) {
 		/** Whether any of the trunk is still standing, which is what makes the job still worth doing. */

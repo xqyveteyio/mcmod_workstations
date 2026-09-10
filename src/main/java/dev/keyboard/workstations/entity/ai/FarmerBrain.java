@@ -310,7 +310,7 @@ public class FarmerBrain {
 			text.append(" | skip ").append(blockedPlots.size() + blockedDrops.size());
 		}
 
-		int carried = countCarried(farmer);
+		int carried = WorkerPack.count(farmer.getCarried());
 
 		if (carried > 0) {
 			text.append(" | pack ").append(carried).append('/').append(FarmerEntity.CARRY_SLOTS);
@@ -525,10 +525,24 @@ public class FarmerBrain {
 		scanSurvey = null;
 		scanPickings = null;
 
-		// A full pack interrupts whatever is running. Carrying on would mean harvesting crops there
-		// is nowhere left to put.
-		if (isPackFull(farmer)) {
+		// A pack that has built up interrupts whatever is running. Waiting until every slot is
+		// occupied is what left a pile on the ground: the last swings have nowhere to put what
+		// they produce. Walking back a little earlier costs a trip; carrying on until the pack
+		// is jammed costs the harvest.
+		//
+		// The early trip stands down while the station is known full, or the farmer would wait
+		// at a station that cannot take anything instead of working the slots it still has. A
+		// pack with no room left has nowhere to put a crop either way, so that one still bites.
+		if (WorkerPack.isFull(farmer.getCarried())
+				|| (!stationFull && WorkerPack.shouldDeposit(farmer.getCarried()))) {
 			return takeDeposit(area);
+		}
+
+		// Whatever the last swing just produced, before walking on. The phase is left alone, so
+		// the next scan resumes the same harvest rather than starting the rotation over; a drop
+		// across the field is the sweep's problem, not this one's.
+		if (takeUnderfoot(farmer, world, area)) {
+			return true;
 		}
 
 		if (phase != null) {
@@ -716,6 +730,36 @@ public class FarmerBrain {
 		return true;
 	}
 
+	/**
+	 * Pockets a drop sitting at the farmer's feet without touching {@link #phase}. Taking a job
+	 * outside the phase is how a full pack already interrupts work; the same pattern lets a grab
+	 * happen between plots and then hands the phase back the next scan.
+	 *
+	 * <p>Pathfinding declining to answer is a fact about the farmer, usually that it is mid
+	 * stride, and must not pause the phase. An unreachable drop is written off as usual so the
+	 * same one cannot stall every scan from here on.
+	 */
+	private boolean takeUnderfoot(FarmerEntity farmer, ServerWorld world, WorkArea area) {
+		List<ItemEntity> nearby = WorkerPack.underfoot(farmer, world, area.getBox(), farmer.getCarried());
+
+		if (nearby.isEmpty()) {
+			return false;
+		}
+
+		ItemEntity drop = nearestReachableDrop(farmer, world, nearby);
+
+		if (drop == null) {
+			pathPending = false;
+			return false;
+		}
+
+		job = Job.COLLECT;
+		target = drop;
+		targetPos = null;
+		sowing = null;
+		return true;
+	}
+
 	private boolean takeCollect(FarmerEntity farmer, ServerWorld world, WorkArea area) {
 		ItemEntity drop = nearestReachableDrop(farmer, world, area);
 
@@ -845,11 +889,15 @@ public class FarmerBrain {
 
 	@Nullable
 	private ItemEntity nearestReachableDrop(FarmerEntity farmer, ServerWorld world, WorkArea area) {
+		return nearestReachableDrop(farmer, world, WorkerPack.looseIn(world, area.getBox(), farmer.getCarried()));
+	}
+
+	@Nullable
+	private ItemEntity nearestReachableDrop(FarmerEntity farmer, ServerWorld world, List<ItemEntity> candidates) {
 		long now = world.getTime();
 		List<ItemEntity> queue = new ArrayList<>();
 
-		for (ItemEntity drop : world.getEntitiesByClass(ItemEntity.class, area.getBox(),
-				item -> item.isAlive() && !item.cannotPickup() && farmer.getCarried().canInsert(item.getStack()))) {
+		for (ItemEntity drop : candidates) {
 			if (blockedDrops.get(drop.getId()) <= now) {
 				queue.add(drop);
 			}
@@ -968,8 +1016,9 @@ public class FarmerBrain {
 	}
 
 	/**
-	 * Breaks a grown crop, leaving what it drops where it fell. Harvesting always hands over to a
-	 * sweep, so the produce is collected as part of finishing the same piece of work.
+	 * Breaks a grown crop, leaving what it drops where it fell. Whatever lands at the farmer's
+	 * feet is pocketed before the next plot, and a sweep still follows the phase for anything
+	 * that scattered further out.
 	 */
 	private boolean harvest(FarmerEntity farmer, ServerWorld world) {
 		BlockPos plot = targetPos;
@@ -992,7 +1041,8 @@ public class FarmerBrain {
 	/**
 	 * Breaks a melon, a pumpkin or a mushroom where it grew. The block itself is the target here,
 	 * rather than the ground under it as with a plot, because nothing registered it in the first
-	 * place. Otherwise it is harvesting like any other: the drops are left for the sweep.
+	 * place. Otherwise it is harvesting like any other: whatever lands underfoot is pocketed
+	 * before the next one, and a sweep still follows the phase for the rest.
 	 */
 	private boolean gather(FarmerEntity farmer, ServerWorld world) {
 		BlockPos pick = targetPos;
@@ -1128,23 +1178,6 @@ public class FarmerBrain {
 		}
 
 		return targetPos == null ? 0.0 : Math.sqrt(farmer.squaredDistanceTo(Vec3d.ofCenter(targetPos)));
-	}
-
-	private static int countCarried(FarmerEntity farmer) {
-		SimpleInventory carried = farmer.getCarried();
-		int used = 0;
-
-		for (int slot = 0; slot < carried.size(); slot++) {
-			if (!carried.getStack(slot).isEmpty()) {
-				used++;
-			}
-		}
-
-		return used;
-	}
-
-	private static boolean isPackFull(FarmerEntity farmer) {
-		return countCarried(farmer) == farmer.getCarried().size();
 	}
 
 	/**
