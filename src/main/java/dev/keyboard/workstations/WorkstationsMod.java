@@ -2,6 +2,8 @@ package dev.keyboard.workstations;
 
 import dev.keyboard.workstations.block.FarmBlock;
 import dev.keyboard.workstations.block.FarmBlockEntity;
+import dev.keyboard.workstations.block.LumberBlock;
+import dev.keyboard.workstations.block.LumberBlockEntity;
 import dev.keyboard.workstations.block.MilkBarrelBlock;
 import dev.keyboard.workstations.block.MilkBarrelBlockEntity;
 import dev.keyboard.workstations.block.RanchBlock;
@@ -10,6 +12,7 @@ import dev.keyboard.workstations.block.SeedBoxBlock;
 import dev.keyboard.workstations.block.SeedBoxBlockEntity;
 import dev.keyboard.workstations.block.WorkStationBlockEntity;
 import dev.keyboard.workstations.entity.FarmerEntity;
+import dev.keyboard.workstations.entity.LumberjackEntity;
 import dev.keyboard.workstations.entity.RancherEntity;
 import dev.keyboard.workstations.network.StationNetworking;
 import net.fabricmc.api.ModInitializer;
@@ -48,6 +51,8 @@ public class WorkstationsMod implements ModInitializer {
 	public static final Identifier RANCHER_ID = id("rancher");
 	public static final Identifier FARM_ID = id("farm_station");
 	public static final Identifier FARMER_ID = id("farmer");
+	public static final Identifier LUMBER_ID = id("lumber_station");
+	public static final Identifier LUMBERJACK_ID = id("lumberjack");
 	public static final Identifier MILK_BARREL_ID = id("milk_barrel");
 	public static final Identifier SEED_BOX_ID = id("seed_box");
 	public static final Identifier UNIVERSAL_FEED_ID = id("universal_feed");
@@ -55,11 +60,13 @@ public class WorkstationsMod implements ModInitializer {
 
 	public static final RanchBlock RANCH_BLOCK = new RanchBlock(stationSettings());
 	public static final FarmBlock FARM_BLOCK = new FarmBlock(stationSettings());
+	public static final LumberBlock LUMBER_BLOCK = new LumberBlock(stationSettings());
 	public static final MilkBarrelBlock MILK_BARREL_BLOCK = new MilkBarrelBlock(barrelSettings());
 	public static final SeedBoxBlock SEED_BOX_BLOCK = new SeedBoxBlock(chestSettings());
 
 	public static final BlockItem RANCH_ITEM = new BlockItem(RANCH_BLOCK, new Item.Settings());
 	public static final BlockItem FARM_ITEM = new BlockItem(FARM_BLOCK, new Item.Settings());
+	public static final BlockItem LUMBER_ITEM = new BlockItem(LUMBER_BLOCK, new Item.Settings());
 	public static final BlockItem MILK_BARREL_ITEM = new BlockItem(MILK_BARREL_BLOCK, new Item.Settings());
 	public static final BlockItem SEED_BOX_ITEM = new BlockItem(SEED_BOX_BLOCK, new Item.Settings());
 	public static final Item UNIVERSAL_FEED = new Item(new Item.Settings());
@@ -75,6 +82,7 @@ public class WorkstationsMod implements ModInitializer {
 			.entries((context, entries) -> {
 				entries.add(RANCH_ITEM);
 				entries.add(FARM_ITEM);
+				entries.add(LUMBER_ITEM);
 				entries.add(MILK_BARREL_ITEM);
 				entries.add(SEED_BOX_ITEM);
 				entries.add(UNIVERSAL_FEED);
@@ -83,12 +91,14 @@ public class WorkstationsMod implements ModInitializer {
 
 	public static BlockEntityType<RanchBlockEntity> RANCH_BLOCK_ENTITY;
 	public static BlockEntityType<FarmBlockEntity> FARM_BLOCK_ENTITY;
+	public static BlockEntityType<LumberBlockEntity> LUMBER_BLOCK_ENTITY;
 	public static BlockEntityType<MilkBarrelBlockEntity> MILK_BARREL_BLOCK_ENTITY;
 	public static BlockEntityType<SeedBoxBlockEntity> SEED_BOX_BLOCK_ENTITY;
 	public static EntityType<RancherEntity> RANCHER;
 	public static EntityType<FarmerEntity> FARMER;
+	public static EntityType<LumberjackEntity> LUMBERJACK;
 
-	/** Both stations are the same wooden table underneath, so they are built the same way. */
+	/** Every station is the same wooden table underneath, so they are built the same way. */
 	private static AbstractBlock.Settings stationSettings() {
 		return AbstractBlock.Settings.create()
 				.mapColor(MapColor.OAK_TAN)
@@ -137,6 +147,11 @@ public class WorkstationsMod implements ModInitializer {
 		FARM_BLOCK_ENTITY = Registry.register(Registries.BLOCK_ENTITY_TYPE, FARM_ID,
 				FabricBlockEntityTypeBuilder.create(FarmBlockEntity::new, FARM_BLOCK).build());
 
+		Registry.register(Registries.BLOCK, LUMBER_ID, LUMBER_BLOCK);
+		Registry.register(Registries.ITEM, LUMBER_ID, LUMBER_ITEM);
+		LUMBER_BLOCK_ENTITY = Registry.register(Registries.BLOCK_ENTITY_TYPE, LUMBER_ID,
+				FabricBlockEntityTypeBuilder.create(LumberBlockEntity::new, LUMBER_BLOCK).build());
+
 		// No spawn egg and no natural spawning: a station is the only thing that makes a worker.
 		RANCHER = Registry.register(Registries.ENTITY_TYPE, RANCHER_ID,
 				EntityType.Builder.<RancherEntity>create(RancherEntity::new, SpawnGroup.MISC)
@@ -151,6 +166,13 @@ public class WorkstationsMod implements ModInitializer {
 						.maxTrackingRange(10)
 						.build(FARMER_ID.getPath()));
 		FabricDefaultAttributeRegistry.register(FARMER, FarmerEntity.createFarmerAttributes());
+
+		LUMBERJACK = Registry.register(Registries.ENTITY_TYPE, LUMBERJACK_ID,
+				EntityType.Builder.<LumberjackEntity>create(LumberjackEntity::new, SpawnGroup.MISC)
+						.setDimensions(0.6F, 1.95F)
+						.maxTrackingRange(10)
+						.build(LUMBERJACK_ID.getPath()));
+		FabricDefaultAttributeRegistry.register(LUMBERJACK, LumberjackEntity.createLumberjackAttributes());
 
 		Registry.register(Registries.BLOCK, MILK_BARREL_ID, MILK_BARREL_BLOCK);
 		Registry.register(Registries.ITEM, MILK_BARREL_ID, MILK_BARREL_ITEM);
@@ -186,7 +208,8 @@ public class WorkstationsMod implements ModInitializer {
 			BlockPos pos = hit.getBlockPos();
 			BlockState state = world.getBlockState(pos);
 
-			if (!player.isSneaking() || !(state.isOf(RANCH_BLOCK) || state.isOf(FARM_BLOCK))) {
+			if (!player.isSneaking() || !(state.isOf(RANCH_BLOCK) || state.isOf(FARM_BLOCK)
+					|| state.isOf(LUMBER_BLOCK))) {
 				return ActionResult.PASS;
 			}
 

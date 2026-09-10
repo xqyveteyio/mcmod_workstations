@@ -7,7 +7,7 @@ import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.item.ItemStack;
 
 /**
- * Decides whether the debug work area highlight is drawn. Always on while a station block of either
+ * Decides whether the debug work area highlight is drawn. Always on while a station block of any
  * kind is held, plus a manual toggle for looking at the area from outside.
  */
 public final class HighlightState {
@@ -41,7 +41,8 @@ public final class HighlightState {
 	}
 
 	private static boolean isStation(ItemStack stack) {
-		return stack.isOf(WorkstationsMod.RANCH_ITEM) || stack.isOf(WorkstationsMod.FARM_ITEM);
+		return stack.isOf(WorkstationsMod.RANCH_ITEM) || stack.isOf(WorkstationsMod.FARM_ITEM)
+				|| stack.isOf(WorkstationsMod.LUMBER_ITEM);
 	}
 
 	private static boolean isForced() {

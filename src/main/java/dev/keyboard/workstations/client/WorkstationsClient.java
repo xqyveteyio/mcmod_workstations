@@ -37,6 +37,10 @@ public class WorkstationsClient implements ClientModInitializer {
 		BlockEntityRendererRegistry.register(WorkstationsMod.FARM_BLOCK_ENTITY, FarmBlockEntityRenderer::new);
 		EntityRendererRegistry.register(WorkstationsMod.FARMER, FarmerEntityRenderer::new);
 
+		BlockRenderLayerMap.INSTANCE.putBlock(WorkstationsMod.LUMBER_BLOCK, RenderLayer.getCutout());
+		BlockEntityRendererRegistry.register(WorkstationsMod.LUMBER_BLOCK_ENTITY, LumberBlockEntityRenderer::new);
+		EntityRendererRegistry.register(WorkstationsMod.LUMBERJACK, LumberjackEntityRenderer::new);
+
 		BlockEntityRendererRegistry.register(WorkstationsMod.SEED_BOX_BLOCK_ENTITY, SeedBoxBlockEntityRenderer::new);
 		BuiltinItemRendererRegistry.INSTANCE.register(WorkstationsMod.SEED_BOX_ITEM, new SeedBoxItemRenderer());
 

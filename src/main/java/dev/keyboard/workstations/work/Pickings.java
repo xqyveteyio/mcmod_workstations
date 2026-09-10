@@ -13,8 +13,8 @@ import java.util.List;
 import java.util.function.Predicate;
 
 /**
- * One look around the work area for the produce that never went through a plot: melons and
- * pumpkins grown off a stem, and mushrooms.
+ * One look around the work area for blocks that never went through a register: melons and
+ * pumpkins grown off a stem, mushrooms, and the logs and saplings a lumber station works.
  *
  * <p>There is no register behind these the way there is behind plots. A melon appears on whichever
  * side of its stem happened to have room and a mushroom spreads wherever it likes, so the only way
@@ -37,12 +37,36 @@ public final class Pickings {
 	 * @return positions of the blocks themselves, not of the ground underneath them
 	 */
 	public static List<BlockPos> find(ServerWorld world, WorkArea area, boolean gourds, boolean mushrooms) {
-		List<BlockPos> found = new ArrayList<>();
-
 		if (!gourds && !mushrooms) {
-			return found;
+			return new ArrayList<>();
 		}
 
+		// Deliberately looser than what actually gets picked, because a palette knows which blocks
+		// a section holds and nothing about where they are. A pumpkin somebody built a wall out of
+		// passes here and is weeded out below, once there is a position to look around.
+		return find(world, area,
+				state -> (mushrooms && Crops.isMushroom(state)) || (gourds && Crops.isGourd(state)),
+				pos -> Crops.isPickable(world, pos, gourds, mushrooms));
+	}
+
+	/**
+	 * Every block in the area whose state matches {@code candidate}.
+	 *
+	 * <p>The same section-palette walk the farm uses for melons, reused for logs and saplings: a
+	 * wood is the same kind of sparse problem, and writing a second sweep would only have to
+	 * rediscover why asking a million blocks is unaffordable.
+	 */
+	public static List<BlockPos> find(ServerWorld world, WorkArea area, Predicate<BlockState> candidate) {
+		return find(world, area, candidate, pos -> candidate.test(world.getBlockState(pos)));
+	}
+
+	/**
+	 * Every block in the area the palette flags and {@code accept} still wants, once there is a
+	 * position to look at.
+	 */
+	public static List<BlockPos> find(ServerWorld world, WorkArea area, Predicate<BlockState> candidate,
+			Predicate<BlockPos> accept) {
+		List<BlockPos> found = new ArrayList<>();
 		BlockPos center = area.getCenter();
 		int radius = area.getRadius();
 		int minX = center.getX() - radius;
@@ -52,15 +76,9 @@ public final class Pickings {
 		int minY = Math.max(world.getBottomY(), center.getY() - area.getHeight());
 		int maxY = Math.min(world.getTopY() - 1, center.getY() + area.getHeight());
 
-		// Deliberately looser than what actually gets picked, because a palette knows which blocks
-		// a section holds and nothing about where they are. A pumpkin somebody built a wall out of
-		// passes here and is weeded out below, once there is a position to look around.
-		Predicate<BlockState> candidate = state ->
-				(mushrooms && Crops.isMushroom(state)) || (gourds && Crops.isGourd(state));
-
 		for (int chunkX = minX >> 4; chunkX <= maxX >> 4; chunkX++) {
 			for (int chunkZ = minZ >> 4; chunkZ <= maxZ >> 4; chunkZ++) {
-				// Reading an unloaded chunk would load it, and a farm station is no reason to hold
+				// Reading an unloaded chunk would load it, and a station is no reason to hold
 				// the far side of its own area in memory.
 				if (!world.isChunkLoaded(chunkX, chunkZ)) {
 					continue;
@@ -69,7 +87,7 @@ public final class Pickings {
 				BlockBox slice = new BlockBox(
 						Math.max(minX, chunkX << 4), minY, Math.max(minZ, chunkZ << 4),
 						Math.min(maxX, (chunkX << 4) + 15), maxY, Math.min(maxZ, (chunkZ << 4) + 15));
-				sweep(world, world.getChunk(chunkX, chunkZ), candidate, slice, gourds, mushrooms, found);
+				sweep(world, world.getChunk(chunkX, chunkZ), candidate, accept, slice, found);
 			}
 		}
 
@@ -78,7 +96,7 @@ public final class Pickings {
 
 	/** The part of one chunk that lies inside the area, taken a section at a time. */
 	private static void sweep(ServerWorld world, Chunk chunk, Predicate<BlockState> candidate,
-			BlockBox slice, boolean gourds, boolean mushrooms, List<BlockPos> found) {
+			Predicate<BlockPos> accept, BlockBox slice, List<BlockPos> found) {
 		BlockPos.Mutable cursor = new BlockPos.Mutable();
 		int topSection = ChunkSectionPos.getSectionCoord(slice.getMaxY());
 
@@ -105,7 +123,7 @@ public final class Pickings {
 					for (int z = slice.getMinZ(); z <= slice.getMaxZ(); z++) {
 						cursor.set(x, y, z);
 
-						if (Crops.isPickable(world, cursor, gourds, mushrooms)) {
+						if (accept.test(cursor)) {
 							found.add(cursor.toImmutable());
 						}
 					}

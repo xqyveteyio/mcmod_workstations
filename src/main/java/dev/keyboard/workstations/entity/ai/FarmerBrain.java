@@ -7,6 +7,7 @@ import dev.keyboard.workstations.work.Crops;
 import dev.keyboard.workstations.work.FarmSettings;
 import dev.keyboard.workstations.work.Pickings;
 import dev.keyboard.workstations.work.PlotSurvey;
+import dev.keyboard.workstations.work.Stock;
 import dev.keyboard.workstations.work.WorkArea;
 import it.unimi.dsi.fastutil.ints.Int2LongMap;
 import it.unimi.dsi.fastutil.ints.Int2LongOpenHashMap;
@@ -949,7 +950,7 @@ public class FarmerBrain {
 			return true;
 		}
 
-		if (ModConfig.get().consumeSeeds && !spendSeed(station.seedStores(), seed)) {
+		if (ModConfig.get().consumeSeeds && !Stock.spend(station.seedStores(), seed)) {
 			note = "out of seeds";
 			return true;
 		}
@@ -964,29 +965,6 @@ public class FarmerBrain {
 		actionCooldown = SWING_INTERVAL;
 		phaseWorked = true;
 		return true;
-	}
-
-	/**
-	 * Takes one seed out of the first store holding it, or reports that there were none left after
-	 * all.
-	 *
-	 * <p>The stores come in the order they are to be drawn down, so a seed box beside the station
-	 * is emptied of a kind before the station's own copies of it are touched.
-	 */
-	private static boolean spendSeed(List<Inventory> stores, Item seed) {
-		for (Inventory store : stores) {
-			for (int slot = 0; slot < store.size(); slot++) {
-				ItemStack stack = store.getStack(slot);
-
-				if (!stack.isEmpty() && stack.getItem() == seed) {
-					store.removeStack(slot, 1);
-					store.markDirty();
-					return true;
-				}
-			}
-		}
-
-		return false;
 	}
 
 	/**
@@ -1196,7 +1174,7 @@ public class FarmerBrain {
 			if (offered > 0) {
 				// Split rather than handed over whole, so the part held back is never at the mercy
 				// of how much room the boxes happen to have.
-				ItemStack refused = fill(station.seedBoxes(), stack.split(offered));
+				ItemStack refused = Stock.fill(station.seedBoxes(), stack.split(offered));
 
 				// Whatever the boxes would not take rejoins the part held back, and goes with it
 				// to the station below.
@@ -1210,7 +1188,7 @@ public class FarmerBrain {
 			}
 		}
 
-		return fill(List.of(station), stack);
+		return Stock.fill(List.of(station), stack);
 	}
 
 	/** How much more of a seed that is also food the boxes should be holding. */
@@ -1229,49 +1207,5 @@ public class FarmerBrain {
 
 		return Math.max(0, SEED_RESERVE - held);
 	}
-
-	/** Works down the destinations in order, returning whatever none of them had room for. */
-	private static ItemStack fill(List<Inventory> destinations, ItemStack stack) {
-		for (Inventory destination : destinations) {
-			if (stack.isEmpty()) {
-				break;
-			}
-
-			int before = stack.getCount();
-			stack = insert(destination, stack);
-
-			if (stack.getCount() != before) {
-				destination.markDirty();
-			}
-		}
-
-		return stack;
-	}
-
-	/** Moves what fits into {@code target}, mutating and returning the leftover. */
-	private static ItemStack insert(Inventory target, ItemStack stack) {
-		for (int slot = 0; slot < target.size() && !stack.isEmpty(); slot++) {
-			ItemStack existing = target.getStack(slot);
-
-			if (existing.isEmpty()) {
-				target.setStack(slot, stack.copy());
-				stack.setCount(0);
-				break;
-			}
-
-			if (!ItemStack.canCombine(existing, stack)) {
-				continue;
-			}
-
-			int room = Math.min(existing.getMaxCount(), target.getMaxCountPerStack()) - existing.getCount();
-			int moved = Math.min(room, stack.getCount());
-
-			if (moved > 0) {
-				existing.increment(moved);
-				stack.decrement(moved);
-			}
-		}
-
-		return stack;
-	}
 }
+

@@ -3,6 +3,7 @@ package dev.keyboard.workstations.client.screen;
 import dev.keyboard.workstations.ModConfig;
 import dev.keyboard.workstations.client.HighlightState;
 import dev.keyboard.workstations.client.network.StationNetworkingClient;
+import dev.keyboard.workstations.work.SeedMix;
 import dev.keyboard.workstations.work.SettingOption;
 import dev.keyboard.workstations.work.WorkerSettings;
 import net.minecraft.client.gui.DrawContext;
@@ -14,6 +15,7 @@ import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.client.gui.widget.ClickableWidget;
 import net.minecraft.client.gui.widget.ElementListWidget;
 import net.minecraft.client.gui.widget.SliderWidget;
+import net.minecraft.item.Item;
 import net.minecraft.screen.ScreenTexts;
 import net.minecraft.text.Text;
 import net.minecraft.util.Formatting;
@@ -73,6 +75,27 @@ public abstract class WorkerSettingsScreen<S extends WorkerSettings<S>> extends 
 	 * once per rebuild with the tab being built.
 	 */
 	protected void addExtraRows(String category, Consumer<Row> add) {
+	}
+
+	/**
+	 * The ratio rows a planting station's mix tab is made of: one slider per item in the palette,
+	 * or a line saying the container is empty.
+	 *
+	 * <p>Shared so a farm and a lumber station cannot drift apart on how a weight is shown or when
+	 * the other rows' shares are refreshed. The keys are the caller's because a sapling tab should
+	 * not talk about seeds.
+	 */
+	protected void addMixRows(SeedMix mix, List<Item> palette, String emptyKey, String tooltipKey,
+			Consumer<Row> add) {
+		if (palette.isEmpty()) {
+			add.accept(new Row(Text.translatable(emptyKey)));
+			return;
+		}
+
+		for (Item item : palette) {
+			add.accept(new Row(item.getName().copy(), new MixSlider(mix, item, palette),
+					Text.translatable(tooltipKey)));
+		}
 	}
 
 	@Override
@@ -270,6 +293,48 @@ public abstract class WorkerSettingsScreen<S extends WorkerSettings<S>> extends 
 		@Override
 		protected int getScrollbarPositionX() {
 			return WorkerSettingsScreen.this.width / 2 + ROW_WIDTH / 2 + 8;
+		}
+	}
+
+	/**
+	 * One kind's share of the plantings. The slider carries a weight rather than a percentage, and
+	 * reports the percentage that weight currently works out to beside it: the percentages depend
+	 * on every other kind, so they all move when any one of them does.
+	 */
+	private class MixSlider extends SliderWidget {
+		private final SeedMix mix;
+		private final Item item;
+		private final List<Item> palette;
+
+		MixSlider(SeedMix mix, Item item, List<Item> palette) {
+			super(0, 0, CONTROL_WIDTH, CONTROL_HEIGHT, Text.empty(), fraction(mix.weight(item)));
+			this.mix = mix;
+			this.item = item;
+			this.palette = palette;
+			updateMessage();
+		}
+
+		private static double fraction(int weight) {
+			return (double) (weight - SeedMix.MIN_WEIGHT) / (SeedMix.MAX_WEIGHT - SeedMix.MIN_WEIGHT);
+		}
+
+		@Override
+		protected void updateMessage() {
+			setMessage(Text.translatable("config.keyboard_workstations.seed_weight",
+					mix.weight(item), mix.share(item, palette)));
+		}
+
+		@Override
+		protected void applyValue() {
+			mix.setWeight(item, (int) Math.round(
+					MathHelper.lerp(value, SeedMix.MIN_WEIGHT, SeedMix.MAX_WEIGHT)));
+		}
+
+		/** Letting go rebuilds the tab, which is what brings the other kinds' shares up to date. */
+		@Override
+		public void onRelease(double mouseX, double mouseY) {
+			super.onRelease(mouseX, mouseY);
+			refresh();
 		}
 	}
 

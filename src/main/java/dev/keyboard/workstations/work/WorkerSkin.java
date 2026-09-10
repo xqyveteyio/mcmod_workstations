@@ -28,6 +28,14 @@ public record WorkerSkin(String id, Identifier texture, Identifier hatTexture) {
 			of("villager", "villager_farmer", "villager_farmer_hat"),
 			of("preset_1", "farmer", "farmer_hat"));
 
+	/**
+	 * The lumberjack reuses the farmer's files until a proper pair is drawn. Entries may be
+	 * appended but the first two must stay, or every station already built would change clothes.
+	 */
+	public static final List<WorkerSkin> LUMBERJACK = List.of(
+			of("villager", "villager_farmer", "villager_farmer_hat"),
+			of("preset_1", "farmer", "farmer_hat"));
+
 	private static WorkerSkin of(String id, String texture, String hatTexture) {
 		return new WorkerSkin(id, file(texture), file(hatTexture));
 	}

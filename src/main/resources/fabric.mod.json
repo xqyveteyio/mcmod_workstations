@@ -3,7 +3,7 @@
 	"id": "keyboard_workstations",
 	"version": "${version}",
 	"name": "Workstations",
-	"description": "Work stations that each summon a worker to run the ground around them. The ranch station's rancher breeds, culls, shears and milks the animals in its pen; the farm station's farmer tills, sows and harvests its plots. Every station is configured in place and highlights the area it works.",
+	"description": "Work stations that each summon a worker to run the ground around them. The ranch station's rancher breeds, culls, shears and milks the animals in its pen; the farm station's farmer tills, sows and harvests its plots; the lumber station's lumberjack fells trees and plants saplings. Every station is configured in place and highlights the area it works.",
 	"authors": [
 		"keyboard"
 	],
