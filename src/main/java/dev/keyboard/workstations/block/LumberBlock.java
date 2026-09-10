@@ -41,13 +41,17 @@ import org.jetbrains.annotations.Nullable;
  */
 public class LumberBlock extends BlockWithEntity {
 	public static final DirectionProperty FACING = Properties.HORIZONTAL_FACING;
-	/** Legs at the corners carrying a tray, matching the farm station's model while the art is shared. */
+	/**
+	 * Legs at the corners carrying a bench, which is the whole of the block. The axe above it is
+	 * left out on purpose: it hangs and turns the way a dropped item does, and there is no
+	 * catching hold of one of those either.
+	 */
 	private static final VoxelShape SHAPE = VoxelShapes.union(
 			Block.createCuboidShape(0.0, 0.0, 0.0, 2.0, 10.0, 2.0),
 			Block.createCuboidShape(14.0, 0.0, 0.0, 16.0, 10.0, 2.0),
 			Block.createCuboidShape(0.0, 0.0, 14.0, 2.0, 10.0, 16.0),
 			Block.createCuboidShape(14.0, 0.0, 14.0, 16.0, 10.0, 16.0),
-			Block.createCuboidShape(0.0, 10.0, 0.0, 16.0, 14.0, 16.0));
+			Block.createCuboidShape(0.0, 10.0, 0.0, 16.0, 12.0, 16.0));
 
 	public LumberBlock(Settings settings) {
 		super(settings);

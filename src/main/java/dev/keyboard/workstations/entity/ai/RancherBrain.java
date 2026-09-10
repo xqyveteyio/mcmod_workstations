@@ -477,6 +477,14 @@ public class RancherBrain {
 			return targetPos != null;
 		}
 
+		if (job == Job.COLLECT) {
+			// Drops are allowed a few blocks past the plot edge — see WorkerPack.DROP_MARGIN —
+			// so this check must use the same wider box, or a drop just outside would be taken
+			// and then immediately written off as gone.
+			return target != null && target.isAlive() && !target.isRemoved()
+					&& WorkerPack.dropBox(area).contains(target.getPos());
+		}
+
 		return target != null && target.isAlive() && !target.isRemoved() && area.contains(target);
 	}
 
@@ -737,7 +745,7 @@ public class RancherBrain {
 	 * same one cannot stall every scan from here on.
 	 */
 	private boolean takeUnderfoot(RancherEntity rancher, ServerWorld world, WorkArea area) {
-		List<ItemEntity> nearby = WorkerPack.underfoot(rancher, world, area.getBox(), rancher.getCarried());
+		List<ItemEntity> nearby = WorkerPack.underfoot(rancher, world, area, rancher.getCarried());
 
 		if (nearby.isEmpty()) {
 			return false;
@@ -755,7 +763,7 @@ public class RancherBrain {
 
 	private boolean takeCollect(RancherEntity rancher, ServerWorld world, WorkArea area) {
 		ItemEntity drop = nearestReachable(rancher, world,
-				WorkerPack.looseIn(world, area.getBox(), rancher.getCarried()), COLLECT_PATH_DISTANCE);
+				WorkerPack.looseIn(world, area, rancher.getCarried()), COLLECT_PATH_DISTANCE);
 
 		if (drop != null) {
 			return take(Job.COLLECT, drop);

@@ -70,6 +70,8 @@ public final class Woods {
 	 * saplings that can never mature.
 	 */
 	public static final int PLANT_SPACING = 3;
+	/** Side of the block of saplings a {@link #needsSquare} wood has to be planted in. */
+	public static final int SQUARE_SIDE = 2;
 
 	private Woods() {
 	}
@@ -105,6 +107,74 @@ public final class Woods {
 	 */
 	public static boolean needsSquare(Item sapling) {
 		return sapling instanceof BlockItem blockItem && blockItem.getBlock() == Blocks.DARK_OAK_SAPLING;
+	}
+
+	/**
+	 * Where to root a square of {@code sapling} that covers {@code soil}, or null when no such
+	 * square is there to be had.
+	 *
+	 * <p>All four positions {@code soil} could take in the square are tried, not just the one
+	 * running towards +X/+Z. A stump on the edge of a clearing is as likely to be the far corner
+	 * of the only square that fits as the near one, and only ever asking about one of them turns
+	 * a plantable spot into a refusal.
+	 *
+	 * <p>A square counts when every one of its four squares either takes a sapling now or already
+	 * holds this same one, and at least one of them still needs filling. Accepting the ones
+	 * already planted is what lets a half finished square be completed rather than written off
+	 * for as long as it stands there.
+	 */
+	@Nullable
+	public static BlockPos squareFrom(WorldView world, BlockPos soil, SaplingBlock sapling) {
+		for (int dx = 1 - SQUARE_SIDE; dx <= 0; dx++) {
+			for (int dz = 1 - SQUARE_SIDE; dz <= 0; dz++) {
+				BlockPos corner = soil.add(dx, 0, dz);
+
+				if (squareWorks(world, corner, sapling)) {
+					return corner;
+				}
+			}
+		}
+
+		return null;
+	}
+
+	/** The squares of the block rooted at {@code corner} that are still waiting for a sapling. */
+	public static List<BlockPos> squareGaps(WorldView world, BlockPos corner, SaplingBlock sapling) {
+		List<BlockPos> gaps = new ArrayList<>();
+
+		for (BlockPos plot : square(corner)) {
+			if (canPlant(world, plot, sapling)) {
+				gaps.add(plot);
+			}
+		}
+
+		return gaps;
+	}
+
+	private static boolean squareWorks(WorldView world, BlockPos corner, SaplingBlock sapling) {
+		boolean gap = false;
+
+		for (BlockPos plot : square(corner)) {
+			if (canPlant(world, plot, sapling)) {
+				gap = true;
+			} else if (!world.getBlockState(plot.up()).isOf(sapling)) {
+				return false;
+			}
+		}
+
+		return gap;
+	}
+
+	private static List<BlockPos> square(BlockPos corner) {
+		List<BlockPos> plots = new ArrayList<>(SQUARE_SIDE * SQUARE_SIDE);
+
+		for (int dx = 0; dx < SQUARE_SIDE; dx++) {
+			for (int dz = 0; dz < SQUARE_SIDE; dz++) {
+				plots.add(corner.add(dx, 0, dz));
+			}
+		}
+
+		return plots;
 	}
 
 	public static boolean isBoneMeal(ItemStack stack) {
@@ -297,13 +367,13 @@ public final class Woods {
 	}
 
 	/**
-	 * Whether a sapling could stand on {@code soil}: air above, enough light, and soil vanilla
+	 * Whether a sapling could stand on {@code soil}: room above, enough light, and soil vanilla
 	 * itself would accept. The actual sapling is checked again at planting time, so a modded
 	 * sapling that wants unusual ground is not forced into dirt here.
 	 */
 	public static boolean canPlantAt(WorldView world, BlockPos soil) {
 		BlockPos above = soil.up();
-		return world.getBlockState(above).isAir()
+		return isPlantingSpace(world, above)
 				&& world.getBaseLightLevel(above, 0) >= MIN_LIGHT
 				&& Blocks.OAK_SAPLING.getDefaultState().canPlaceAt(world, above);
 	}
@@ -311,9 +381,25 @@ public final class Woods {
 	/** Whether this particular sapling will survive on {@code soil}. */
 	public static boolean canPlant(WorldView world, BlockPos soil, SaplingBlock sapling) {
 		BlockPos above = soil.up();
-		return world.getBlockState(above).isAir()
+		return isPlantingSpace(world, above)
 				&& world.getBaseLightLevel(above, 0) >= MIN_LIGHT
 				&& sapling.getDefaultState().canPlaceAt(world, above);
+	}
+
+	/**
+	 * Whether {@code pos} is somewhere a sapling can go: empty, or holding something that placing
+	 * a block there would sweep aside anyway.
+	 *
+	 * <p>Grass and ferns give way to a player planting into them and give way here too. Insisting
+	 * on bare air made a single tuft the reason a dark oak's square came up one corner short,
+	 * which is a tree refused over something the planting itself removes.
+	 *
+	 * <p>Fluids are replaceable too and are not accepted: a sapling stood in water is a sapling
+	 * washed away the moment it is placed.
+	 */
+	private static boolean isPlantingSpace(WorldView world, BlockPos pos) {
+		BlockState state = world.getBlockState(pos);
+		return state.isAir() || (state.isReplaceable() && state.getFluidState().isEmpty());
 	}
 
 	/**

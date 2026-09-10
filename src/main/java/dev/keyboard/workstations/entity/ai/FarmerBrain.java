@@ -740,7 +740,7 @@ public class FarmerBrain {
 	 * same one cannot stall every scan from here on.
 	 */
 	private boolean takeUnderfoot(FarmerEntity farmer, ServerWorld world, WorkArea area) {
-		List<ItemEntity> nearby = WorkerPack.underfoot(farmer, world, area.getBox(), farmer.getCarried());
+		List<ItemEntity> nearby = WorkerPack.underfoot(farmer, world, area, farmer.getCarried());
 
 		if (nearby.isEmpty()) {
 			return false;
@@ -889,7 +889,7 @@ public class FarmerBrain {
 
 	@Nullable
 	private ItemEntity nearestReachableDrop(FarmerEntity farmer, ServerWorld world, WorkArea area) {
-		return nearestReachableDrop(farmer, world, WorkerPack.looseIn(world, area.getBox(), farmer.getCarried()));
+		return nearestReachableDrop(farmer, world, WorkerPack.looseIn(world, area, farmer.getCarried()));
 	}
 
 	@Nullable

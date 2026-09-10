@@ -628,48 +628,86 @@ public class LumberjackBrain {
 
 	private boolean takePlant(LumberjackEntity lumberjack, ServerWorld world, LumberBlockEntity station,
 			LumberSettings config) {
-		List<Item> palette = Woods.palette(station.seedStores());
+		List<Item> palette = new ArrayList<>(Woods.palette(station.seedStores()));
 
 		if (palette.isEmpty()) {
 			why("no saplings");
 			return false;
 		}
 
-		Item sapling = config.saplingMix.choose(palette, station.getPlantedTally());
+		boolean anyWeighted = false;
 
-		if (sapling == null) {
-			why("mix all zero");
-			return false;
+		// The mix names one sapling per round, and always the one furthest behind its share. A
+		// dark oak with nowhere to put a square is therefore named again every round, and every
+		// other kind waits behind it forever. So a sapling with nowhere to go is dropped from the
+		// running and the mix asked what it would rather plant instead.
+		while (!palette.isEmpty()) {
+			Item sapling = config.saplingMix.choose(palette, station.getPlantedTally());
+
+			if (sapling == null) {
+				break;
+			}
+
+			anyWeighted = true;
+			SaplingBlock block = Woods.saplingFor(sapling);
+			BlockPos soil = block == null ? null : plantSpot(lumberjack, world, station, sapling, block);
+
+			if (soil != null) {
+				job = Job.PLANT;
+				target = null;
+				targetPos = soil;
+				felling = null;
+				planting = sapling;
+				return true;
+			}
+
+			palette.remove(sapling);
 		}
 
-		SaplingBlock block = Woods.saplingFor(sapling);
+		why(anyWeighted ? "nowhere to plant" : "mix all zero");
+		return false;
+	}
 
-		if (block == null) {
-			return false;
-		}
-
+	/**
+	 * Nearest soil this sapling could actually be put in, or null when the wood has no room for
+	 * it.
+	 *
+	 * <p>A wood that only grows from a block of four needs the whole block clear and four in
+	 * stock. Asking only about the one square, as a single sapling does, is what put three dark
+	 * oaks in the ground around a tuft of grass and left them there: three of four never grow,
+	 * and the spot is not free to try again either.
+	 */
+	@Nullable
+	private BlockPos plantSpot(LumberjackEntity lumberjack, ServerWorld world, LumberBlockEntity station,
+			Item sapling, SaplingBlock block) {
+		boolean square = Woods.needsSquare(sapling);
 		List<BlockPos> spots = new ArrayList<>();
 
 		for (BlockPos soil : survey(world, station).plantable()) {
-			if (Woods.canPlant(world, soil, block)
-					&& blockedPlots.get(soil.asLong()) <= world.getTime()
-					&& !served.contains(soil.asLong())) {
-				spots.add(soil);
+			if (blockedPlots.get(soil.asLong()) > world.getTime() || served.contains(soil.asLong())) {
+				continue;
 			}
+
+			if (square) {
+				BlockPos corner = Woods.squareFrom(world, soil, block);
+
+				if (corner == null || !affordable(station, sapling, Woods.squareGaps(world, corner, block))) {
+					continue;
+				}
+			} else if (!Woods.canPlant(world, soil, block)) {
+				continue;
+			}
+
+			spots.add(soil);
 		}
 
-		BlockPos soil = nearestReachable(lumberjack, world, spots, BlockPos::up, 0);
+		return nearestReachable(lumberjack, world, spots, BlockPos::up, 0);
+	}
 
-		if (soil == null) {
-			return false;
-		}
-
-		job = Job.PLANT;
-		target = null;
-		targetPos = soil;
-		felling = null;
-		planting = sapling;
-		return true;
+	/** Whether the station can pay for every hole this planting would open at once. */
+	private static boolean affordable(LumberBlockEntity station, Item sapling, List<BlockPos> plots) {
+		return !ModConfig.get().consumeSeeds
+				|| Stock.count(station.seedStores(), sapling) >= plots.size();
 	}
 
 	private boolean takeFertilize(LumberjackEntity lumberjack, ServerWorld world, LumberBlockEntity station) {
@@ -710,7 +748,7 @@ public class LumberjackBrain {
 	 * same one cannot stall every scan from here on.
 	 */
 	private boolean takeUnderfoot(LumberjackEntity lumberjack, ServerWorld world, WorkArea area) {
-		List<ItemEntity> nearby = WorkerPack.underfoot(lumberjack, world, area.getBox(), lumberjack.getCarried());
+		List<ItemEntity> nearby = WorkerPack.underfoot(lumberjack, world, area, lumberjack.getCarried());
 
 		if (nearby.isEmpty()) {
 			return false;
@@ -805,7 +843,7 @@ public class LumberjackBrain {
 
 	@Nullable
 	private ItemEntity nearestReachableDrop(LumberjackEntity lumberjack, ServerWorld world, WorkArea area) {
-		return nearestReachableDrop(lumberjack, world, WorkerPack.looseIn(world, area.getBox(), lumberjack.getCarried()));
+		return nearestReachableDrop(lumberjack, world, WorkerPack.looseIn(world, area, lumberjack.getCarried()));
 	}
 
 	@Nullable
@@ -942,39 +980,54 @@ public class LumberjackBrain {
 		served.add(soil.asLong());
 		SaplingBlock block = Woods.saplingFor(sapling);
 
-		if (block == null || !Woods.canPlant(world, soil, block)) {
+		if (block == null) {
 			note = "cannot plant";
 			station.clearStump(soil);
 			return true;
 		}
 
-		int needed = Woods.needsSquare(sapling) ? 4 : 1;
+		// Worked out again here rather than carried from the job: several seconds may have passed
+		// walking over, and a square only has to lose one corner to be worth nothing.
+		List<BlockPos> plots = Woods.needsSquare(sapling)
+				? squarePlots(world, soil, block)
+				: singlePlot(world, soil, block);
 
-		// Counted first so a dark oak that wants four does not spend two and then give up,
-		// leaving saplings gone and nothing in the ground.
+		if (plots.isEmpty()) {
+			note = "cannot plant";
+			station.clearStump(soil);
+			return true;
+		}
+
+		// Paid for in full before anything goes in the ground. A square that spends two and then
+		// runs dry is two saplings gone and no tree: three of four never grow, and the ones that
+		// did land are in the way of trying again.
 		if (ModConfig.get().consumeSeeds) {
-			if (Stock.count(station.seedStores(), sapling) < needed) {
-				needed = 1;
-			}
-
-			if (needed == 1 && !Stock.spend(station.seedStores(), sapling)) {
+			if (!affordable(station, sapling, plots)) {
 				note = "out of saplings";
 				return true;
 			}
 
-			if (needed == 4) {
-				for (int spent = 0; spent < 4; spent++) {
-					Stock.spend(station.seedStores(), sapling);
-				}
+			for (int spent = 0; spent < plots.size(); spent++) {
+				Stock.spend(station.seedStores(), sapling);
 			}
 		}
 
 		lumberjack.swingHand(Hand.MAIN_HAND);
 
-		if (needed == 4) {
-			plantSquare(world, soil, block);
-		} else {
-			world.setBlockState(soil.up(), block.getDefaultState());
+		for (BlockPos plot : plots) {
+			BlockPos at = plot.up();
+
+			// Grass and the like are broken rather than overwritten, so whatever they drop is
+			// left for the lumberjack to pick up instead of vanishing under the sapling.
+			if (!world.getBlockState(at).isAir()) {
+				world.breakBlock(at, true, lumberjack);
+			}
+
+			world.setBlockState(at, block.getDefaultState());
+			// The rest of the square is spoken for, or its other corners would each be taken as a
+			// planting job of their own and find a sapling already standing there.
+			served.add(plot.asLong());
+			station.clearStump(plot);
 		}
 
 		world.playSound(null, soil.up(), SoundEvents.ITEM_CROP_PLANT, SoundCategory.BLOCKS, 1.0F, 1.0F);
@@ -987,21 +1040,17 @@ public class LumberjackBrain {
 	}
 
 	/**
-	 * Dark oak will not grow from a single sapling, so the four go down together or not at all.
-	 * The corner is {@code soil} itself plus the three neighbours towards +X/+Z that are still
-	 * clear; if any of those has been built on since the job was taken, the extras stay in the
-	 * air and the one that did land will sit until the player finishes the square.
+	 * The holes a square-grown wood would fill, all of them or none. Empty when the block of four
+	 * is no longer there to be had, which is the answer that stops three saplings going into the
+	 * ground around whatever is standing in the fourth corner.
 	 */
-	private static void plantSquare(ServerWorld world, BlockPos soil, SaplingBlock sapling) {
-		for (int dx = 0; dx < 2; dx++) {
-			for (int dz = 0; dz < 2; dz++) {
-				BlockPos plot = soil.add(dx, 0, dz);
+	private static List<BlockPos> squarePlots(ServerWorld world, BlockPos soil, SaplingBlock block) {
+		BlockPos corner = Woods.squareFrom(world, soil, block);
+		return corner == null ? List.of() : Woods.squareGaps(world, corner, block);
+	}
 
-				if (Woods.canPlant(world, plot, sapling)) {
-					world.setBlockState(plot.up(), sapling.getDefaultState());
-				}
-			}
-		}
+	private static List<BlockPos> singlePlot(ServerWorld world, BlockPos soil, SaplingBlock block) {
+		return Woods.canPlant(world, soil, block) ? List.of(soil) : List.of();
 	}
 
 	/**

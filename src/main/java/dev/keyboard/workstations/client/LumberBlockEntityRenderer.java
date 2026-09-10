@@ -11,8 +11,8 @@ import net.minecraft.util.math.BlockPos;
 import org.joml.Matrix4f;
 
 /**
- * Everything the lumber station draws: the work area highlight, and a tile over every stump it
- * has on its books.
+ * Everything the lumber station draws: the axe turning over the bench, the work area highlight,
+ * and a tile over every stump it has on its books.
  *
  * <p>The area box on its own only says how far the wood reaches. Which holes inside it the
  * lumberjack means to plant again is a separate question, and the usual reason a stump appears
@@ -45,6 +45,7 @@ public class LumberBlockEntityRenderer implements BlockEntityRenderer<LumberBloc
 	public void render(LumberBlockEntity station, float tickDelta, MatrixStack matrices,
 			VertexConsumerProvider vertexConsumers, int light, int overlay) {
 		highlight.render(station, tickDelta, matrices, vertexConsumers, light, overlay);
+		AxeDisplay.render(station.getWorld(), tickDelta, matrices, vertexConsumers, light, overlay);
 
 		if (station.getWorld() == null || !HighlightState.shouldRender()) {
 			return;
