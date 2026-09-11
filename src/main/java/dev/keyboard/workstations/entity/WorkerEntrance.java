@@ -1,5 +1,7 @@
 package dev.keyboard.workstations.entity;
 
+import dev.keyboard.workstations.Mc;
+
 import net.minecraft.block.BlockState;
 import net.minecraft.block.Blocks;
 import net.minecraft.entity.mob.MobEntity;
@@ -9,7 +11,11 @@ import net.minecraft.sound.BlockSoundGroup;
 import net.minecraft.sound.SoundCategory;
 import net.minecraft.sound.SoundEvents;
 import net.minecraft.util.math.BlockPos;
+//? if >=1.17 {
 import net.minecraft.util.math.random.Random;
+//?} else {
+/* import java.util.Random; */
+//?}
 import net.minecraft.world.World;
 import org.jetbrains.annotations.Nullable;
 
@@ -178,7 +184,7 @@ public final class WorkerEntrance {
 
 	/** Driven from the worker's own tick on both sides: the server times it, the client shows it. */
 	public void tick(MobEntity worker) {
-		if (worker.getWorld().isClient()) {
+		if (Mc.world(worker).isClient()) {
 			climb(worker);
 			return;
 		}
@@ -215,8 +221,8 @@ public final class WorkerEntrance {
 
 	/** Sends a worker off in a shower of sparks. Called on the server; the sparks are the clients'. */
 	public static void leave(MobEntity worker) {
-		worker.getWorld().sendEntityStatus(worker, LEAVE_STATUS);
-		worker.discard();
+		Mc.world(worker).sendEntityStatus(worker, LEAVE_STATUS);
+		Mc.discard(worker);
 	}
 
 	/**
@@ -237,7 +243,7 @@ public final class WorkerEntrance {
 			return;
 		}
 
-		worker.getWorld().sendEntityStatus(worker, LAND_STATUS);
+		Mc.world(worker).sendEntityStatus(worker, LAND_STATUS);
 		arriving = null;
 	}
 
@@ -254,7 +260,7 @@ public final class WorkerEntrance {
 	/** Nothing to do but wait for the burst to go off and for it to have finished going off. */
 	private void spark(MobEntity worker) {
 		if (waited == ANNOUNCE_DELAY) {
-			worker.getWorld().sendEntityStatus(worker, SPARK_STATUS);
+			Mc.world(worker).sendEntityStatus(worker, SPARK_STATUS);
 		}
 
 		if (waited >= ANNOUNCE_DELAY + SPARK_TICKS) {
@@ -298,7 +304,7 @@ public final class WorkerEntrance {
 			return;
 		}
 
-		World world = worker.getWorld();
+		World world = Mc.world(worker);
 		Random random = worker.getRandom();
 		// The worker only looks buried: it stands on the floor throughout, so the block under it is
 		// the one it is supposedly clawing through.
@@ -324,7 +330,7 @@ public final class WorkerEntrance {
 
 	/** The burst that stands in for an entrance, and doubles as the way every worker leaves. */
 	private static void sparkle(MobEntity worker) {
-		World world = worker.getWorld();
+		World world = Mc.world(worker);
 		Random random = worker.getRandom();
 		double x = worker.getX();
 		double y = worker.getBodyY(0.5);
@@ -343,7 +349,7 @@ public final class WorkerEntrance {
 
 	/** The thump at the end of a drop, kicking up dust around the worker's boots. */
 	private static void land(MobEntity worker) {
-		World world = worker.getWorld();
+		World world = Mc.world(worker);
 		Random random = worker.getRandom();
 		double x = worker.getX();
 		double y = worker.getY();

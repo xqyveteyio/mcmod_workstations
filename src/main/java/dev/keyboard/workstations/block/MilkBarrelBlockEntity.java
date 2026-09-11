@@ -4,6 +4,9 @@ import dev.keyboard.workstations.WorkstationsMod;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.entity.BlockEntity;
 import net.minecraft.nbt.NbtCompound;
+//? if >=1.20.5 {
+/* import net.minecraft.registry.RegistryWrapper; */
+//?}
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.MathHelper;
 
@@ -25,9 +28,15 @@ public class MilkBarrelBlockEntity extends BlockEntity {
 
 	private int stored;
 
+	//? if >=1.17 {
 	public MilkBarrelBlockEntity(BlockPos pos, BlockState state) {
 		super(WorkstationsMod.MILK_BARREL_BLOCK_ENTITY, pos, state);
 	}
+	//?} else {
+	/* public MilkBarrelBlockEntity() {
+		super(WorkstationsMod.MILK_BARREL_BLOCK_ENTITY);
+	} */
+	//?}
 
 	public int getStored() {
 		return stored;
@@ -73,14 +82,37 @@ public class MilkBarrelBlockEntity extends BlockEntity {
 	}
 
 	@Override
+	//? if >=1.20.5 {
+	/* protected void readNbt(NbtCompound nbt, RegistryWrapper.WrapperLookup registryLookup) {
+		super.readNbt(nbt, registryLookup);
+	*/
+	//?} elif >=1.17 {
 	public void readNbt(NbtCompound nbt) {
 		super.readNbt(nbt);
+	//?} else {
+	/* public void fromTag(BlockState state, NbtCompound nbt) {
+		super.fromTag(state, nbt);
+	*/
+	//?}
 		stored = MathHelper.clamp(nbt.getInt(MILK_KEY), 0, CAPACITY);
 	}
 
 	@Override
+	//? if >=1.20.5 {
+	/* protected void writeNbt(NbtCompound nbt, RegistryWrapper.WrapperLookup registryLookup) {
+		super.writeNbt(nbt, registryLookup);
+	*/
+	//?} elif >=1.17 {
 	protected void writeNbt(NbtCompound nbt) {
 		super.writeNbt(nbt);
+	//?} else {
+	/* public NbtCompound writeNbt(NbtCompound nbt) {
+		super.writeNbt(nbt);
+	*/
+	//?}
 		nbt.putInt(MILK_KEY, stored);
+		//? if <1.17 {
+		/* return nbt; */
+		//?}
 	}
 }

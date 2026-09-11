@@ -1,10 +1,11 @@
 package dev.keyboard.workstations.work;
 
+import dev.keyboard.workstations.Mc;
+
 import net.minecraft.item.Item;
 import net.minecraft.nbt.NbtCompound;
 import net.minecraft.nbt.NbtElement;
 import net.minecraft.nbt.NbtList;
-import net.minecraft.registry.Registries;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.math.MathHelper;
 import org.jetbrains.annotations.Nullable;
@@ -139,7 +140,7 @@ public final class SeedMix {
 
 		for (Map.Entry<Item, Integer> entry : weights.entrySet()) {
 			NbtCompound row = new NbtCompound();
-			row.putString(SEED_KEY, Registries.ITEM.getId(entry.getKey()).toString());
+			row.putString(SEED_KEY, Mc.itemId(entry.getKey()).toString());
 			row.putInt(WEIGHT_KEY, entry.getValue());
 			list.add(row);
 		}
@@ -149,12 +150,12 @@ public final class SeedMix {
 
 	/** An absent list leaves the mix alone, so a save from before ratios existed loses nothing. */
 	public void readNbt(NbtCompound nbt) {
-		if (!nbt.contains(WEIGHTS_KEY, NbtElement.LIST_TYPE)) {
+		if (!nbt.contains(WEIGHTS_KEY, Mc.NBT_LIST)) {
 			return;
 		}
 
 		weights.clear();
-		NbtList list = nbt.getList(WEIGHTS_KEY, NbtElement.COMPOUND_TYPE);
+		NbtList list = nbt.getList(WEIGHTS_KEY, Mc.NBT_COMPOUND);
 
 		for (int index = 0; index < list.size(); index++) {
 			NbtCompound row = list.getCompound(index);
@@ -162,8 +163,8 @@ public final class SeedMix {
 
 			// A seed from a mod that is no longer installed is dropped rather than crashing the
 			// load; its weight is simply forgotten.
-			if (id != null && Registries.ITEM.containsId(id)) {
-				setWeight(Registries.ITEM.get(id), row.getInt(WEIGHT_KEY));
+			if (id != null && Mc.hasItem(id)) {
+				setWeight(Mc.item(id), row.getInt(WEIGHT_KEY));
 			}
 		}
 	}

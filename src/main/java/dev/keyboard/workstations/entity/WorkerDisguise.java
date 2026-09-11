@@ -1,11 +1,12 @@
 package dev.keyboard.workstations.entity;
 
+import dev.keyboard.workstations.Mc;
+
 import dev.keyboard.workstations.McaVillagers;
 import dev.keyboard.workstations.WorkstationsMod;
 import net.minecraft.entity.mob.MobEntity;
 import net.minecraft.entity.passive.VillagerEntity;
 import net.minecraft.nbt.NbtCompound;
-import net.minecraft.registry.Registries;
 import net.minecraft.sound.SoundEvent;
 import net.minecraft.util.Identifier;
 import org.jetbrains.annotations.Nullable;
@@ -70,8 +71,8 @@ public final class WorkerDisguise {
 			return null;
 		}
 
-		return Registries.SOUND_EVENT.get(
-				new Identifier("mca", "villager." + (female ? "female" : "male") + "." + voice.name));
+		return Mc.soundEvent(
+				WorkstationsMod.id("mca", "villager." + (female ? "female" : "male") + "." + voice.name));
 	}
 
 	/**
@@ -84,7 +85,7 @@ public final class WorkerDisguise {
 	 */
 	public static NbtCompound roll(MobEntity worker) {
 		try {
-			VillagerEntity villager = McaVillagers.createRandom(worker.getWorld());
+			VillagerEntity villager = McaVillagers.createRandom(Mc.world(worker));
 
 			// Grown up. Age is otherwise rolled too, and a station is no place for a toddler.
 			villager.setBreedingAge(0);

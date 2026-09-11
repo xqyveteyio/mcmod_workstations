@@ -34,8 +34,12 @@ import java.util.Set;
  */
 public final class Crops {
 	/** Ground a hoe turns into farmland, so a trampled plot can be put back to work. */
-	private static final Set<Block> TILLABLE = Set.of(
-			Blocks.DIRT, Blocks.GRASS_BLOCK, Blocks.DIRT_PATH, Blocks.COARSE_DIRT, Blocks.ROOTED_DIRT);
+	private static final Set<Block> TILLABLE =
+			//? if >=1.17 {
+			Set.of(Blocks.DIRT, Blocks.GRASS_BLOCK, Blocks.DIRT_PATH, Blocks.COARSE_DIRT, Blocks.ROOTED_DIRT);
+			//?} else {
+			/* Set.of(Blocks.DIRT, Blocks.GRASS_BLOCK, Blocks.GRASS_PATH, Blocks.COARSE_DIRT); */
+			//?}
 
 	/** The small mushrooms, which spread where they like rather than growing on a plot. */
 	private static final Set<Block> MUSHROOMS = Set.of(Blocks.BROWN_MUSHROOM, Blocks.RED_MUSHROOM);
@@ -65,7 +69,11 @@ public final class Crops {
 	 * is treated the same way.
 	 */
 	public static boolean isEdibleSeed(ItemStack stack) {
+		//? if >=1.20.5 {
+		/* return isSeed(stack) && stack.contains(net.minecraft.component.DataComponentTypes.FOOD); */
+		//?} else {
 		return isSeed(stack) && stack.isFood();
+		//?}
 	}
 
 	/** The crop a seed grows into, or null when the item is not a seed at all. */

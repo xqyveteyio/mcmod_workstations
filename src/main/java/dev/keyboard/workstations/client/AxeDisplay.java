@@ -2,11 +2,14 @@ package dev.keyboard.workstations.client;
 
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.render.VertexConsumerProvider;
+//? if >=1.19.4 {
 import net.minecraft.client.render.model.json.ModelTransformationMode;
+//?} else {
+/* import net.minecraft.client.render.model.json.ModelTransformation; */
+//?}
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
-import net.minecraft.util.math.RotationAxis;
 import net.minecraft.world.World;
 import org.jetbrains.annotations.Nullable;
 
@@ -60,12 +63,17 @@ final class AxeDisplay {
 
 		matrices.push();
 		matrices.translate(0.5F, HOVER, 0.5F);
-		matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(time / SPIN_TICKS * 360.0F));
+		Draw.yaw(matrices, time / SPIN_TICKS * 360.0F);
 		matrices.scale(SCALE, SCALE, SCALE);
 		// GROUND is the mode vanilla draws a dropped item in, so the axe is sized and stood up
 		// exactly as one lying in the world would be.
+		//? if >=1.19.4 {
 		MinecraftClient.getInstance().getItemRenderer().renderItem(AXE, ModelTransformationMode.GROUND,
 				light, overlay, matrices, vertexConsumers, world, 0);
+		//?} else {
+		/* MinecraftClient.getInstance().getItemRenderer().renderItem(AXE, ModelTransformation.Mode.GROUND,
+				light, overlay, matrices, vertexConsumers); */
+		//?}
 		matrices.pop();
 	}
 }

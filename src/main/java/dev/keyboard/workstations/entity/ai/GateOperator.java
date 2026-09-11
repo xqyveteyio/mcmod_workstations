@@ -1,5 +1,7 @@
 package dev.keyboard.workstations.entity.ai;
 
+import dev.keyboard.workstations.Mc;
+
 import net.minecraft.block.Block;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.FenceGateBlock;
@@ -10,7 +12,9 @@ import net.minecraft.sound.SoundEvents;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Box;
 import net.minecraft.world.World;
+//? if >=1.17 {
 import net.minecraft.world.event.GameEvent;
+//?}
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -113,7 +117,7 @@ public class GateOperator {
 			return;
 		}
 
-		BlockState state = worker.getWorld().getBlockState(current);
+		BlockState state = Mc.world(worker).getBlockState(current);
 
 		// Somebody else shut it, or the gate was broken while the worker was walking through.
 		if (!(state.getBlock() instanceof FenceGateBlock) || !state.get(FenceGateBlock.OPEN)) {
@@ -152,7 +156,7 @@ public class GateOperator {
 		Box body = worker.getBoundingBox();
 
 		for (Box slab : state.with(FenceGateBlock.OPEN, false)
-				.getCollisionShape(worker.getWorld(), pos)
+				.getCollisionShape(Mc.world(worker), pos)
 				.getBoundingBoxes()) {
 			if (slab.offset(pos.getX(), pos.getY(), pos.getZ()).intersects(body)) {
 				return true;
@@ -198,7 +202,7 @@ public class GateOperator {
 			BlockPos pos = path.getNode(index).getBlockPos();
 
 			if (horizontalDistanceSquared(worker, pos) <= OPEN_RANGE_SQUARED
-					&& WorkerNavigation.isClosedGate(worker.getWorld().getBlockState(pos))) {
+					&& WorkerNavigation.isClosedGate(Mc.world(worker).getBlockState(pos))) {
 				return pos;
 			}
 		}
@@ -214,17 +218,19 @@ public class GateOperator {
 	}
 
 	private static void setOpen(MobEntity worker, BlockPos pos, boolean open) {
-		World world = worker.getWorld();
+		World world = Mc.world(worker);
 		BlockState state = world.getBlockState(pos);
 
 		if (!(state.getBlock() instanceof FenceGateBlock) || state.get(FenceGateBlock.OPEN) == open) {
 			return;
 		}
 
-		world.setBlockState(pos, state.with(FenceGateBlock.OPEN, open), Block.NOTIFY_LISTENERS);
+		world.setBlockState(pos, state.with(FenceGateBlock.OPEN, open), Mc.NOTIFY_LISTENERS);
 		world.playSound(null, pos,
 				open ? SoundEvents.BLOCK_FENCE_GATE_OPEN : SoundEvents.BLOCK_FENCE_GATE_CLOSE,
 				SoundCategory.BLOCKS, 1.0F, world.getRandom().nextFloat() * 0.1F + 0.9F);
+		//? if >=1.17 {
 		world.emitGameEvent(worker, open ? GameEvent.BLOCK_OPEN : GameEvent.BLOCK_CLOSE, pos);
+		//?}
 	}
 }

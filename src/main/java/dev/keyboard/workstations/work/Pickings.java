@@ -1,5 +1,7 @@
 package dev.keyboard.workstations.work;
 
+import dev.keyboard.workstations.Mc;
+
 import net.minecraft.block.BlockState;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.util.math.BlockBox;
@@ -72,8 +74,8 @@ public final class Pickings {
 		int maxX = center.getX() + area.getXRadius();
 		int minZ = center.getZ() - area.getZRadius();
 		int maxZ = center.getZ() + area.getZRadius();
-		int minY = Math.max(world.getBottomY(), center.getY() - area.getBelow());
-		int maxY = Math.min(world.getTopY() - 1, center.getY() + area.getAbove());
+		int minY = Math.max(Mc.bottomY(world), center.getY() - area.getBelow());
+		int maxY = Math.min(Mc.topY(world) - 1, center.getY() + area.getAbove());
 
 		for (int chunkX = minX >> 4; chunkX <= maxX >> 4; chunkX++) {
 			for (int chunkZ = minZ >> 4; chunkZ <= maxZ >> 4; chunkZ++) {
@@ -97,9 +99,10 @@ public final class Pickings {
 	private static void sweep(ServerWorld world, Chunk chunk, Predicate<BlockState> candidate,
 			Predicate<BlockPos> accept, BlockBox slice, List<BlockPos> found) {
 		BlockPos.Mutable cursor = new BlockPos.Mutable();
-		int topSection = ChunkSectionPos.getSectionCoord(slice.getMaxY());
+		int topSection = ChunkSectionPos.getSectionCoord(Mc.boxMaxY(slice));
 
-		for (int sectionY = ChunkSectionPos.getSectionCoord(slice.getMinY()); sectionY <= topSection; sectionY++) {
+		for (int sectionY = ChunkSectionPos.getSectionCoord(Mc.boxMinY(slice)); sectionY <= topSection; sectionY++) {
+			//? if >=1.17 {
 			int index = chunk.sectionCoordToIndex(sectionY);
 
 			if (index < 0 || index >= chunk.getSectionArray().length) {
@@ -107,6 +110,13 @@ public final class Pickings {
 			}
 
 			ChunkSection section = chunk.getSection(index);
+			//?} else {
+			/* if (sectionY < 0 || sectionY >= chunk.getSectionArray().length) {
+				continue;
+			}
+
+			ChunkSection section = chunk.getSectionArray()[sectionY]; */
+			//?}
 
 			// The whole point of sweeping this way: one palette lookup rules out four thousand
 			// blocks, and over a farm nearly every section is ruled out.
@@ -114,12 +124,12 @@ public final class Pickings {
 				continue;
 			}
 
-			int fromY = Math.max(slice.getMinY(), ChunkSectionPos.getBlockCoord(sectionY));
-			int toY = Math.min(slice.getMaxY(), ChunkSectionPos.getBlockCoord(sectionY) + 15);
+			int fromY = Math.max(Mc.boxMinY(slice), ChunkSectionPos.getBlockCoord(sectionY));
+			int toY = Math.min(Mc.boxMaxY(slice), ChunkSectionPos.getBlockCoord(sectionY) + 15);
 
 			for (int y = fromY; y <= toY; y++) {
-				for (int x = slice.getMinX(); x <= slice.getMaxX(); x++) {
-					for (int z = slice.getMinZ(); z <= slice.getMaxZ(); z++) {
+				for (int x = Mc.boxMinX(slice); x <= Mc.boxMaxX(slice); x++) {
+					for (int z = Mc.boxMinZ(slice); z <= Mc.boxMaxZ(slice); z++) {
 						cursor.set(x, y, z);
 
 						if (accept.test(cursor)) {

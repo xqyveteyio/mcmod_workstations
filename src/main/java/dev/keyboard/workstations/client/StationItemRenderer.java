@@ -4,7 +4,11 @@ import dev.keyboard.workstations.WorkstationsMod;
 import net.fabricmc.fabric.api.client.rendering.v1.BuiltinItemRendererRegistry;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.render.VertexConsumerProvider;
+//? if >=1.19.4 {
 import net.minecraft.client.render.model.json.ModelTransformationMode;
+//?} else {
+/* import net.minecraft.client.render.model.json.ModelTransformation; */
+//?}
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.item.ItemStack;
 import net.minecraft.world.World;
@@ -17,7 +21,13 @@ import net.minecraft.world.World;
  */
 public class StationItemRenderer implements BuiltinItemRendererRegistry.DynamicItemRenderer {
 	@Override
-	public void render(ItemStack stack, ModelTransformationMode mode, MatrixStack matrices,
+	public void render(ItemStack stack,
+			//? if >=1.19.4 {
+			ModelTransformationMode mode,
+			//?} else {
+			/* ModelTransformation.Mode mode, */
+			//?}
+			MatrixStack matrices,
 			VertexConsumerProvider vertexConsumers, int light, int overlay) {
 		MinecraftClient client = MinecraftClient.getInstance();
 		client.getBlockRenderManager().renderBlockAsEntity(WorkstationsMod.RANCH_BLOCK.getDefaultState(),
@@ -27,7 +37,11 @@ public class StationItemRenderer implements BuiltinItemRendererRegistry.DynamicI
 
 		// No world means no animals to borrow, so the item is a bare table until you are in one.
 		if (world != null) {
+			//? if >=1.21 {
+			/* TabletopDisplay.render(world, client.getRenderTickCounter().getTickDelta(false), matrices, vertexConsumers, light); */
+			//?} else {
 			TabletopDisplay.render(world, client.getTickDelta(), matrices, vertexConsumers, light);
+			//?}
 		}
 	}
 }

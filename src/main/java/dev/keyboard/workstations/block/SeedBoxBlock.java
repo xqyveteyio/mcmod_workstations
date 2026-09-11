@@ -1,14 +1,21 @@
 package dev.keyboard.workstations.block;
 
+import dev.keyboard.workstations.Mc;
+
 import dev.keyboard.workstations.WorkstationsMod;
+//? if >=1.21 {
+/* import com.mojang.serialization.MapCodec; */
+//?}
 import net.minecraft.block.Block;
 import net.minecraft.block.BlockRenderType;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.BlockWithEntity;
 import net.minecraft.block.ShapeContext;
 import net.minecraft.block.entity.BlockEntity;
+//? if >=1.17 {
 import net.minecraft.block.entity.BlockEntityTicker;
 import net.minecraft.block.entity.BlockEntityType;
+//?}
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.item.ItemPlacementContext;
 import net.minecraft.screen.NamedScreenHandlerFactory;
@@ -25,7 +32,11 @@ import net.minecraft.util.ItemScatterer;
 import net.minecraft.util.hit.BlockHitResult;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Direction;
+//? if >=1.17 {
 import net.minecraft.util.math.random.Random;
+//?} else {
+/* import java.util.Random; */
+//?}
 import net.minecraft.util.shape.VoxelShape;
 import net.minecraft.world.BlockView;
 import net.minecraft.world.World;
@@ -41,6 +52,9 @@ import org.jetbrains.annotations.Nullable;
  * part deliberately left out.
  */
 public class SeedBoxBlock extends BlockWithEntity {
+	//? if >=1.21 {
+	/* public static final MapCodec<SeedBoxBlock> CODEC = createCodec(SeedBoxBlock::new); */
+	//?}
 	public static final DirectionProperty FACING = Properties.HORIZONTAL_FACING;
 
 	/** A chest's own outline: a hair inside the block on every side but the bottom. */
@@ -51,6 +65,14 @@ public class SeedBoxBlock extends BlockWithEntity {
 		setDefaultState(getStateManager().getDefaultState().with(FACING, Direction.NORTH));
 	}
 
+	//? if >=1.21 {
+	/* @Override
+	protected MapCodec<? extends SeedBoxBlock> getCodec() {
+		return CODEC;
+	}
+	*/
+	//?}
+
 	@Override
 	protected void appendProperties(StateManager.Builder<Block, BlockState> builder) {
 		builder.add(FACING);
@@ -59,7 +81,7 @@ public class SeedBoxBlock extends BlockWithEntity {
 	@Nullable
 	@Override
 	public BlockState getPlacementState(ItemPlacementContext ctx) {
-		return getDefaultState().with(FACING, ctx.getHorizontalPlayerFacing().getOpposite());
+		return getDefaultState().with(FACING, Mc.horizontalFacing(ctx).getOpposite());
 	}
 
 	@Override
@@ -89,11 +111,18 @@ public class SeedBoxBlock extends BlockWithEntity {
 
 	@Nullable
 	@Override
+	//? if >=1.17 {
 	public BlockEntity createBlockEntity(BlockPos pos, BlockState state) {
 		return new SeedBoxBlockEntity(pos, state);
 	}
+	//?} else {
+	/* public BlockEntity createBlockEntity(BlockView view) {
+		return new SeedBoxBlockEntity();
+	} */
+	//?}
 
 	/** Client side only: the lid's angle is the one thing that has to be kept moving every tick. */
+	//? if >=1.17 {
 	@Nullable
 	@Override
 	public <T extends BlockEntity> BlockEntityTicker<T> getTicker(World world, BlockState state, BlockEntityType<T> type) {
@@ -101,11 +130,20 @@ public class SeedBoxBlock extends BlockWithEntity {
 			return null;
 		}
 
+		//? if >=1.21 {
+		/* return validateTicker(type, WorkstationsMod.SEED_BOX_BLOCK_ENTITY, SeedBoxBlockEntity::clientTick); */
+		//?} else {
 		return checkType(type, WorkstationsMod.SEED_BOX_BLOCK_ENTITY, SeedBoxBlockEntity::clientTick);
+		//?}
 	}
+	//?}
 
 	@Override
+	//? if >=1.21 {
+	/* protected ActionResult onUse(BlockState state, World world, BlockPos pos, PlayerEntity player, BlockHitResult hit) { */
+	//?} else {
 	public ActionResult onUse(BlockState state, World world, BlockPos pos, PlayerEntity player, Hand hand, BlockHitResult hit) {
+	//?}
 		if (world.isClient) {
 			return ActionResult.SUCCESS;
 		}

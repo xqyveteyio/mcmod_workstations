@@ -1,21 +1,32 @@
 package dev.keyboard.workstations.work;
 
+import dev.keyboard.workstations.Mc;
+
 import net.minecraft.block.BlockState;
 import net.minecraft.block.Blocks;
 import net.minecraft.block.SaplingBlock;
+//? if >=1.21 {
+/* import net.minecraft.block.SaplingGenerator; */
+//?} else {
 import net.minecraft.block.sapling.LargeTreeSaplingGenerator;
 import net.minecraft.block.sapling.SaplingGenerator;
+//?}
 import net.minecraft.inventory.Inventory;
 import net.minecraft.item.BlockItem;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
-import net.minecraft.registry.Registries;
+//? if >=1.19.3 {
 import net.minecraft.registry.tag.BlockTags;
+//?} else {
+/* import net.minecraft.tag.BlockTags; */
+//?}
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Direction;
+//? if >=1.17 {
 import net.minecraft.util.math.random.Random;
+//?}
 import net.minecraft.world.WorldView;
 import org.jetbrains.annotations.Nullable;
 
@@ -103,7 +114,7 @@ public final class Woods {
 	 * already worked, not a trunk that grew there.
 	 */
 	public static boolean isWorked(BlockState state) {
-		return Registries.BLOCK.getId(state.getBlock()).getPath().contains("stripped");
+		return Mc.blockId(state.getBlock()).getPath().contains("stripped");
 	}
 
 	/**
@@ -167,10 +178,11 @@ public final class Woods {
 	/**
 	 * Whether this sapling will only grow from a block of four.
 	 *
-	 * <p>Read off the sapling's own grower rather than named as dark oak. Vanilla's mark for a
-	 * wood that cannot stand alone is a {@link LargeTreeSaplingGenerator} whose small-tree
-	 * feature is empty, which is how dark oak is written and how a mod copies it. Jungle and
-	 * spruce also grow from a square, but they still grow from one, so they plant as one.
+	 * <p>Read off the sapling's own grower rather than named as dark oak. Before 1.21 vanilla's
+	 * mark for a wood that cannot stand alone is a large-tree grower whose small-tree feature is
+	 * empty, which is how dark oak is written and how a mod copies it. From 1.21 the same fact is
+	 * a mega variant with no regular tree. Jungle and spruce also grow from a square, but they
+	 * still grow from one, so they plant as one.
 	 *
 	 * <p>A sapling that is not a {@link SaplingBlock}, or that grows by some other means, has
 	 * nothing here to read: there is no tag and no public method that says "I need four".
@@ -189,6 +201,9 @@ public final class Woods {
 
 		SaplingGenerator generator = sapling.generator;
 
+		//? if >=1.21 {
+		/* return generator.megaVariant.isPresent() && generator.regularVariant.isEmpty(); */
+		//?} else {
 		if (!(generator instanceof LargeTreeSaplingGenerator)) {
 			return false;
 		}
@@ -196,9 +211,15 @@ public final class Woods {
 		// Both bee answers, because a grower is allowed to keep a different tree for a hive
 		// nearby. Dark oak is empty either way; a single non-null is still a tree that grows
 		// from one.
+		//? if >=1.17 {
 		Random roll = Random.create(0L);
 		return generator.getTreeFeature(roll, false) == null
 				&& generator.getTreeFeature(roll, true) == null;
+		//?} else {
+		/* return generator.createTreeFeature(new java.util.Random(0L), false) == null
+				&& generator.createTreeFeature(new java.util.Random(0L), true) == null; */
+		//?}
+		//?}
 	}
 
 	/**
@@ -278,7 +299,7 @@ public final class Woods {
 	}
 
 	public static boolean isBoneMeal(ItemStack stack) {
-		return stack.isOf(Items.BONE_MEAL);
+		return Mc.isOf(stack, Items.BONE_MEAL);
 	}
 
 	/**
@@ -572,7 +593,11 @@ public final class Woods {
 	 * water is a sapling washed away the moment it is placed.
 	 */
 	private static boolean isSweptAside(BlockState state) {
+		//? if >=1.20 {
 		return state.isReplaceable() && state.getFluidState().isEmpty();
+		//?} else {
+		/* return state.getMaterial().isReplaceable() && state.getFluidState().isEmpty(); */
+		//?}
 	}
 
 	private record LeafStep(BlockPos pos, int distance) {

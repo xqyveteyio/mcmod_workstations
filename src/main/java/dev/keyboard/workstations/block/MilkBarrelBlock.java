@@ -1,5 +1,10 @@
 package dev.keyboard.workstations.block;
 
+import dev.keyboard.workstations.Mc;
+
+//? if >=1.21 {
+/* import com.mojang.serialization.MapCodec; */
+//?}
 import net.minecraft.block.Block;
 import net.minecraft.block.BlockRenderType;
 import net.minecraft.block.BlockState;
@@ -16,10 +21,14 @@ import net.minecraft.state.property.IntProperty;
 import net.minecraft.text.Text;
 import net.minecraft.util.ActionResult;
 import net.minecraft.util.Hand;
+//? if >=1.21 {
+/* import net.minecraft.util.ItemActionResult; */
+//?}
 import net.minecraft.util.hit.BlockHitResult;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.world.World;
+import net.minecraft.world.BlockView;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -31,6 +40,9 @@ import org.jetbrains.annotations.Nullable;
  * ever matters on the server.
  */
 public class MilkBarrelBlock extends BlockWithEntity {
+	//? if >=1.21 {
+	/* public static final MapCodec<MilkBarrelBlock> CODEC = createCodec(MilkBarrelBlock::new); */
+	//?}
 	/** How full the barrel looks, in quarters. The count behind it is far finer than the model. */
 	public static final IntProperty LEVEL = IntProperty.of("level", 0, 4);
 
@@ -38,6 +50,14 @@ public class MilkBarrelBlock extends BlockWithEntity {
 		super(settings);
 		setDefaultState(getStateManager().getDefaultState().with(LEVEL, 0));
 	}
+
+	//? if >=1.21 {
+	/* @Override
+	protected MapCodec<? extends MilkBarrelBlock> getCodec() {
+		return CODEC;
+	}
+	*/
+	//?}
 
 	@Override
 	protected void appendProperties(StateManager.Builder<Block, BlockState> builder) {
@@ -51,9 +71,15 @@ public class MilkBarrelBlock extends BlockWithEntity {
 
 	@Nullable
 	@Override
+	//? if >=1.17 {
 	public BlockEntity createBlockEntity(BlockPos pos, BlockState state) {
 		return new MilkBarrelBlockEntity(pos, state);
 	}
+	//?} else {
+	/* public BlockEntity createBlockEntity(BlockView view) {
+		return new MilkBarrelBlockEntity();
+	} */
+	//?}
 
 	/** Brings the shown level back in line with the amount held, if the two have drifted apart. */
 	static void showLevel(World world, BlockPos pos, BlockState state, int stored) {
@@ -62,7 +88,7 @@ public class MilkBarrelBlock extends BlockWithEntity {
 						/ (MilkBarrelBlockEntity.CAPACITY / 4));
 
 		if (state.get(LEVEL) != shown) {
-			world.setBlockState(pos, state.with(LEVEL, shown), Block.NOTIFY_ALL);
+			world.setBlockState(pos, state.with(LEVEL, shown), Mc.NOTIFY_ALL);
 		}
 	}
 
@@ -70,6 +96,48 @@ public class MilkBarrelBlock extends BlockWithEntity {
 	 * Trades a bucket either way: an empty one comes out full, a full one goes in empty. Anything
 	 * else in hand, or an empty hand, just reads the level off instead.
 	 */
+	//? if >=1.21 {
+	/* @Override
+	protected ItemActionResult onUseWithItem(ItemStack stack, BlockState state, World world, BlockPos pos,
+			PlayerEntity player, Hand hand, BlockHitResult hit) {
+		if (world.isClient) {
+			return ItemActionResult.SUCCESS;
+		}
+
+		if (!(world.getBlockEntity(pos) instanceof MilkBarrelBlockEntity barrel)) {
+			return ItemActionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
+		}
+
+		if (Mc.isOf(stack, Items.BUCKET) && barrel.drain()) {
+			swap(player, hand, stack, new ItemStack(Items.MILK_BUCKET));
+			announce(world, pos, player, barrel, SoundEvents.ITEM_BUCKET_FILL);
+			return ItemActionResult.CONSUME;
+		}
+
+		if (Mc.isOf(stack, Items.MILK_BUCKET) && barrel.fill()) {
+			swap(player, hand, stack, new ItemStack(Items.BUCKET));
+			announce(world, pos, player, barrel, SoundEvents.ITEM_BUCKET_EMPTY);
+			return ItemActionResult.CONSUME;
+		}
+
+		return ItemActionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
+	}
+
+	@Override
+	protected ActionResult onUse(BlockState state, World world, BlockPos pos, PlayerEntity player, BlockHitResult hit) {
+		if (world.isClient) {
+			return ActionResult.SUCCESS;
+		}
+
+		if (!(world.getBlockEntity(pos) instanceof MilkBarrelBlockEntity barrel)) {
+			return ActionResult.PASS;
+		}
+
+		player.sendMessage(level(barrel), true);
+		return ActionResult.CONSUME;
+	}
+	*/
+	//?} else {
 	@Override
 	public ActionResult onUse(BlockState state, World world, BlockPos pos, PlayerEntity player, Hand hand, BlockHitResult hit) {
 		if (world.isClient) {
@@ -82,13 +150,13 @@ public class MilkBarrelBlock extends BlockWithEntity {
 
 		ItemStack held = player.getStackInHand(hand);
 
-		if (held.isOf(Items.BUCKET) && barrel.drain()) {
+		if (Mc.isOf(held, Items.BUCKET) && barrel.drain()) {
 			swap(player, hand, held, new ItemStack(Items.MILK_BUCKET));
 			announce(world, pos, player, barrel, SoundEvents.ITEM_BUCKET_FILL);
 			return ActionResult.CONSUME;
 		}
 
-		if (held.isOf(Items.MILK_BUCKET) && barrel.fill()) {
+		if (Mc.isOf(held, Items.MILK_BUCKET) && barrel.fill()) {
 			swap(player, hand, held, new ItemStack(Items.BUCKET));
 			announce(world, pos, player, barrel, SoundEvents.ITEM_BUCKET_EMPTY);
 			return ActionResult.CONSUME;
@@ -98,6 +166,7 @@ public class MilkBarrelBlock extends BlockWithEntity {
 		player.sendMessage(level(barrel), true);
 		return ActionResult.CONSUME;
 	}
+	//?}
 
 	/**
 	 * Hands back what the traded bucket became.
@@ -106,7 +175,7 @@ public class MilkBarrelBlock extends BlockWithEntity {
 	 * alone, and is given nothing, since the point of the trade was the milk rather than the tin.
 	 */
 	private static void swap(PlayerEntity player, Hand hand, ItemStack held, ItemStack returned) {
-		if (player.getAbilities().creativeMode) {
+		if (Mc.creative(player)) {
 			return;
 		}
 
@@ -114,7 +183,7 @@ public class MilkBarrelBlock extends BlockWithEntity {
 
 		if (held.isEmpty()) {
 			player.setStackInHand(hand, returned);
-		} else if (!player.getInventory().insertStack(returned)) {
+		} else if (!Mc.inventory(player).insertStack(returned)) {
 			player.dropItem(returned, false);
 		}
 	}
@@ -126,7 +195,7 @@ public class MilkBarrelBlock extends BlockWithEntity {
 	}
 
 	private static Text level(MilkBarrelBlockEntity barrel) {
-		return Text.translatable("message.keyboard_workstations.milk_barrel_level",
+		return Mc.translatable("message.keyboard_workstations.milk_barrel_level",
 				barrel.getStored(), MilkBarrelBlockEntity.CAPACITY);
 	}
 

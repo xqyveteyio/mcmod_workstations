@@ -1,22 +1,37 @@
 package dev.keyboard.workstations.client.screen;
 
+import dev.keyboard.workstations.Mc;
+
 import dev.keyboard.workstations.ModConfig;
 import dev.keyboard.workstations.client.HighlightState;
 import dev.keyboard.workstations.client.network.StationNetworkingClient;
 import dev.keyboard.workstations.work.SeedMix;
 import dev.keyboard.workstations.work.SettingOption;
 import dev.keyboard.workstations.work.WorkerSettings;
+//? if >=1.20 {
 import net.minecraft.client.gui.DrawContext;
+//?} else {
+/* import net.minecraft.client.gui.Drawable;
+import net.minecraft.client.util.math.MatrixStack; */
+//?}
 import net.minecraft.client.gui.Element;
+//? if >=1.17 {
 import net.minecraft.client.gui.Selectable;
+//?}
 import net.minecraft.client.gui.screen.Screen;
+//? if >=1.19.3 {
 import net.minecraft.client.gui.tooltip.Tooltip;
+//?}
 import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.client.gui.widget.ClickableWidget;
 import net.minecraft.client.gui.widget.ElementListWidget;
 import net.minecraft.client.gui.widget.SliderWidget;
 import net.minecraft.item.Item;
+//? if >=1.19.3 {
 import net.minecraft.screen.ScreenTexts;
+//?} else {
+/* import net.minecraft.client.gui.screen.ScreenTexts; */
+//?}
 import net.minecraft.text.Text;
 import net.minecraft.util.Formatting;
 import net.minecraft.util.math.BlockPos;
@@ -88,14 +103,40 @@ public abstract class WorkerSettingsScreen<S extends WorkerSettings<S>> extends 
 	protected void addMixRows(SeedMix mix, List<Item> palette, String emptyKey, String tooltipKey,
 			Consumer<Row> add) {
 		if (palette.isEmpty()) {
-			add.accept(new Row(Text.translatable(emptyKey)));
+			add.accept(new Row(Mc.translatable(emptyKey)));
 			return;
 		}
 
 		for (Item item : palette) {
 			add.accept(new Row(item.getName().copy(), new MixSlider(mix, item, palette),
-					Text.translatable(tooltipKey)));
+					Mc.translatable(tooltipKey)));
 		}
+	}
+
+	protected ButtonWidget button(int x, int y, int w, int h, Text text, ButtonWidget.PressAction action) {
+		//? if >=1.19.4 {
+		return ButtonWidget.builder(text, action).dimensions(x, y, w, h).build();
+		//?} else {
+		/* return new ButtonWidget(x, y, w, h, text, action); */
+		//?}
+	}
+
+	private void addControl(ClickableWidget widget) {
+		//? if >=1.17 {
+		addDrawableChild(widget);
+		//?} else {
+		/* addButton(widget); */
+		//?}
+	}
+
+	private void rebuild() {
+		//? if >=1.19.3 {
+		clearAndInit();
+		//?} else {
+		/* children.clear();
+		buttons.clear();
+		init(); */
+		//?}
 	}
 
 	@Override
@@ -105,35 +146,36 @@ public abstract class WorkerSettingsScreen<S extends WorkerSettings<S>> extends 
 
 		for (String category : categories) {
 			boolean selected = category.equals(activeCategory);
-			Text label = Text.translatable("config.keyboard_workstations." + category);
+			Text label = Mc.translatable("config.keyboard_workstations." + category);
 
-			addDrawableChild(ButtonWidget.builder(selected ? label.copy().formatted(Formatting.YELLOW) : label,
-							button -> showCategory(category))
-					.dimensions(x, TABS_TOP, tabWidth, CONTROL_HEIGHT)
-					.build());
+			addControl(button(x, TABS_TOP, tabWidth, CONTROL_HEIGHT,
+					selected ? label.copy().formatted(Formatting.YELLOW) : label,
+					ignored -> showCategory(category)));
 
 			x += tabWidth + BUTTON_GAP;
 		}
 
-		addDrawableChild(new OptionList(activeCategory, listTop(), height - FOOTER_HEIGHT));
+		OptionList list = new OptionList(activeCategory, listTop(), height - FOOTER_HEIGHT);
+		//? if >=1.17 {
+		addDrawableChild(list);
+		//?} else {
+		/* addChild(list); */
+		//?}
 
 		int footerWidth = (BUTTON_ROW_WIDTH - BUTTON_GAP * 2) / 3;
 		int footerX = width / 2 - BUTTON_ROW_WIDTH / 2;
 		int footerY = height - FOOTER_HEIGHT + 10;
 
-		addDrawableChild(ButtonWidget.builder(Text.translatable("config.keyboard_workstations.worker_recall"),
-						button -> StationNetworkingClient.recallWorker(pos))
-				.dimensions(footerX, footerY, footerWidth, CONTROL_HEIGHT)
-				.build());
+		addControl(button(footerX, footerY, footerWidth, CONTROL_HEIGHT,
+				Mc.translatable("config.keyboard_workstations.worker_recall"),
+				ignored -> StationNetworkingClient.recallWorker(pos)));
 
-		addDrawableChild(ButtonWidget.builder(Text.translatable("config.keyboard_workstations.reset"),
-						button -> resetToDefaults())
-				.dimensions(footerX + footerWidth + BUTTON_GAP, footerY, footerWidth, CONTROL_HEIGHT)
-				.build());
+		addControl(button(footerX + footerWidth + BUTTON_GAP, footerY, footerWidth, CONTROL_HEIGHT,
+				Mc.translatable("config.keyboard_workstations.reset"),
+				ignored -> resetToDefaults()));
 
-		addDrawableChild(ButtonWidget.builder(ScreenTexts.DONE, button -> close())
-				.dimensions(footerX + (footerWidth + BUTTON_GAP) * 2, footerY, footerWidth, CONTROL_HEIGHT)
-				.build());
+		addControl(button(footerX + (footerWidth + BUTTON_GAP) * 2, footerY, footerWidth, CONTROL_HEIGHT,
+				ScreenTexts.DONE, ignored -> done()));
 	}
 
 	private int listTop() {
@@ -144,40 +186,79 @@ public abstract class WorkerSettingsScreen<S extends WorkerSettings<S>> extends 
 		// Rebuilding the same tab would only throw away the scroll position for nothing.
 		if (!category.equals(activeCategory)) {
 			activeCategory = category;
-			clearAndInit();
+			rebuild();
 		}
 	}
 
 	/** Restores this station to the values in the config file. */
 	private void resetToDefaults() {
 		settings.copyFrom(settings.shippedDefaults());
-		clearAndInit();
+		rebuild();
 	}
 
 	/** Rebuilds the current tab, for a control whose row set depends on what it just changed. */
 	protected void refresh() {
-		clearAndInit();
+		rebuild();
 	}
 
 	@Override
+	//? if >=1.20 {
 	public void render(DrawContext context, int mouseX, int mouseY, float delta) {
+		//? if >=1.21 {
+		/* super.render(context, mouseX, mouseY, delta); */
+		//?} else {
 		renderBackground(context);
 		super.render(context, mouseX, mouseY, delta);
+		//?}
+	}
+	//?} else {
+	/* public void render(MatrixStack matrices, int mouseX, int mouseY, float delta) {
+		renderBackground(matrices);
+		for (Element child : children) {
+			if (!(child instanceof ClickableWidget) && child instanceof Drawable drawable) {
+				drawable.render(matrices, mouseX, mouseY, delta);
+			}
+		}
+		for (Element child : children) {
+			if (child instanceof ClickableWidget widget) {
+				widget.render(matrices, mouseX, mouseY, delta);
+			}
+		}
+	} */
+	//?}
+
+	private void done() {
+		//? if >=1.19 {
+		close();
+		//?} else {
+		/* onClose(); */
+		//?}
 	}
 
 	/** Closing saves, so leaving by Escape keeps the changes rather than quietly binning them. */
 	@Override
+	//? if >=1.19 {
 	public void close() {
 		save();
 		super.close();
 	}
+	//?} else {
+	/* public void onClose() {
+		save();
+		super.onClose();
+	} */
+	//?}
 
 	/**
 	 * Leaves the screen without saving, for a button that has already saved on its own account and
 	 * would otherwise send the same settings twice.
 	 */
 	protected void dismiss() {
+		//? if >=1.19 {
 		super.close();
+		//?} else {
+		/* super.onClose(); */
+		//?}
 	}
 
 	protected static Text onOff(boolean value) {
@@ -186,21 +267,18 @@ public abstract class WorkerSettingsScreen<S extends WorkerSettings<S>> extends 
 
 	private ClickableWidget controlFor(SettingOption<S> option) {
 		if (option instanceof SettingOption.Flag<S> flag) {
-			return ButtonWidget.builder(onOff(flag.get(settings)), button -> {
-						flag.set(settings, !flag.get(settings));
-						button.setMessage(onOff(flag.get(settings)));
-					})
-					.dimensions(0, 0, CONTROL_WIDTH, CONTROL_HEIGHT)
-					.build();
+			return button(0, 0, CONTROL_WIDTH, CONTROL_HEIGHT, onOff(flag.get(settings)), button -> {
+				flag.set(settings, !flag.get(settings));
+				button.setMessage(onOff(flag.get(settings)));
+			});
 		}
 
 		if (option instanceof SettingOption.Choice<S> choice) {
-			return ButtonWidget.builder(Text.translatable(choice.valueLabelKey(settings)), button -> {
+			return button(0, 0, CONTROL_WIDTH, CONTROL_HEIGHT, Mc.translatable(choice.valueLabelKey(settings)),
+					button -> {
 						choice.next(settings);
-						button.setMessage(Text.translatable(choice.valueLabelKey(settings)));
-					})
-					.dimensions(0, 0, CONTROL_WIDTH, CONTROL_HEIGHT)
-					.build();
+						button.setMessage(Mc.translatable(choice.valueLabelKey(settings)));
+					});
 		}
 
 		return new OptionSlider<>((SettingOption.Range<S>) option, settings);
@@ -213,14 +291,12 @@ public abstract class WorkerSettingsScreen<S extends WorkerSettings<S>> extends 
 	private ClickableWidget highlightControl() {
 		ModConfig config = ModConfig.get();
 
-		return ButtonWidget.builder(onOff(config.highlightAlwaysOn), button -> {
-					config.highlightAlwaysOn = !config.highlightAlwaysOn;
-					config.save();
-					HighlightState.applyConfig();
-					button.setMessage(onOff(config.highlightAlwaysOn));
-				})
-				.dimensions(0, 0, CONTROL_WIDTH, CONTROL_HEIGHT)
-				.build();
+		return button(0, 0, CONTROL_WIDTH, CONTROL_HEIGHT, onOff(config.highlightAlwaysOn), button -> {
+			config.highlightAlwaysOn = !config.highlightAlwaysOn;
+			config.save();
+			HighlightState.applyConfig();
+			button.setMessage(onOff(config.highlightAlwaysOn));
+		});
 	}
 
 	/** A label on the left with its control on the right, the way vanilla's options screens read. */
@@ -231,7 +307,9 @@ public abstract class WorkerSettingsScreen<S extends WorkerSettings<S>> extends 
 		public Row(Text label, ClickableWidget control, Text tooltip) {
 			this.label = label;
 			this.control = control;
+			//? if >=1.19.3 {
 			control.setTooltip(Tooltip.of(tooltip));
+			//?}
 		}
 
 		/** A row that is only text, for saying why a tab is empty. */
@@ -245,12 +323,15 @@ public abstract class WorkerSettingsScreen<S extends WorkerSettings<S>> extends 
 			return control == null ? List.of() : List.of(control);
 		}
 
+		//? if >=1.17 {
 		@Override
 		public List<? extends Selectable> selectableChildren() {
 			return control == null ? List.of() : List.of(control);
 		}
+		//?}
 
 		@Override
+		//? if >=1.20 {
 		public void render(DrawContext context, int index, int y, int x, int entryWidth, int entryHeight,
 				int mouseX, int mouseY, boolean hovered, float tickDelta) {
 			context.drawTextWithShadow(textRenderer, label, x, y + (entryHeight - textRenderer.fontHeight) / 2,
@@ -262,26 +343,42 @@ public abstract class WorkerSettingsScreen<S extends WorkerSettings<S>> extends 
 				control.render(context, mouseX, mouseY, tickDelta);
 			}
 		}
+		//?} else {
+		/* public void render(MatrixStack matrices, int index, int y, int x, int entryWidth, int entryHeight,
+				int mouseX, int mouseY, boolean hovered, float tickDelta) {
+			textRenderer.draw(matrices, label, x, y + (entryHeight - textRenderer.fontHeight) / 2, 0xFFFFFF);
+
+			if (control != null) {
+				control.x = x + entryWidth - CONTROL_WIDTH;
+				control.y = y;
+				control.render(matrices, mouseX, mouseY, tickDelta);
+			}
+		} */
+		//?}
 	}
 
 	private class OptionList extends ElementListWidget<Row> {
 		OptionList(String category, int top, int bottom) {
 			super(WorkerSettingsScreen.this.client, WorkerSettingsScreen.this.width,
+					//? if >=1.21 {
+					/* bottom - top, top, CONTROL_HEIGHT + 5); */
+					//?} else {
 					WorkerSettingsScreen.this.height, top, bottom, CONTROL_HEIGHT + 5);
+					//?}
 
 			for (SettingOption<S> option : settings.options()) {
 				if (option.category().equals(category)) {
-					addEntry(new Row(Text.translatable(option.labelKey()), controlFor(option),
-							Text.translatable(option.tooltipKey())));
+					addEntry(new Row(Mc.translatable(option.labelKey()), controlFor(option),
+							Mc.translatable(option.tooltipKey())));
 				}
 			}
 
 			addExtraRows(category, this::addEntry);
 
 			if (WorkerSettings.DISPLAY.equals(category)) {
-				addEntry(new Row(Text.translatable("config.keyboard_workstations.highlight_always_on"),
+				addEntry(new Row(Mc.translatable("config.keyboard_workstations.highlight_always_on"),
 						highlightControl(),
-						Text.translatable("config.keyboard_workstations.highlight_always_on.tooltip")));
+						Mc.translatable("config.keyboard_workstations.highlight_always_on.tooltip")));
 			}
 		}
 
@@ -291,7 +388,11 @@ public abstract class WorkerSettingsScreen<S extends WorkerSettings<S>> extends 
 		}
 
 		@Override
+		//? if >=1.21 {
+		/* protected int getScrollbarX() { */
+		//?} else {
 		protected int getScrollbarPositionX() {
+		//?}
 			return WorkerSettingsScreen.this.width / 2 + ROW_WIDTH / 2 + 8;
 		}
 	}
@@ -307,7 +408,7 @@ public abstract class WorkerSettingsScreen<S extends WorkerSettings<S>> extends 
 		private final List<Item> palette;
 
 		MixSlider(SeedMix mix, Item item, List<Item> palette) {
-			super(0, 0, CONTROL_WIDTH, CONTROL_HEIGHT, Text.empty(), fraction(mix.weight(item)));
+			super(0, 0, CONTROL_WIDTH, CONTROL_HEIGHT, Mc.empty(), fraction(mix.weight(item)));
 			this.mix = mix;
 			this.item = item;
 			this.palette = palette;
@@ -320,7 +421,7 @@ public abstract class WorkerSettingsScreen<S extends WorkerSettings<S>> extends 
 
 		@Override
 		protected void updateMessage() {
-			setMessage(Text.translatable("config.keyboard_workstations.seed_weight",
+			setMessage(Mc.translatable("config.keyboard_workstations.seed_weight",
 					mix.weight(item), mix.share(item, palette)));
 		}
 
@@ -344,7 +445,7 @@ public abstract class WorkerSettingsScreen<S extends WorkerSettings<S>> extends 
 		private final S settings;
 
 		OptionSlider(SettingOption.Range<S> option, S settings) {
-			super(0, 0, CONTROL_WIDTH, CONTROL_HEIGHT, Text.empty(), fraction(option, settings));
+			super(0, 0, CONTROL_WIDTH, CONTROL_HEIGHT, Mc.empty(), fraction(option, settings));
 			this.option = option;
 			this.settings = settings;
 			updateMessage();
@@ -356,7 +457,7 @@ public abstract class WorkerSettingsScreen<S extends WorkerSettings<S>> extends 
 
 		@Override
 		protected void updateMessage() {
-			setMessage(Text.literal(String.valueOf(option.get(settings))));
+			setMessage(Mc.literal(String.valueOf(option.get(settings))));
 		}
 
 		@Override

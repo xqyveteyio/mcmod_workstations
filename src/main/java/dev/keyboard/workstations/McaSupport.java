@@ -75,7 +75,7 @@ public final class McaSupport {
 			return null;
 		}
 
-		return Text.translatable("message.keyboard_workstations.mca_version",
+		return Mc.translatable("message.keyboard_workstations.mca_version",
 				REFUSED, oldestSupported(), firstUnsupported()).formatted(Formatting.YELLOW);
 	}
 

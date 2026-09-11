@@ -6,9 +6,14 @@ import net.minecraft.entity.ai.pathing.LandPathNodeMaker;
 import net.minecraft.entity.ai.pathing.MobNavigation;
 import net.minecraft.entity.ai.pathing.PathNodeNavigator;
 import net.minecraft.entity.ai.pathing.PathNodeType;
+//? if >=1.21 {
+/* import net.minecraft.entity.ai.pathing.PathContext; */
+//?}
 import net.minecraft.entity.mob.MobEntity;
 import net.minecraft.util.math.BlockPos;
+//? if <1.21 {
 import net.minecraft.world.BlockView;
+//?}
 import net.minecraft.world.World;
 
 /**
@@ -53,6 +58,20 @@ public class WorkerNavigation extends MobNavigation {
 	 */
 	private class GateAwareNodeMaker extends LandPathNodeMaker {
 		@Override
+		//? if >=1.21 {
+		/* public PathNodeType getDefaultNodeType(PathContext context, int x, int y, int z) {
+			PathNodeType type = super.getDefaultNodeType(context, x, y, z);
+
+			if (type != PathNodeType.FENCE || !gatesAllowed()) {
+				return type;
+			}
+
+			return isClosedGate(context.getBlockState(new BlockPos(x, y, z)))
+					? PathNodeType.WALKABLE_DOOR
+					: type;
+		}
+		*/
+		//?} else {
 		public PathNodeType getDefaultNodeType(BlockView world, int x, int y, int z) {
 			PathNodeType type = super.getDefaultNodeType(world, x, y, z);
 
@@ -64,6 +83,7 @@ public class WorkerNavigation extends MobNavigation {
 					? PathNodeType.WALKABLE_DOOR
 					: type;
 		}
+		//?}
 
 		private boolean gatesAllowed() {
 			return navigator instanceof WorkerMob worker && worker.mayOpenGates();

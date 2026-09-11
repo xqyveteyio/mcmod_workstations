@@ -7,11 +7,19 @@ import net.minecraft.client.render.RenderLayer;
 import net.minecraft.client.render.VertexConsumer;
 import net.minecraft.client.render.VertexConsumerProvider;
 import net.minecraft.client.render.block.entity.BlockEntityRenderer;
+//? if >=1.17 {
 import net.minecraft.client.render.block.entity.BlockEntityRendererFactory;
+//?} else {
+/* import net.minecraft.client.render.block.entity.BlockEntityRenderDispatcher; */
+//?}
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.World;
+//? if >=1.19.3 {
 import org.joml.Matrix4f;
+//?} else {
+/* import net.minecraft.util.math.Matrix4f; */
+//?}
 
 /**
  * Everything the farm station draws: the work area highlight, and a tile over every plot on its
@@ -22,7 +30,12 @@ import org.joml.Matrix4f;
  * the plots are drawn too. Their colour says what the farmer thinks each one needs, which turns
  * "why has it not planted that row" into something you can see from the gate.
  */
-public class FarmBlockEntityRenderer implements BlockEntityRenderer<FarmBlockEntity> {
+public class FarmBlockEntityRenderer
+		//? if >=1.17 {
+		implements BlockEntityRenderer<FarmBlockEntity> {
+		//?} else {
+		/* extends BlockEntityRenderer<FarmBlockEntity> { */
+		//?}
 	/**
 	 * How far the tiles float above the plot's top face.
 	 *
@@ -47,16 +60,25 @@ public class FarmBlockEntityRenderer implements BlockEntityRenderer<FarmBlockEnt
 
 	private final WorkAreaHighlightRenderer<FarmBlockEntity> highlight;
 
+	//? if >=1.17 {
 	public FarmBlockEntityRenderer(BlockEntityRendererFactory.Context context) {
 		this.highlight = new WorkAreaHighlightRenderer<>(context);
 	}
+	//?} else {
+	/* public FarmBlockEntityRenderer(BlockEntityRenderDispatcher dispatcher) {
+		super(dispatcher);
+		this.highlight = new WorkAreaHighlightRenderer<>(dispatcher);
+	} */
+	//?}
 
 	@Override
 	public boolean rendersOutsideBoundingBox(FarmBlockEntity station) {
 		return true;
 	}
 
+	//? if >=1.17 {
 	@Override
+	//?}
 	public int getRenderDistance() {
 		return 192;
 	}
@@ -73,8 +95,18 @@ public class FarmBlockEntityRenderer implements BlockEntityRenderer<FarmBlockEnt
 			return;
 		}
 
-		VertexConsumer buffer = vertexConsumers.getBuffer(RenderLayer.getDebugQuads());
+		VertexConsumer buffer = vertexConsumers.getBuffer(
+				//? if >=1.17 {
+				RenderLayer.getDebugQuads()
+				//?} else {
+				/* RenderLayer.getLines() */
+				//?}
+		);
+		//? if >=1.19.3 {
 		Matrix4f matrix = matrices.peek().getPositionMatrix();
+		//?} else {
+		/* Matrix4f matrix = matrices.peek().getModel(); */
+		//?}
 		BlockPos origin = station.getPos();
 
 		for (BlockPos plot : station.getPlots()) {
@@ -111,9 +143,9 @@ public class FarmBlockEntityRenderer implements BlockEntityRenderer<FarmBlockEnt
 		// The top of the plot, which is one block above the plot's own coordinate.
 		float y = plot.getY() - origin.getY() + 1.0F + SURFACE_OFFSET;
 
-		buffer.vertex(matrix, minX, y, minZ).color(colour[0], colour[1], colour[2], ALPHA).next();
-		buffer.vertex(matrix, minX, y, maxZ).color(colour[0], colour[1], colour[2], ALPHA).next();
-		buffer.vertex(matrix, maxX, y, maxZ).color(colour[0], colour[1], colour[2], ALPHA).next();
-		buffer.vertex(matrix, maxX, y, minZ).color(colour[0], colour[1], colour[2], ALPHA).next();
+		buffer.vertex(matrix, minX, y, minZ).color(colour[0], colour[1], colour[2], ALPHA)/*? if <1.21 {*/.next()/*?}*/;
+		buffer.vertex(matrix, minX, y, maxZ).color(colour[0], colour[1], colour[2], ALPHA)/*? if <1.21 {*/.next()/*?}*/;
+		buffer.vertex(matrix, maxX, y, maxZ).color(colour[0], colour[1], colour[2], ALPHA)/*? if <1.21 {*/.next()/*?}*/;
+		buffer.vertex(matrix, maxX, y, minZ).color(colour[0], colour[1], colour[2], ALPHA)/*? if <1.21 {*/.next()/*?}*/;
 	}
 }

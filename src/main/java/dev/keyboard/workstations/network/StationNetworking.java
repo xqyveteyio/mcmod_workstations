@@ -1,5 +1,7 @@
 package dev.keyboard.workstations.network;
 
+import dev.keyboard.workstations.Mc;
+
 import dev.keyboard.workstations.WorkstationsMod;
 import dev.keyboard.workstations.block.FarmBlockEntity;
 import dev.keyboard.workstations.block.LumberBlockEntity;
@@ -10,13 +12,10 @@ import dev.keyboard.workstations.work.FarmSettings;
 import dev.keyboard.workstations.work.LumberSettings;
 import dev.keyboard.workstations.work.StationSettings;
 import dev.keyboard.workstations.work.Woods;
-import net.fabricmc.fabric.api.networking.v1.PacketByteBufs;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.block.entity.BlockEntity;
 import net.minecraft.item.Item;
 import net.minecraft.nbt.NbtCompound;
-import net.minecraft.network.PacketByteBuf;
-import net.minecraft.registry.Registries;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.text.Text;
@@ -25,6 +24,18 @@ import net.minecraft.util.math.BlockPos;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
+
+//? if >=1.20.5 {
+/* import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
+import net.minecraft.network.RegistryByteBuf;
+import net.minecraft.network.codec.PacketCodec;
+import net.minecraft.network.codec.PacketCodecs;
+import net.minecraft.network.packet.CustomPayload;
+*/
+//?} else {
+import net.fabricmc.fabric.api.networking.v1.PacketByteBufs;
+import net.minecraft.network.PacketByteBuf;
+//?}
 
 /**
  * Talk between a station and the settings screen, for every kind of station.
@@ -37,6 +48,13 @@ import java.util.List;
  * one entry in a station's option list and needs nothing here.
  */
 public final class StationNetworking {
+	/**
+	 * How far from a station a player may still be editing it, squared. Generous next to the reach
+	 * the block was clicked with, since the screen stays open while you are pushed about.
+	 */
+	private static final double EDIT_RANGE_SQUARED = 144.0;
+
+	//? if <1.20.5 {
 	/** Server to client: put the settings screen up for a station. */
 	public static final Identifier OPEN_SCREEN = WorkstationsMod.id("open_screen");
 	/** Client to server: store what the screen was left showing. */
@@ -45,79 +63,145 @@ public final class StationNetworking {
 	public static final Identifier RECALL_WORKER = WorkstationsMod.id("recall_worker");
 	/** Client to server: take the field survey again, for a farm built after the block was placed. */
 	public static final Identifier RESCAN_PLOTS = WorkstationsMod.id("rescan_plots");
+	//?}
 
-	/**
-	 * How far from a station a player may still be editing it, squared. Generous next to the reach
-	 * the block was clicked with, since the screen stays open while you are pushed about.
-	 */
-	private static final double EDIT_RANGE_SQUARED = 144.0;
+	//? if >=1.20.5 {
+	/* public record OpenScreenPayload(BlockPos pos, List<Identifier> palette) implements CustomPayload {
+		public static final Id<OpenScreenPayload> ID = new Id<>(WorkstationsMod.id("open_screen"));
+		public static final PacketCodec<RegistryByteBuf, OpenScreenPayload> CODEC = PacketCodec.tuple(
+				BlockPos.PACKET_CODEC, OpenScreenPayload::pos,
+				Identifier.PACKET_CODEC.collect(PacketCodecs.toList()), OpenScreenPayload::palette,
+				OpenScreenPayload::new);
+
+		@Override
+		public Id<? extends CustomPayload> getId() {
+			return ID;
+		}
+	}
+
+	public record SaveSettingsPayload(BlockPos pos, NbtCompound nbt) implements CustomPayload {
+		public static final Id<SaveSettingsPayload> ID = new Id<>(WorkstationsMod.id("save_settings"));
+		public static final PacketCodec<RegistryByteBuf, SaveSettingsPayload> CODEC = PacketCodec.tuple(
+				BlockPos.PACKET_CODEC, SaveSettingsPayload::pos,
+				PacketCodecs.UNLIMITED_NBT_COMPOUND, SaveSettingsPayload::nbt,
+				SaveSettingsPayload::new);
+
+		@Override
+		public Id<? extends CustomPayload> getId() {
+			return ID;
+		}
+	}
+
+	public record RecallWorkerPayload(BlockPos pos) implements CustomPayload {
+		public static final Id<RecallWorkerPayload> ID = new Id<>(WorkstationsMod.id("recall_worker"));
+		public static final PacketCodec<RegistryByteBuf, RecallWorkerPayload> CODEC = PacketCodec.tuple(
+				BlockPos.PACKET_CODEC, RecallWorkerPayload::pos, RecallWorkerPayload::new);
+
+		@Override
+		public Id<? extends CustomPayload> getId() {
+			return ID;
+		}
+	}
+
+	public record RescanPlotsPayload(BlockPos pos) implements CustomPayload {
+		public static final Id<RescanPlotsPayload> ID = new Id<>(WorkstationsMod.id("rescan_plots"));
+		public static final PacketCodec<RegistryByteBuf, RescanPlotsPayload> CODEC = PacketCodec.tuple(
+				BlockPos.PACKET_CODEC, RescanPlotsPayload::pos, RescanPlotsPayload::new);
+
+		@Override
+		public Id<? extends CustomPayload> getId() {
+			return ID;
+		}
+	}
+	*/
+	//?}
 
 	private StationNetworking() {
 	}
 
 	public static void registerServerReceivers() {
+		//? if >=1.20.5 {
+		/* PayloadTypeRegistry.playS2C().register(OpenScreenPayload.ID, OpenScreenPayload.CODEC);
+		PayloadTypeRegistry.playC2S().register(SaveSettingsPayload.ID, SaveSettingsPayload.CODEC);
+		PayloadTypeRegistry.playC2S().register(RecallWorkerPayload.ID, RecallWorkerPayload.CODEC);
+		PayloadTypeRegistry.playC2S().register(RescanPlotsPayload.ID, RescanPlotsPayload.CODEC);
+
+		ServerPlayNetworking.registerGlobalReceiver(SaveSettingsPayload.ID, (payload, context) -> {
+			applySettings(context.player(), payload.pos(), payload.nbt());
+		});
+
+		ServerPlayNetworking.registerGlobalReceiver(RecallWorkerPayload.ID, (payload, context) -> {
+			recall(context.player(), payload.pos());
+		});
+
+		ServerPlayNetworking.registerGlobalReceiver(RescanPlotsPayload.ID, (payload, context) -> {
+			rescan(context.player(), payload.pos());
+		});
+		*/
+		//?} else {
 		ServerPlayNetworking.registerGlobalReceiver(SAVE_SETTINGS, (server, player, handler, buf, sender) -> {
 			BlockPos pos = buf.readBlockPos();
 			NbtCompound nbt = buf.readNbt();
 
-			// Off the network thread: block entities are only safe to touch on the server thread.
-			server.execute(() -> {
-				WorkStationBlockEntity<?, ?> station = reachableStation(player, pos);
-
-				if (nbt == null) {
-					return;
-				}
-
-				// Which kind of settings the packet holds is decided by the block it names rather
-				// than by anything in the packet, so a mismatched pair cannot be applied at all.
-				if (station instanceof RanchBlockEntity ranch) {
-					StationSettings incoming = new StationSettings();
-					incoming.readNbt(nbt);
-					ranch.applySettings(incoming);
-				} else if (station instanceof FarmBlockEntity farm) {
-					FarmSettings incoming = new FarmSettings();
-					incoming.readNbt(nbt);
-					farm.applySettings(incoming);
-				} else if (station instanceof LumberBlockEntity lumber) {
-					LumberSettings incoming = new LumberSettings();
-					incoming.readNbt(nbt);
-					lumber.applySettings(incoming);
-				}
-			});
+			server.execute(() -> applySettings(player, pos, nbt));
 		});
 
 		ServerPlayNetworking.registerGlobalReceiver(RECALL_WORKER, (server, player, handler, buf, sender) -> {
 			BlockPos pos = buf.readBlockPos();
-
-			server.execute(() -> {
-				WorkStationBlockEntity<?, ?> station = reachableStation(player, pos);
-
-				if (station == null || !(player.getWorld() instanceof ServerWorld world)) {
-					return;
-				}
-
-				// Over the hotbar rather than in the screen, so the answer survives closing it.
-				player.sendMessage(Text.translatable(switch (station.recallWorker(world)) {
-					case SUMMONED -> "message.keyboard_workstations.worker_summoned";
-					case MOVED -> "message.keyboard_workstations.worker_recalled";
-					case NO_ROOM -> "message.keyboard_workstations.worker_no_room";
-				}), true);
-			});
+			server.execute(() -> recall(player, pos));
 		});
 
 		ServerPlayNetworking.registerGlobalReceiver(RESCAN_PLOTS, (server, player, handler, buf, sender) -> {
 			BlockPos pos = buf.readBlockPos();
-
-			server.execute(() -> {
-				if (!(reachableStation(player, pos) instanceof FarmBlockEntity farm)
-						|| !(player.getWorld() instanceof ServerWorld world)) {
-					return;
-				}
-
-				player.sendMessage(Text.translatable("message.keyboard_workstations.plots_registered",
-						farm.registerPlots(world)), true);
-			});
+			server.execute(() -> rescan(player, pos));
 		});
+		//?}
+	}
+
+	private static void applySettings(ServerPlayerEntity player, BlockPos pos, @Nullable NbtCompound nbt) {
+		WorkStationBlockEntity<?, ?> station = reachableStation(player, pos);
+
+		if (nbt == null) {
+			return;
+		}
+
+		if (station instanceof RanchBlockEntity ranch) {
+			StationSettings incoming = new StationSettings();
+			incoming.readNbt(nbt);
+			ranch.applySettings(incoming);
+		} else if (station instanceof FarmBlockEntity farm) {
+			FarmSettings incoming = new FarmSettings();
+			incoming.readNbt(nbt);
+			farm.applySettings(incoming);
+		} else if (station instanceof LumberBlockEntity lumber) {
+			LumberSettings incoming = new LumberSettings();
+			incoming.readNbt(nbt);
+			lumber.applySettings(incoming);
+		}
+	}
+
+	private static void recall(ServerPlayerEntity player, BlockPos pos) {
+		WorkStationBlockEntity<?, ?> station = reachableStation(player, pos);
+
+		if (station == null || !(Mc.world(player) instanceof ServerWorld world)) {
+			return;
+		}
+
+		player.sendMessage(Mc.translatable(switch (station.recallWorker(world)) {
+			case SUMMONED -> "message.keyboard_workstations.worker_summoned";
+			case MOVED -> "message.keyboard_workstations.worker_recalled";
+			case NO_ROOM -> "message.keyboard_workstations.worker_no_room";
+		}), true);
+	}
+
+	private static void rescan(ServerPlayerEntity player, BlockPos pos) {
+		if (!(reachableStation(player, pos) instanceof FarmBlockEntity farm)
+				|| !(Mc.world(player) instanceof ServerWorld world)) {
+			return;
+		}
+
+		player.sendMessage(Mc.translatable("message.keyboard_workstations.plots_registered",
+				farm.registerPlots(world)), true);
 	}
 
 	/**
@@ -127,16 +211,23 @@ public final class StationNetworking {
 	 * and the ratio rows are built from exactly those contents. Ranches send an empty list.
 	 */
 	public static void openScreen(ServerPlayerEntity player, BlockPos pos) {
+		List<Identifier> ids = paletteAt(Mc.world(player).getBlockEntity(pos)).stream()
+				.map(Mc::itemId)
+				.toList();
+
+		//? if >=1.20.5 {
+		/* ServerPlayNetworking.send(player, new OpenScreenPayload(pos, ids)); */
+		//?} else {
 		PacketByteBuf buf = PacketByteBufs.create();
 		buf.writeBlockPos(pos);
-		List<Item> palette = paletteAt(player.getWorld().getBlockEntity(pos));
-		buf.writeVarInt(palette.size());
+		buf.writeVarInt(ids.size());
 
-		for (Item seed : palette) {
-			buf.writeIdentifier(Registries.ITEM.getId(seed));
+		for (Identifier id : ids) {
+			buf.writeIdentifier(id);
 		}
 
 		ServerPlayNetworking.send(player, OPEN_SCREEN, buf);
+		//?}
 	}
 
 	/**
@@ -166,7 +257,7 @@ public final class StationNetworking {
 			return null;
 		}
 
-		return player.getWorld().getBlockEntity(pos) instanceof WorkStationBlockEntity<?, ?> station
+		return Mc.world(player).getBlockEntity(pos) instanceof WorkStationBlockEntity<?, ?> station
 				? station
 				: null;
 	}

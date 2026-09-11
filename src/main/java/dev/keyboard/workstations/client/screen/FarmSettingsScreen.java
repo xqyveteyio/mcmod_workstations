@@ -1,9 +1,10 @@
 package dev.keyboard.workstations.client.screen;
 
+import dev.keyboard.workstations.Mc;
+
 import dev.keyboard.workstations.WorkstationsMod;
 import dev.keyboard.workstations.client.network.StationNetworkingClient;
 import dev.keyboard.workstations.work.FarmSettings;
-import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.item.Item;
 import net.minecraft.text.Text;
 import net.minecraft.util.math.BlockPos;
@@ -50,12 +51,11 @@ public class FarmSettingsScreen extends WorkerSettingsScreen<FarmSettings> {
 	@Override
 	protected void addExtraRows(String category, Consumer<Row> add) {
 		if (FarmSettings.FIELD.equals(category)) {
-			add.accept(new Row(Text.translatable("config.keyboard_workstations.rescan_plots"),
-					ButtonWidget.builder(Text.translatable("config.keyboard_workstations.rescan_plots.action"),
-									button -> surveyAndLeave())
-							.dimensions(0, 0, CONTROL_WIDTH, CONTROL_HEIGHT)
-							.build(),
-					Text.translatable("config.keyboard_workstations.rescan_plots.tooltip")));
+			add.accept(new Row(Mc.translatable("config.keyboard_workstations.rescan_plots"),
+					button(0, 0, CONTROL_WIDTH, CONTROL_HEIGHT,
+							Mc.translatable("config.keyboard_workstations.rescan_plots.action"),
+							ignored -> surveyAndLeave()),
+					Mc.translatable("config.keyboard_workstations.rescan_plots.tooltip")));
 			return;
 		}
 

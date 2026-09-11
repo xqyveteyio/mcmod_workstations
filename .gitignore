@@ -12,6 +12,11 @@ remappedSrc/
 run/
 .testrun/
 
+# Stonecutter
+.stonecutter/
+versions/*/build/
+versions/*/.gradle/
+
 # IDEA
 .idea/
 *.iml

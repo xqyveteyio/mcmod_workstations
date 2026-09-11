@@ -1,5 +1,7 @@
 package dev.keyboard.workstations.entity.ai;
 
+import dev.keyboard.workstations.Mc;
+
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.mob.MobEntity;
 import net.minecraft.entity.player.PlayerEntity;
@@ -90,7 +92,7 @@ public final class WorkerMovement {
 
 		Vec3d forward = Vec3d.fromPolar(0.0F, worker.bodyYaw);
 
-		for (Entity other : worker.getWorld().getOtherEntities(worker,
+		for (Entity other : Mc.world(worker).getOtherEntities(worker,
 				worker.getBoundingBox().expand(SHOVE_RANGE, 0.5, SHOVE_RANGE),
 				candidate -> candidate.isPushable() && !(candidate instanceof PlayerEntity))) {
 			double dx = other.getX() - worker.getX();
@@ -110,7 +112,7 @@ public final class WorkerMovement {
 			double lean = sideX * dx + sideZ * dz;
 			// Pushed towards the side it already leans, so the two never disagree about which way
 			// it should go. Dead ahead there is no such side, so its id picks one and sticks to it.
-			boolean flip = Math.abs(lean) < 1.0E-3 ? (other.getId() & 1) == 0 : lean < 0.0;
+			boolean flip = Math.abs(lean) < 1.0E-3 ? (Mc.entityId(other) & 1) == 0 : lean < 0.0;
 
 			if (flip) {
 				sideX = -sideX;

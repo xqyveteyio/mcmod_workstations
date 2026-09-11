@@ -1,14 +1,21 @@
 package dev.keyboard.workstations.block;
 
+import dev.keyboard.workstations.Mc;
+
 import dev.keyboard.workstations.WorkstationsMod;
+//? if >=1.21 {
+/* import com.mojang.serialization.MapCodec; */
+//?}
 import net.minecraft.block.Block;
 import net.minecraft.block.BlockRenderType;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.BlockWithEntity;
 import net.minecraft.block.ShapeContext;
 import net.minecraft.block.entity.BlockEntity;
+//? if >=1.17 {
 import net.minecraft.block.entity.BlockEntityTicker;
 import net.minecraft.block.entity.BlockEntityType;
+//?}
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.ai.pathing.NavigationType;
 import net.minecraft.entity.player.PlayerEntity;
@@ -40,6 +47,9 @@ import org.jetbrains.annotations.Nullable;
  * container, sneak and use opens the settings screen, and breaking it takes the farmer with it.
  */
 public class FarmBlock extends BlockWithEntity {
+	//? if >=1.21 {
+	/* public static final MapCodec<FarmBlock> CODEC = createCodec(FarmBlock::new); */
+	//?}
 	public static final DirectionProperty FACING = Properties.HORIZONTAL_FACING;
 	/** Legs at the corners carrying a tray of soil, which is the model with the crops left out. */
 	private static final VoxelShape SHAPE = VoxelShapes.union(
@@ -54,6 +64,14 @@ public class FarmBlock extends BlockWithEntity {
 		setDefaultState(getStateManager().getDefaultState().with(FACING, Direction.NORTH));
 	}
 
+	//? if >=1.21 {
+	/* @Override
+	protected MapCodec<? extends FarmBlock> getCodec() {
+		return CODEC;
+	}
+	*/
+	//?}
+
 	@Override
 	protected void appendProperties(StateManager.Builder<Block, BlockState> builder) {
 		builder.add(FACING);
@@ -62,7 +80,7 @@ public class FarmBlock extends BlockWithEntity {
 	@Nullable
 	@Override
 	public BlockState getPlacementState(ItemPlacementContext ctx) {
-		return getDefaultState().with(FACING, ctx.getHorizontalPlayerFacing().getOpposite());
+		return getDefaultState().with(FACING, Mc.horizontalFacing(ctx).getOpposite());
 	}
 
 	@Override
@@ -82,7 +100,11 @@ public class FarmBlock extends BlockWithEntity {
 
 	/** Kept out of planned paths for the reason {@link RanchBlock} spells out: legs are not a cube. */
 	@Override
+	//? if >=1.21 {
+	/* protected boolean canPathfindThrough(BlockState state, NavigationType type) { */
+	//?} else {
 	public boolean canPathfindThrough(BlockState state, BlockView world, BlockPos pos, NavigationType type) {
+	//?}
 		return false;
 	}
 
@@ -93,10 +115,17 @@ public class FarmBlock extends BlockWithEntity {
 
 	@Nullable
 	@Override
+	//? if >=1.17 {
 	public BlockEntity createBlockEntity(BlockPos pos, BlockState state) {
 		return new FarmBlockEntity(pos, state);
 	}
+	//?} else {
+	/* public BlockEntity createBlockEntity(BlockView view) {
+		return new FarmBlockEntity();
+	} */
+	//?}
 
+	//? if >=1.17 {
 	@Nullable
 	@Override
 	public <T extends BlockEntity> BlockEntityTicker<T> getTicker(World world, BlockState state, BlockEntityType<T> type) {
@@ -104,8 +133,13 @@ public class FarmBlock extends BlockWithEntity {
 			return null;
 		}
 
+		//? if >=1.21 {
+		/* return validateTicker(type, WorkstationsMod.FARM_BLOCK_ENTITY, WorkStationBlockEntity::serverTick); */
+		//?} else {
 		return checkType(type, WorkstationsMod.FARM_BLOCK_ENTITY, WorkStationBlockEntity::serverTick);
+		//?}
 	}
+	//?}
 
 	@Override
 	public void onPlaced(World world, BlockPos pos, BlockState state, @Nullable LivingEntity placer, ItemStack itemStack) {
@@ -122,12 +156,16 @@ public class FarmBlock extends BlockWithEntity {
 		station.summonWorker(serverWorld);
 
 		if (placer instanceof PlayerEntity player) {
-			player.sendMessage(Text.translatable("message.keyboard_workstations.farm_placed", plots), true);
+			player.sendMessage(Mc.translatable("message.keyboard_workstations.farm_placed", plots), true);
 		}
 	}
 
 	@Override
+	//? if >=1.21 {
+	/* protected ActionResult onUse(BlockState state, World world, BlockPos pos, PlayerEntity player, BlockHitResult hit) { */
+	//?} else {
 	public ActionResult onUse(BlockState state, World world, BlockPos pos, PlayerEntity player, Hand hand, BlockHitResult hit) {
+	//?}
 		if (world.isClient) {
 			return ActionResult.SUCCESS;
 		}

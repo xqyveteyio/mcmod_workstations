@@ -1,5 +1,7 @@
 package dev.keyboard.workstations.entity.ai;
 
+import dev.keyboard.workstations.Mc;
+
 import dev.keyboard.workstations.ModConfig;
 import dev.keyboard.workstations.WorkstationsMod;
 import dev.keyboard.workstations.work.StationSettings;
@@ -19,7 +21,10 @@ import net.minecraft.entity.Shearable;
 import net.minecraft.entity.ai.pathing.Path;
 import net.minecraft.entity.passive.AnimalEntity;
 import net.minecraft.entity.passive.CowEntity;
+//? if >=1.19 {
 import net.minecraft.entity.passive.PassiveEntity;
+//?}
+import net.minecraft.entity.damage.DamageSource;
 import net.minecraft.inventory.Inventory;
 import net.minecraft.inventory.SimpleInventory;
 import net.minecraft.item.Item;
@@ -244,7 +249,7 @@ public class RancherBrain {
 	private double closest = Double.MAX_VALUE;
 
 	public void tick(RancherEntity rancher) {
-		if (!(rancher.getWorld() instanceof ServerWorld world)) {
+		if (!(Mc.world(rancher) instanceof ServerWorld world)) {
 			return;
 		}
 
@@ -482,11 +487,11 @@ public class RancherBrain {
 			// Drops are allowed a few blocks past the plot edge — see WorkerPack.DROP_MARGIN —
 			// so this check must use the same wider box, or a drop just outside would be taken
 			// and then immediately written off as gone.
-			return target != null && target.isAlive() && !target.isRemoved()
+			return target != null && target.isAlive() && !Mc.removed(target)
 					&& WorkerPack.dropBox(area).contains(target.getPos());
 		}
 
-		return target != null && target.isAlive() && !target.isRemoved() && area.contains(target);
+		return target != null && target.isAlive() && !Mc.removed(target) && area.contains(target);
 	}
 
 	private void perform(RancherEntity rancher, RanchBlockEntity station) {
@@ -841,7 +846,7 @@ public class RancherBrain {
 		List<T> waiting = new ArrayList<>(candidates.size());
 
 		for (T candidate : candidates) {
-			if (!served.contains(candidate.getId())) {
+			if (!served.contains(Mc.entityId(candidate))) {
 				waiting.add(candidate);
 			}
 		}
@@ -917,7 +922,7 @@ public class RancherBrain {
 		List<T> queue = new ArrayList<>(candidates.size());
 
 		for (T candidate : candidates) {
-			if (blocked.get(candidate.getId()) <= now) {
+			if (blocked.get(Mc.entityId(candidate)) <= now) {
 				queue.add(candidate);
 			}
 		}
@@ -966,7 +971,7 @@ public class RancherBrain {
 	}
 
 	private void block(ServerWorld world, Entity blockedTarget) {
-		blocked.put(blockedTarget.getId(), world.getTime() + BLOCKED_COOLDOWN);
+		blocked.put(Mc.entityId(blockedTarget), world.getTime() + BLOCKED_COOLDOWN);
 	}
 
 	private boolean feed(RancherEntity rancher, RanchBlockEntity station, boolean growUp) {
@@ -996,14 +1001,18 @@ public class RancherBrain {
 		rancher.swingHand(Hand.MAIN_HAND);
 
 		if (growUp) {
+			//? if >=1.19 {
 			animal.growUp(PassiveEntity.toGrowUpAge(-animal.getBreedingAge()), true);
+			//?} else {
+			/* animal.setBreedingAge(0); */
+			//?}
 		} else {
 			animal.lovePlayer(null);
 		}
 
 		// Its turn is used up. For babies that is what makes a round finite, and it also stops a
 		// baby that grew to adulthood on this very helping from being served again as an adult.
-		served.add(animal.getId());
+		served.add(Mc.entityId(animal));
 		phaseWorked = true;
 		celebrate(rancher, animal);
 
@@ -1035,7 +1044,7 @@ public class RancherBrain {
 	}
 
 	private static boolean stillReady(AnimalEntity animal) {
-		return animal.isAlive() && !animal.isRemoved() && animal.getBreedingAge() == 0 && animal.canEat();
+		return animal.isAlive() && !Mc.removed(animal) && animal.getBreedingAge() == 0 && animal.canEat();
 	}
 
 	private boolean cull(RancherEntity rancher) {
@@ -1049,7 +1058,12 @@ public class RancherBrain {
 			// Still dealt as damage rather than by emptying the health bar, so the loot table, the
 			// looting on the rancher's sword and the death animation all behave as they always do.
 			// The headroom over max health is for anything wearing armour or under resistance.
-			animal.damage(rancher.getDamageSources().mobAttack(rancher),
+			animal.damage(
+					//? if >=1.19.4 {
+					rancher.getDamageSources().mobAttack(rancher),
+					//?} else {
+					/* DamageSource.mob(rancher), */
+					//?}
 					animal.getMaxHealth() * 10.0F + animal.getAbsorptionAmount() + 10.0F);
 		} else {
 			rancher.tryAttack(animal);
@@ -1083,7 +1097,7 @@ public class RancherBrain {
 
 		// Marked as served whatever happens next, so an animal that turns out not to need it after
 		// all cannot be picked again and stall the round.
-		served.add(animal.getId());
+		served.add(Mc.entityId(animal));
 
 		if (!(animal instanceof Shearable shearable) || !shearable.isShearable()) {
 			return true;
@@ -1116,7 +1130,7 @@ public class RancherBrain {
 			return true;
 		}
 
-		served.add(animal.getId());
+		served.add(Mc.entityId(animal));
 
 		if (!(animal instanceof CowEntity) || animal.isBaby()) {
 			return true;
@@ -1144,12 +1158,12 @@ public class RancherBrain {
 		ItemStack remainder = rancher.getCarried().addStack(item.getStack().copy());
 
 		if (remainder.isEmpty()) {
-			item.discard();
+			Mc.discard(item);
 		} else {
 			item.setStack(remainder);
 		}
 
-		rancher.getWorld().playSound(null, rancher.getBlockPos(), SoundEvents.ENTITY_ITEM_PICKUP,
+		Mc.world(rancher).playSound(null, rancher.getBlockPos(), SoundEvents.ENTITY_ITEM_PICKUP,
 				SoundCategory.NEUTRAL, 0.15F,
 				(rancher.getRandom().nextFloat() - rancher.getRandom().nextFloat()) * 1.4F + 2.0F);
 		phaseWorked = true;
@@ -1272,13 +1286,13 @@ public class RancherBrain {
 		ItemStack remainder = rancher.getCarried().addStack(stack);
 
 		if (!remainder.isEmpty()) {
-			rancher.getWorld().spawnEntity(new ItemEntity(rancher.getWorld(), rancher.getX(),
+			Mc.world(rancher).spawnEntity(new ItemEntity(Mc.world(rancher), rancher.getX(),
 					rancher.getY() + 0.5, rancher.getZ(), remainder));
 		}
 	}
 
 	private static void celebrate(RancherEntity rancher, AnimalEntity animal) {
-		if (!(rancher.getWorld() instanceof ServerWorld world)) {
+		if (!(Mc.world(rancher) instanceof ServerWorld world)) {
 			return;
 		}
 
@@ -1312,12 +1326,12 @@ public class RancherBrain {
 	@Nullable
 	private static Stock.Held findFeed(List<Inventory> stores, AnimalEntity animal) {
 		Stock.Held liked = Stock.find(stores, animal::isBreedingItem);
-		return liked != null ? liked : Stock.find(stores, stack -> stack.isOf(WorkstationsMod.UNIVERSAL_FEED));
+		return liked != null ? liked : Stock.find(stores, stack -> Mc.isOf(stack, WorkstationsMod.UNIVERSAL_FEED));
 	}
 
 	/** Whether one of these is a helping this animal will accept. */
 	private static boolean feeds(ItemStack stack, AnimalEntity animal) {
-		return !stack.isEmpty() && (animal.isBreedingItem(stack) || stack.isOf(WorkstationsMod.UNIVERSAL_FEED));
+		return !stack.isEmpty() && (animal.isBreedingItem(stack) || Mc.isOf(stack, WorkstationsMod.UNIVERSAL_FEED));
 	}
 
 	/**

@@ -1,5 +1,7 @@
 package dev.keyboard.workstations.client;
 
+import dev.keyboard.workstations.Mc;
+
 import dev.keyboard.workstations.McaVillagers;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.render.VertexConsumerProvider;
@@ -78,7 +80,7 @@ final class McaVillagerLook {
 	}
 
 	private static VillagerEntity dress(MobEntity worker, NbtCompound disguise) {
-		VillagerEntity standIn = McaVillagers.createStandIn(worker.getWorld());
+		VillagerEntity standIn = McaVillagers.createStandIn(Mc.world(worker));
 		McaVillagers.wear(standIn, disguise);
 
 		// The name plate over a worker is the worker's own business, drawn by the worker's own
@@ -102,9 +104,14 @@ final class McaVillagerLook {
 		standIn.prevY = worker.prevY;
 		standIn.prevZ = worker.prevZ;
 
+		//? if >=1.17 {
 		standIn.setYaw(worker.getYaw());
-		standIn.prevYaw = worker.prevYaw;
 		standIn.setPitch(worker.getPitch());
+		//?} else {
+		/* standIn.yaw = worker.yaw;
+		standIn.pitch = worker.pitch; */
+		//?}
+		standIn.prevYaw = worker.prevYaw;
 		standIn.prevPitch = worker.prevPitch;
 		standIn.bodyYaw = worker.bodyYaw;
 		standIn.prevBodyYaw = worker.prevBodyYaw;
@@ -137,7 +144,12 @@ final class McaVillagerLook {
 		int owed = Math.min(worker.age - standIn.age, MAX_CATCH_UP);
 
 		for (int tick = 0; tick < owed; tick++) {
+			//? if >=1.20 {
 			standIn.limbAnimator.updateLimbs(speed, 0.4F);
+			//?} else {
+			/* standIn.limbDistance += (speed - standIn.limbDistance) * 0.4F;
+			standIn.limbAngle += standIn.limbDistance; */
+			//?}
 		}
 
 		standIn.age = worker.age;

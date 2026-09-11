@@ -1,5 +1,7 @@
 package dev.keyboard.workstations.block;
 
+import dev.keyboard.workstations.Mc;
+
 import dev.keyboard.workstations.WorkstationsMod;
 import dev.keyboard.workstations.entity.LumberjackEntity;
 import dev.keyboard.workstations.work.LumberSettings;
@@ -11,6 +13,9 @@ import net.minecraft.block.BlockState;
 import net.minecraft.entity.EntityType;
 import net.minecraft.item.Item;
 import net.minecraft.nbt.NbtCompound;
+//? if >=1.20.5 {
+/* import net.minecraft.registry.RegistryWrapper; */
+//?}
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.text.Text;
 import net.minecraft.util.math.BlockPos;
@@ -40,9 +45,15 @@ public class LumberBlockEntity extends WorkStationBlockEntity<LumberjackEntity, 
 	/** Insertion ordered so replanting walks a wood in a stable, roughly oldest-first order. */
 	private final Set<BlockPos> stumps = new LinkedHashSet<>();
 
+	//? if >=1.17 {
 	public LumberBlockEntity(BlockPos pos, BlockState state) {
 		super(WorkstationsMod.LUMBER_BLOCK_ENTITY, pos, state);
 	}
+	//?} else {
+	/* public LumberBlockEntity() {
+		super(WorkstationsMod.LUMBER_BLOCK_ENTITY);
+	} */
+	//?}
 
 	@Override
 	public LumberSettings getSettings() {
@@ -72,7 +83,7 @@ public class LumberBlockEntity extends WorkStationBlockEntity<LumberjackEntity, 
 
 	@Override
 	protected Text getContainerName() {
-		return Text.translatable("container.keyboard_workstations.lumber");
+		return Mc.translatable("container.keyboard_workstations.lumber");
 	}
 
 	/**
@@ -129,7 +140,7 @@ public class LumberBlockEntity extends WorkStationBlockEntity<LumberjackEntity, 
 		markDirty();
 
 		if (world != null) {
-			world.updateListeners(pos, getCachedState(), getCachedState(), Block.NOTIFY_LISTENERS);
+			world.updateListeners(pos, getCachedState(), getCachedState(), Mc.NOTIFY_LISTENERS);
 		}
 	}
 
@@ -150,8 +161,14 @@ public class LumberBlockEntity extends WorkStationBlockEntity<LumberjackEntity, 
 
 	/** The stumps ride along to the client, which needs them to mark the holes in the highlight. */
 	@Override
+	//? if >=1.20.5 {
+	/* public NbtCompound toInitialChunkDataNbt(RegistryWrapper.WrapperLookup registryLookup) {
+		NbtCompound nbt = super.toInitialChunkDataNbt(registryLookup);
+	*/
+	//?} else {
 	public NbtCompound toInitialChunkDataNbt() {
 		NbtCompound nbt = super.toInitialChunkDataNbt();
+	//?}
 		nbt.putLongArray(STUMPS_KEY, packedStumps());
 		return nbt;
 	}
@@ -168,15 +185,38 @@ public class LumberBlockEntity extends WorkStationBlockEntity<LumberjackEntity, 
 	}
 
 	@Override
+	//? if >=1.20.5 {
+	/* protected void writeNbt(NbtCompound nbt, RegistryWrapper.WrapperLookup registryLookup) {
+		super.writeNbt(nbt, registryLookup);
+	*/
+	//?} elif >=1.17 {
 	protected void writeNbt(NbtCompound nbt) {
 		super.writeNbt(nbt);
+	//?} else {
+	/* public NbtCompound writeNbt(NbtCompound nbt) {
+		super.writeNbt(nbt);
+	*/
+	//?}
 		nbt.putLongArray(STUMPS_KEY, packedStumps());
 		stock.writeNbt(nbt);
+		//? if <1.17 {
+		/* return nbt; */
+		//?}
 	}
 
 	@Override
+	//? if >=1.20.5 {
+	/* protected void readNbt(NbtCompound nbt, RegistryWrapper.WrapperLookup registryLookup) {
+		super.readNbt(nbt, registryLookup);
+	*/
+	//?} elif >=1.17 {
 	public void readNbt(NbtCompound nbt) {
 		super.readNbt(nbt);
+	//?} else {
+	/* public void fromTag(BlockState state, NbtCompound nbt) {
+		super.fromTag(state, nbt);
+	*/
+	//?}
 		stumps.clear();
 
 		for (long packed : nbt.getLongArray(STUMPS_KEY)) {

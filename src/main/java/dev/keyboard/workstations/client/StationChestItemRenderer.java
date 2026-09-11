@@ -4,8 +4,14 @@ import net.fabricmc.fabric.api.client.rendering.v1.BuiltinItemRendererRegistry;
 import net.minecraft.block.Block;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.render.VertexConsumerProvider;
+//? if >=1.17 {
 import net.minecraft.client.render.entity.model.EntityModelLayers;
+//?}
+//? if >=1.19.4 {
 import net.minecraft.client.render.model.json.ModelTransformationMode;
+//?} else {
+/* import net.minecraft.client.render.model.json.ModelTransformation; */
+//?}
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.Identifier;
@@ -34,11 +40,21 @@ public class StationChestItemRenderer implements BuiltinItemRendererRegistry.Dyn
 	}
 
 	@Override
-	public void render(ItemStack stack, ModelTransformationMode mode, MatrixStack matrices,
+	public void render(ItemStack stack,
+			//? if >=1.19.4 {
+			ModelTransformationMode mode,
+			//?} else {
+			/* ModelTransformation.Mode mode, */
+			//?}
+			MatrixStack matrices,
 			VertexConsumerProvider vertexConsumers, int light, int overlay) {
 		if (model == null) {
+			//? if >=1.17 {
 			model = new StationChestModel(MinecraftClient.getInstance()
 					.getEntityModelLoader().getModelPart(EntityModelLayers.CHEST), texture);
+			//?} else {
+			/* model = new StationChestModel(texture); */
+			//?}
 		}
 
 		model.render(block.getDefaultState(), 0.0F, matrices, vertexConsumers, light, overlay);

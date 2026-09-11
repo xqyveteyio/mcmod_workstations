@@ -1,5 +1,7 @@
 package dev.keyboard.workstations.block;
 
+import dev.keyboard.workstations.Mc;
+
 import dev.keyboard.workstations.WorkstationsMod;
 import dev.keyboard.workstations.entity.FarmerEntity;
 import dev.keyboard.workstations.work.Crops;
@@ -12,6 +14,9 @@ import net.minecraft.block.BlockState;
 import net.minecraft.entity.EntityType;
 import net.minecraft.item.Item;
 import net.minecraft.nbt.NbtCompound;
+//? if >=1.20.5 {
+/* import net.minecraft.registry.RegistryWrapper; */
+//?}
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.text.Text;
 import net.minecraft.util.math.BlockPos;
@@ -57,9 +62,15 @@ public class FarmBlockEntity extends WorkStationBlockEntity<FarmerEntity, FarmSe
 	/** Whether the one off survey has been taken, so a reloaded station does not retake it. */
 	private boolean surveyed;
 
+	//? if >=1.17 {
 	public FarmBlockEntity(BlockPos pos, BlockState state) {
 		super(WorkstationsMod.FARM_BLOCK_ENTITY, pos, state);
 	}
+	//?} else {
+	/* public FarmBlockEntity() {
+		super(WorkstationsMod.FARM_BLOCK_ENTITY);
+	} */
+	//?}
 
 	@Override
 	public FarmSettings getSettings() {
@@ -89,7 +100,7 @@ public class FarmBlockEntity extends WorkStationBlockEntity<FarmerEntity, FarmSe
 
 	@Override
 	protected Text getContainerName() {
-		return Text.translatable("container.keyboard_workstations.farm");
+		return Mc.translatable("container.keyboard_workstations.farm");
 	}
 
 	/**
@@ -172,7 +183,7 @@ public class FarmBlockEntity extends WorkStationBlockEntity<FarmerEntity, FarmSe
 		markDirty();
 
 		if (world != null) {
-			world.updateListeners(pos, getCachedState(), getCachedState(), Block.NOTIFY_LISTENERS);
+			world.updateListeners(pos, getCachedState(), getCachedState(), Mc.NOTIFY_LISTENERS);
 		}
 	}
 
@@ -223,8 +234,14 @@ public class FarmBlockEntity extends WorkStationBlockEntity<FarmerEntity, FarmSe
 
 	/** The register rides along to the client, which needs it to mark the plots in the highlight. */
 	@Override
+	//? if >=1.20.5 {
+	/* public NbtCompound toInitialChunkDataNbt(RegistryWrapper.WrapperLookup registryLookup) {
+		NbtCompound nbt = super.toInitialChunkDataNbt(registryLookup);
+	*/
+	//?} else {
 	public NbtCompound toInitialChunkDataNbt() {
 		NbtCompound nbt = super.toInitialChunkDataNbt();
+	//?}
 		nbt.putLongArray(PLOTS_KEY, packedPlots());
 		return nbt;
 	}
@@ -241,16 +258,39 @@ public class FarmBlockEntity extends WorkStationBlockEntity<FarmerEntity, FarmSe
 	}
 
 	@Override
+	//? if >=1.20.5 {
+	/* protected void writeNbt(NbtCompound nbt, RegistryWrapper.WrapperLookup registryLookup) {
+		super.writeNbt(nbt, registryLookup);
+	*/
+	//?} elif >=1.17 {
 	protected void writeNbt(NbtCompound nbt) {
 		super.writeNbt(nbt);
+	//?} else {
+	/* public NbtCompound writeNbt(NbtCompound nbt) {
+		super.writeNbt(nbt);
+	*/
+	//?}
 		nbt.putLongArray(PLOTS_KEY, packedPlots());
 		nbt.putBoolean(SURVEYED_KEY, surveyed);
 		stock.writeNbt(nbt);
+		//? if <1.17 {
+		/* return nbt; */
+		//?}
 	}
 
 	@Override
+	//? if >=1.20.5 {
+	/* protected void readNbt(NbtCompound nbt, RegistryWrapper.WrapperLookup registryLookup) {
+		super.readNbt(nbt, registryLookup);
+	*/
+	//?} elif >=1.17 {
 	public void readNbt(NbtCompound nbt) {
 		super.readNbt(nbt);
+	//?} else {
+	/* public void fromTag(BlockState state, NbtCompound nbt) {
+		super.fromTag(state, nbt);
+	*/
+	//?}
 		plots.clear();
 
 		for (long packed : nbt.getLongArray(PLOTS_KEY)) {

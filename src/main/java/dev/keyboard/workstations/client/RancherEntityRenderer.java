@@ -3,9 +3,13 @@ package dev.keyboard.workstations.client;
 import dev.keyboard.workstations.entity.RancherEntity;
 import dev.keyboard.workstations.work.WorkerSkin;
 import net.minecraft.client.render.VertexConsumerProvider;
-import net.minecraft.client.render.entity.EntityRendererFactory;
 import net.minecraft.client.render.entity.MobEntityRenderer;
+//? if >=1.17 {
+import net.minecraft.client.render.entity.EntityRendererFactory;
 import net.minecraft.client.render.entity.model.EntityModelLayers;
+//?} else {
+/* import net.minecraft.client.render.entity.EntityRenderDispatcher; */
+//?}
 import net.minecraft.client.render.entity.model.VillagerResemblingModel;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.util.Identifier;
@@ -27,10 +31,17 @@ public class RancherEntityRenderer extends MobEntityRenderer<RancherEntity, Vill
 	/** The same shrink vanilla applies, without which the villager model looks oversized. */
 	private static final float MODEL_SCALE = 0.9375F;
 
+	//? if >=1.17 {
 	public RancherEntityRenderer(EntityRendererFactory.Context context) {
 		super(context, new VillagerResemblingModel<>(context.getPart(EntityModelLayers.VILLAGER)), 0.5F);
 		this.addFeature(new WorkerOverlayFeatureRenderer<>(this, entity -> skin(entity).hatTexture()));
 	}
+	//?} else {
+	/* public RancherEntityRenderer(EntityRenderDispatcher dispatcher) {
+		super(dispatcher, new VillagerResemblingModel<>(0.0F), 0.5F);
+		this.addFeature(new WorkerOverlayFeatureRenderer<>(this, entity -> skin(entity).hatTexture()));
+	} */
+	//?}
 
 	@Override
 	public Identifier getTexture(RancherEntity entity) {
@@ -52,7 +63,11 @@ public class RancherEntityRenderer extends MobEntityRenderer<RancherEntity, Vill
 		if (WorkerLook.renderAsMcaVillager(entity, entity.getDisguise(), yaw, tickDelta, matrices,
 				vertexConsumers, light)) {
 			if (hasLabel(entity)) {
-				renderLabelIfPresent(entity, entity.getDisplayName(), matrices, vertexConsumers, light);
+				renderLabelIfPresent(entity, entity.getDisplayName(), matrices, vertexConsumers, light
+						//? if >=1.21 {
+						/* , tickDelta */
+						//?}
+				);
 			}
 
 			return;

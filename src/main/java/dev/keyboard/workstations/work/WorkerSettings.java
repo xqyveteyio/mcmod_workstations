@@ -1,5 +1,7 @@
 package dev.keyboard.workstations.work;
 
+import dev.keyboard.workstations.Mc;
+
 import net.minecraft.nbt.NbtCompound;
 import net.minecraft.nbt.NbtElement;
 
@@ -54,8 +56,8 @@ public interface WorkerSettings<S extends WorkerSettings<S>> {
 	 * that value, so a station that was 8 in every direction stays 8 in every direction.
 	 */
 	static void inheritWorkRadius(NbtCompound nbt, IntConsumer along, IntConsumer across) {
-		if (!nbt.contains("work_along", NbtElement.INT_TYPE)
-				&& nbt.contains("work_radius", NbtElement.INT_TYPE)) {
+		if (!nbt.contains("work_along", Mc.NBT_INT)
+				&& nbt.contains("work_radius", Mc.NBT_INT)) {
 			int radius = nbt.getInt("work_radius");
 			along.accept(radius);
 			across.accept(radius);
@@ -67,8 +69,8 @@ public interface WorkerSettings<S extends WorkerSettings<S>> {
 	 * that value, so a station that was 4 either way stays 4 either way.
 	 */
 	static void inheritWorkHeight(NbtCompound nbt, IntConsumer above, IntConsumer below) {
-		if (!nbt.contains("work_above", NbtElement.INT_TYPE)
-				&& nbt.contains("work_height", NbtElement.INT_TYPE)) {
+		if (!nbt.contains("work_above", Mc.NBT_INT)
+				&& nbt.contains("work_height", Mc.NBT_INT)) {
 			int height = nbt.getInt("work_height");
 			above.accept(height);
 			below.accept(height);

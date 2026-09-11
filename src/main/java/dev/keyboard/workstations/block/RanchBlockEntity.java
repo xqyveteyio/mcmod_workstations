@@ -1,5 +1,7 @@
 package dev.keyboard.workstations.block;
 
+import dev.keyboard.workstations.Mc;
+
 import dev.keyboard.workstations.WorkstationsMod;
 import dev.keyboard.workstations.entity.RancherEntity;
 import dev.keyboard.workstations.work.AreaContainers;
@@ -10,6 +12,9 @@ import net.minecraft.entity.EntityType;
 import net.minecraft.inventory.Inventory;
 import net.minecraft.nbt.NbtCompound;
 import net.minecraft.nbt.NbtElement;
+//? if >=1.20.5 {
+/* import net.minecraft.registry.RegistryWrapper; */
+//?}
 import net.minecraft.text.Text;
 import net.minecraft.util.math.BlockPos;
 import org.jetbrains.annotations.Nullable;
@@ -34,9 +39,15 @@ public class RanchBlockEntity extends WorkStationBlockEntity<RancherEntity, Stat
 	private final AreaContainers<FeedBarrelBlockEntity> feedBarrels =
 			new AreaContainers<>(FeedBarrelBlockEntity.class);
 
+	//? if >=1.17 {
 	public RanchBlockEntity(BlockPos pos, BlockState state) {
 		super(WorkstationsMod.RANCH_BLOCK_ENTITY, pos, state);
 	}
+	//?} else {
+	/* public RanchBlockEntity() {
+		super(WorkstationsMod.RANCH_BLOCK_ENTITY);
+	} */
+	//?}
 
 	/**
 	 * The barrel to pour into: the nearest one in the work area with room in it, or null when there
@@ -108,18 +119,28 @@ public class RanchBlockEntity extends WorkStationBlockEntity<RancherEntity, Stat
 
 	@Override
 	protected Text getContainerName() {
-		return Text.translatable("container.keyboard_workstations.ranch_station");
+		return Mc.translatable("container.keyboard_workstations.ranch_station");
 	}
 
 	@Override
+	//? if >=1.20.5 {
+	/* protected void readNbt(NbtCompound nbt, RegistryWrapper.WrapperLookup registryLookup) {
+		super.readNbt(nbt, registryLookup);
+	*/
+	//?} elif >=1.17 {
 	public void readNbt(NbtCompound nbt) {
 		super.readNbt(nbt);
+	//?} else {
+	/* public void fromTag(BlockState state, NbtCompound nbt) {
+		super.fromTag(state, nbt);
+	*/
+	//?}
 
 		// Stations saved before settings were per block only recorded the area size. Checked only
 		// when there are no settings to read, so a station that has both because someone merged the
 		// old keys back in is not dragged back to them.
-		if (!nbt.contains(SETTINGS_KEY, NbtElement.COMPOUND_TYPE)
-				&& nbt.contains(LEGACY_RADIUS_KEY, NbtElement.INT_TYPE)) {
+		if (!nbt.contains(SETTINGS_KEY, Mc.NBT_COMPOUND)
+				&& nbt.contains(LEGACY_RADIUS_KEY, Mc.NBT_INT)) {
 			settings.workAlong = nbt.getInt(LEGACY_RADIUS_KEY);
 			settings.workAcross = nbt.getInt(LEGACY_RADIUS_KEY);
 			settings.workAbove = nbt.getInt(LEGACY_HEIGHT_KEY);

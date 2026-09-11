@@ -1,8 +1,14 @@
 package dev.keyboard.workstations.work;
 
+import dev.keyboard.workstations.Mc;
+
 import net.minecraft.entity.EntityType;
 import net.minecraft.entity.Shearable;
+//? if >=1.17 {
 import net.minecraft.entity.passive.AbstractHorseEntity;
+//?} else {
+/* import net.minecraft.entity.passive.HorseBaseEntity; */
+//?}
 import net.minecraft.entity.passive.AnimalEntity;
 import net.minecraft.entity.passive.CowEntity;
 import net.minecraft.entity.passive.TameableEntity;
@@ -34,7 +40,7 @@ public final class HerdSurvey {
 		HerdSurvey survey = new HerdSurvey();
 
 		for (AnimalEntity animal : world.getEntitiesByClass(AnimalEntity.class, area.getBox(),
-				animal -> animal.isAlive() && !animal.isRemoved())) {
+				animal -> animal.isAlive() && !Mc.removed(animal))) {
 			Herd herd = survey.herds.computeIfAbsent(animal.getType(), type -> new Herd());
 
 			if (animal.isBaby()) {
@@ -279,7 +285,13 @@ public final class HerdSurvey {
 			return tameable.isTamed() && !tameable.isInSittingPose();
 		}
 
-		if (animal instanceof AbstractHorseEntity horse) {
+		if (animal instanceof
+				//? if >=1.17 {
+				AbstractHorseEntity
+				//?} else {
+				/* HorseBaseEntity */
+				//?}
+				horse) {
 			return horse.isTame() && !horse.hasPassengers() && !horse.hasVehicle()
 					&& horse.getHealth() >= horse.getMaxHealth();
 		}
@@ -289,7 +301,12 @@ public final class HerdSurvey {
 
 	/** Pets and anything a player bothered to name are never slaughtered. */
 	private static boolean isProtected(AnimalEntity animal) {
-		return animal.hasCustomName() || animal instanceof TameableEntity || animal instanceof AbstractHorseEntity;
+		return animal.hasCustomName() || animal instanceof TameableEntity || animal instanceof
+				//? if >=1.17 {
+				AbstractHorseEntity;
+				//?} else {
+				/* HorseBaseEntity; */
+				//?}
 	}
 
 	private static final class Herd {

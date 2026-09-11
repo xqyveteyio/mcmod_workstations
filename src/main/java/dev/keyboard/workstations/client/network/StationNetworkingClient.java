@@ -1,22 +1,20 @@
 package dev.keyboard.workstations.client.network;
 
+import dev.keyboard.workstations.Mc;
+
 import dev.keyboard.workstations.block.FarmBlockEntity;
 import dev.keyboard.workstations.block.LumberBlockEntity;
 import dev.keyboard.workstations.block.RanchBlockEntity;
 import dev.keyboard.workstations.client.screen.FarmSettingsScreen;
 import dev.keyboard.workstations.client.screen.LumberSettingsScreen;
 import dev.keyboard.workstations.client.screen.StationSettingsScreen;
-import dev.keyboard.workstations.network.StationNetworking;
 import dev.keyboard.workstations.work.FarmSettings;
 import dev.keyboard.workstations.work.LumberSettings;
 import dev.keyboard.workstations.work.StationSettings;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
-import net.fabricmc.fabric.api.networking.v1.PacketByteBufs;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.item.Item;
 import net.minecraft.nbt.NbtCompound;
-import net.minecraft.network.PacketByteBuf;
-import net.minecraft.registry.Registries;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.World;
@@ -24,12 +22,28 @@ import net.minecraft.world.World;
 import java.util.ArrayList;
 import java.util.List;
 
+//? if >=1.20.5 {
+/* import dev.keyboard.workstations.network.StationNetworking.OpenScreenPayload;
+import dev.keyboard.workstations.network.StationNetworking.RecallWorkerPayload;
+import dev.keyboard.workstations.network.StationNetworking.RescanPlotsPayload;
+import dev.keyboard.workstations.network.StationNetworking.SaveSettingsPayload;
+*/
+//?} else {
+import dev.keyboard.workstations.network.StationNetworking;
+import net.fabricmc.fabric.api.networking.v1.PacketByteBufs;
+import net.minecraft.network.PacketByteBuf;
+//?}
+
 /** The client half of the settings screen's traffic. */
 public final class StationNetworkingClient {
 	private StationNetworkingClient() {
 	}
 
 	public static void registerClientReceivers() {
+		//? if >=1.20.5 {
+		/* ClientPlayNetworking.registerGlobalReceiver(OpenScreenPayload.ID, (payload, context) ->
+				openScreen(context.client(), payload.pos(), payload.palette())); */
+		//?} else {
 		ClientPlayNetworking.registerGlobalReceiver(StationNetworking.OPEN_SCREEN,
 				(client, handler, buf, sender) -> {
 					BlockPos pos = buf.readBlockPos();
@@ -42,6 +56,7 @@ public final class StationNetworkingClient {
 
 					client.execute(() -> openScreen(client, pos, palette));
 				});
+		//?}
 	}
 
 	/**
@@ -57,11 +72,23 @@ public final class StationNetworkingClient {
 		}
 
 		if (world.getBlockEntity(pos) instanceof FarmBlockEntity farm) {
+			//? if >=1.19 {
 			client.setScreen(new FarmSettingsScreen(pos, farm.getSettings().copy(), items(palette)));
+			//?} else {
+			/* client.openScreen(new FarmSettingsScreen(pos, farm.getSettings().copy(), items(palette))); */
+			//?}
 		} else if (world.getBlockEntity(pos) instanceof LumberBlockEntity lumber) {
+			//? if >=1.19 {
 			client.setScreen(new LumberSettingsScreen(pos, lumber.getSettings().copy(), items(palette)));
+			//?} else {
+			/* client.openScreen(new LumberSettingsScreen(pos, lumber.getSettings().copy(), items(palette))); */
+			//?}
 		} else if (world.getBlockEntity(pos) instanceof RanchBlockEntity ranch) {
+			//? if >=1.19 {
 			client.setScreen(new StationSettingsScreen(pos, ranch.getSettings().copy()));
+			//?} else {
+			/* client.openScreen(new StationSettingsScreen(pos, ranch.getSettings().copy())); */
+			//?}
 		}
 	}
 
@@ -70,8 +97,8 @@ public final class StationNetworkingClient {
 		List<Item> seeds = new ArrayList<>(ids.size());
 
 		for (Identifier id : ids) {
-			if (Registries.ITEM.containsId(id)) {
-				seeds.add(Registries.ITEM.get(id));
+			if (Mc.hasItem(id)) {
+				seeds.add(Mc.item(id));
 			}
 		}
 
@@ -97,23 +124,37 @@ public final class StationNetworkingClient {
 	}
 
 	private static void sendSettings(BlockPos pos, NbtCompound nbt) {
+		//? if >=1.20.5 {
+		/* ClientPlayNetworking.send(new SaveSettingsPayload(pos, nbt)); */
+		//?} else {
 		PacketByteBuf buf = PacketByteBufs.create();
 		buf.writeBlockPos(pos);
 		buf.writeNbt(nbt);
 		ClientPlayNetworking.send(StationNetworking.SAVE_SETTINGS, buf);
+		//?}
 	}
 
 	public static void recallWorker(BlockPos pos) {
+		//? if >=1.20.5 {
+		/* ClientPlayNetworking.send(new RecallWorkerPayload(pos)); */
+		//?} else {
 		ClientPlayNetworking.send(StationNetworking.RECALL_WORKER, justPos(pos));
+		//?}
 	}
 
 	public static void rescanPlots(BlockPos pos) {
+		//? if >=1.20.5 {
+		/* ClientPlayNetworking.send(new RescanPlotsPayload(pos)); */
+		//?} else {
 		ClientPlayNetworking.send(StationNetworking.RESCAN_PLOTS, justPos(pos));
+		//?}
 	}
 
+	//? if <1.20.5 {
 	private static PacketByteBuf justPos(BlockPos pos) {
 		PacketByteBuf buf = PacketByteBufs.create();
 		buf.writeBlockPos(pos);
 		return buf;
 	}
+	//?}
 }

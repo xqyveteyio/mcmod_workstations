@@ -1,5 +1,7 @@
 package dev.keyboard.workstations.entity.ai;
 
+import dev.keyboard.workstations.Mc;
+
 import dev.keyboard.workstations.ModConfig;
 import dev.keyboard.workstations.block.LumberBlockEntity;
 import dev.keyboard.workstations.entity.LumberjackEntity;
@@ -23,14 +25,15 @@ import net.minecraft.item.BoneMealItem;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
-import net.minecraft.registry.Registries;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.sound.SoundCategory;
 import net.minecraft.sound.SoundEvents;
 import net.minecraft.util.Hand;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Vec3d;
+//? if >=1.17 {
 import net.minecraft.world.WorldEvents;
+//?}
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
@@ -154,7 +157,7 @@ public class LumberjackBrain {
 	private double closest = Double.MAX_VALUE;
 
 	public void tick(LumberjackEntity lumberjack) {
-		if (!(lumberjack.getWorld() instanceof ServerWorld world)) {
+		if (!(Mc.world(lumberjack) instanceof ServerWorld world)) {
 			return;
 		}
 
@@ -230,7 +233,7 @@ public class LumberjackBrain {
 		}
 
 		if (job == Job.PLANT && planting != null) {
-			text.append(' ').append(Registries.ITEM.getId(planting).getPath());
+			text.append(' ').append(Mc.itemId(planting).getPath());
 		}
 
 		if (state == State.WALKING) {
@@ -336,7 +339,7 @@ public class LumberjackBrain {
 
 	private boolean jobValid(ServerWorld world) {
 		if (job == Job.COLLECT) {
-			return target != null && target.isAlive() && !target.isRemoved();
+			return target != null && target.isAlive() && !Mc.removed(target);
 		}
 
 		if (job == Job.CHOP) {
@@ -857,7 +860,7 @@ public class LumberjackBrain {
 		List<ItemEntity> queue = new ArrayList<>();
 
 		for (ItemEntity drop : candidates) {
-			if (blockedDrops.get(drop.getId()) <= now) {
+			if (blockedDrops.get(Mc.entityId(drop)) <= now) {
 				queue.add(drop);
 			}
 		}
@@ -893,7 +896,7 @@ public class LumberjackBrain {
 				return drop;
 			}
 
-			blockedDrops.put(drop.getId(), world.getTime() + BLOCKED_COOLDOWN);
+			blockedDrops.put(Mc.entityId(drop), world.getTime() + BLOCKED_COOLDOWN);
 			why("unreachable");
 		}
 
@@ -902,7 +905,7 @@ public class LumberjackBrain {
 
 	private void blockCurrentTarget(ServerWorld world) {
 		if (target != null) {
-			blockedDrops.put(target.getId(), world.getTime() + BLOCKED_COOLDOWN);
+			blockedDrops.put(Mc.entityId(target), world.getTime() + BLOCKED_COOLDOWN);
 		} else if (targetPos != null && job != Job.DEPOSIT) {
 			blockedPlots.put(targetPos.asLong(), world.getTime() + BLOCKED_COOLDOWN);
 		}
@@ -1062,7 +1065,11 @@ public class LumberjackBrain {
 		}
 
 		Stock.spend(station.seedStores(), Items.BONE_MEAL);
+		//? if >=1.17 {
 		world.syncWorldEvent(WorldEvents.BONE_MEAL_USED, sapling, 0);
+		//?} else {
+		/* world.syncWorldEvent(null, 2005, sapling, 0); */
+		//?}
 		lumberjack.swingHand(Hand.MAIN_HAND);
 		lumberjack.startWorkCooldown();
 		actionCooldown = SWING_INTERVAL;
@@ -1078,12 +1085,12 @@ public class LumberjackBrain {
 		ItemStack remainder = lumberjack.getCarried().addStack(item.getStack().copy());
 
 		if (remainder.isEmpty()) {
-			item.discard();
+			Mc.discard(item);
 		} else {
 			item.setStack(remainder);
 		}
 
-		lumberjack.getWorld().playSound(null, lumberjack.getBlockPos(), SoundEvents.ENTITY_ITEM_PICKUP,
+		Mc.world(lumberjack).playSound(null, lumberjack.getBlockPos(), SoundEvents.ENTITY_ITEM_PICKUP,
 				SoundCategory.NEUTRAL, 0.15F,
 				(lumberjack.getRandom().nextFloat() - lumberjack.getRandom().nextFloat()) * 1.4F + 2.0F);
 		phaseWorked = true;

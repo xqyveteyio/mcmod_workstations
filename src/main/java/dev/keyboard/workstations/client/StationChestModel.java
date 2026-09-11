@@ -5,12 +5,18 @@ import net.minecraft.client.model.ModelPart;
 import net.minecraft.client.render.RenderLayer;
 import net.minecraft.client.render.VertexConsumer;
 import net.minecraft.client.render.VertexConsumerProvider;
+//? if >=1.17 {
 import net.minecraft.client.render.entity.model.EntityModelLayers;
+//?}
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.state.property.Properties;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.math.Direction;
+//? if >=1.19.3 {
 import net.minecraft.util.math.RotationAxis;
+//?} else {
+/* import net.minecraft.util.math.Vec3f; */
+//?}
 
 /**
  * A chest, drawn in this box's colours out of vanilla's own chest model.
@@ -31,11 +37,26 @@ class StationChestModel {
 	private final ModelPart lid;
 	private final ModelPart latch;
 
-	StationChestModel(ModelPart chest, Identifier texture) {
+	StationChestModel(
+			//? if >=1.17 {
+			ModelPart chest, Identifier texture
+			//?} else {
+			/* Identifier texture */
+			//?}
+	) {
 		this.texture = texture;
+		//? if >=1.17 {
 		base = chest.getChild("bottom");
 		lid = chest.getChild("lid");
 		latch = chest.getChild("lock");
+		//?} else {
+		/* base = new ModelPart(64, 64, 0, 19);
+		base.addCuboid(1.0F, 0.0F, 1.0F, 14.0F, 10.0F, 14.0F, 0.0F);
+		lid = new ModelPart(64, 64, 0, 0);
+		lid.addCuboid(1.0F, 10.0F, 1.0F, 14.0F, 5.0F, 14.0F, 0.0F);
+		latch = new ModelPart(64, 64, 0, 0);
+		latch.addCuboid(7.0F, 9.0F, 15.0F, 2.0F, 4.0F, 1.0F, 0.0F); */
+		//?}
 	}
 
 	/**
@@ -52,7 +73,7 @@ class StationChestModel {
 				? state.get(Properties.HORIZONTAL_FACING)
 				: Direction.NORTH;
 		matrices.translate(0.5F, 0.5F, 0.5F);
-		matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(-facing.asRotation()));
+		Draw.yaw(matrices, -facing.asRotation());
 		matrices.translate(-0.5F, -0.5F, -0.5F);
 
 		// Vanilla's easing, which sets the lid moving quickly and lets it settle shut.

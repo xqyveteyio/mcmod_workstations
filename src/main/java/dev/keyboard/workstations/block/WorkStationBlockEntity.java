@@ -1,5 +1,7 @@
 package dev.keyboard.workstations.block;
 
+import dev.keyboard.workstations.Mc;
+
 import dev.keyboard.workstations.entity.WorkerEntrance;
 import dev.keyboard.workstations.work.AreaContainers;
 import dev.keyboard.workstations.work.WorkArea;
@@ -17,10 +19,18 @@ import net.minecraft.inventory.Inventories;
 import net.minecraft.inventory.Inventory;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NbtCompound;
-import net.minecraft.nbt.NbtElement;
 import net.minecraft.network.listener.ClientPlayPacketListener;
+//? if >=1.17 {
 import net.minecraft.network.packet.Packet;
+//?} else {
+/* import net.minecraft.network.Packet;
+import net.minecraft.util.Tickable;
+import net.minecraft.util.registry.Registry; */
+//?}
 import net.minecraft.network.packet.s2c.play.BlockEntityUpdateS2CPacket;
+//? if >=1.20.5 {
+/* import net.minecraft.registry.RegistryWrapper; */
+//?}
 import net.minecraft.screen.GenericContainerScreenHandler;
 import net.minecraft.screen.ScreenHandler;
 import net.minecraft.server.world.ServerWorld;
@@ -45,7 +55,11 @@ import java.util.UUID;
  * @param <S> the orders this kind of station keeps
  */
 public abstract class WorkStationBlockEntity<W extends MobEntity & StationWorker, S extends WorkerSettings<S>>
-		extends LootableContainerBlockEntity {
+		extends LootableContainerBlockEntity
+		//? if <1.17 {
+		/* implements Tickable */
+		//?}
+		{
 	/** Slots. A double chest's worth, same as the seed box and the feed box. */
 	public static final int INVENTORY_SIZE = 54;
 
@@ -61,9 +75,25 @@ public abstract class WorkStationBlockEntity<W extends MobEntity & StationWorker
 	private UUID workerUuid;
 	private int respawnTimer;
 
+	//? if >=1.17 {
 	protected WorkStationBlockEntity(BlockEntityType<?> type, BlockPos pos, BlockState state) {
 		super(type, pos, state);
 	}
+	//?} else {
+	/* protected WorkStationBlockEntity(BlockEntityType<?> type) {
+		super(type);
+	} */
+	//?}
+
+	//? if <1.17 {
+	/* @Override
+	public void tick() {
+		if (world != null && !world.isClient) {
+			serverTick(world, pos, getCachedState(), this);
+		}
+	}
+	*/
+	//?}
 
 	/**
 	 * The seed boxes anywhere in this station's work area, nearest first.
@@ -154,7 +184,7 @@ public abstract class WorkStationBlockEntity<W extends MobEntity & StationWorker
 		markDirty();
 
 		if (world != null) {
-			world.updateListeners(pos, getCachedState(), getCachedState(), Block.NOTIFY_LISTENERS);
+			world.updateListeners(pos, getCachedState(), getCachedState(), Mc.NOTIFY_LISTENERS);
 		}
 	}
 
@@ -260,7 +290,11 @@ public abstract class WorkStationBlockEntity<W extends MobEntity & StationWorker
 
 		// The path it was walking leads from where it used to be, so it has to be thrown away.
 		worker.getNavigation().stop();
+		//? if >=1.21 {
+		/* worker.teleport(spawnPos.getX() + 0.5, spawnPos.getY(), spawnPos.getZ() + 0.5, false); */
+		//?} else {
 		worker.teleport(spawnPos.getX() + 0.5, spawnPos.getY(), spawnPos.getZ() + 0.5);
+		//?}
 		return Recall.MOVED;
 	}
 
@@ -317,6 +351,18 @@ public abstract class WorkStationBlockEntity<W extends MobEntity & StationWorker
 		return INVENTORY_SIZE;
 	}
 
+	//? if >=1.21 {
+	/* @Override
+	protected DefaultedList<ItemStack> getHeldStacks() {
+		return inventory;
+	}
+
+	@Override
+	protected void setHeldStacks(DefaultedList<ItemStack> list) {
+		inventory = list;
+	}
+	*/
+	//?} else {
 	@Override
 	protected DefaultedList<ItemStack> getInvStackList() {
 		return inventory;
@@ -326,6 +372,7 @@ public abstract class WorkStationBlockEntity<W extends MobEntity & StationWorker
 	protected void setInvStackList(DefaultedList<ItemStack> list) {
 		inventory = list;
 	}
+	//?}
 
 	@Override
 	protected ScreenHandler createScreenHandler(int syncId, PlayerInventory playerInventory) {
@@ -333,12 +380,30 @@ public abstract class WorkStationBlockEntity<W extends MobEntity & StationWorker
 	}
 
 	@Override
+	//? if >=1.20.5 {
+	/* protected void writeNbt(NbtCompound nbt, RegistryWrapper.WrapperLookup registryLookup) {
+		super.writeNbt(nbt, registryLookup);
+
+		if (!writeLootTable(nbt)) {
+			Inventories.writeNbt(nbt, inventory, registryLookup);
+		}
+	*/
+	//?} elif >=1.17 {
 	protected void writeNbt(NbtCompound nbt) {
 		super.writeNbt(nbt);
 
 		if (!serializeLootTable(nbt)) {
 			Inventories.writeNbt(nbt, inventory);
 		}
+	//?} else {
+	/* public NbtCompound writeNbt(NbtCompound nbt) {
+		super.writeNbt(nbt);
+
+		if (!serializeLootTable(nbt)) {
+			Inventories.writeNbt(nbt, inventory);
+		}
+	*/
+	//?}
 
 		if (workerUuid != null) {
 			nbt.putUuid(WORKER_KEY, workerUuid);
@@ -346,9 +411,22 @@ public abstract class WorkStationBlockEntity<W extends MobEntity & StationWorker
 
 		nbt.putInt(RESPAWN_KEY, respawnTimer);
 		nbt.put(SETTINGS_KEY, settingsNbt());
+		//? if <1.17 {
+		/* return nbt; */
+		//?}
 	}
 
 	@Override
+	//? if >=1.20.5 {
+	/* protected void readNbt(NbtCompound nbt, RegistryWrapper.WrapperLookup registryLookup) {
+		super.readNbt(nbt, registryLookup);
+		inventory = DefaultedList.ofSize(INVENTORY_SIZE, ItemStack.EMPTY);
+
+		if (!readLootTable(nbt)) {
+			Inventories.readNbt(nbt, inventory, registryLookup);
+		}
+	*/
+	//?} elif >=1.17 {
 	public void readNbt(NbtCompound nbt) {
 		super.readNbt(nbt);
 		inventory = DefaultedList.ofSize(INVENTORY_SIZE, ItemStack.EMPTY);
@@ -356,10 +434,20 @@ public abstract class WorkStationBlockEntity<W extends MobEntity & StationWorker
 		if (!deserializeLootTable(nbt)) {
 			Inventories.readNbt(nbt, inventory);
 		}
+	//?} else {
+	/* public void fromTag(BlockState state, NbtCompound nbt) {
+		super.fromTag(state, nbt);
+		inventory = DefaultedList.ofSize(INVENTORY_SIZE, ItemStack.EMPTY);
+
+		if (!deserializeLootTable(nbt)) {
+			Inventories.readNbt(nbt, inventory);
+		}
+	*/
+	//?}
 
 		workerUuid = nbt.containsUuid(WORKER_KEY) ? nbt.getUuid(WORKER_KEY) : null;
 
-		if (nbt.contains(SETTINGS_KEY, NbtElement.COMPOUND_TYPE)) {
+		if (nbt.contains(SETTINGS_KEY, Mc.NBT_COMPOUND)) {
 			getSettings().readNbt(nbt.getCompound(SETTINGS_KEY));
 		}
 
@@ -370,7 +458,7 @@ public abstract class WorkStationBlockEntity<W extends MobEntity & StationWorker
 		// not start over; a station that has none is given a full delay, because the field would
 		// otherwise be zero and the wait would be over on the first tick. respawnTicks() is asked
 		// after the settings have been read, which is where that delay is kept.
-		if (nbt.contains(RESPAWN_KEY, NbtElement.INT_TYPE)) {
+		if (nbt.contains(RESPAWN_KEY, Mc.NBT_INT)) {
 			respawnTimer = nbt.getInt(RESPAWN_KEY);
 		} else {
 			respawnTimer = respawnTicks();
@@ -385,7 +473,11 @@ public abstract class WorkStationBlockEntity<W extends MobEntity & StationWorker
 
 	/** Clients get the settings, which the highlight and the settings screen read, but no contents. */
 	@Override
+	//? if >=1.20.5 {
+	/* public NbtCompound toInitialChunkDataNbt(RegistryWrapper.WrapperLookup registryLookup) { */
+	//?} else {
 	public NbtCompound toInitialChunkDataNbt() {
+	//?}
 		NbtCompound nbt = new NbtCompound();
 		nbt.put(SETTINGS_KEY, settingsNbt());
 		return nbt;
@@ -393,7 +485,18 @@ public abstract class WorkStationBlockEntity<W extends MobEntity & StationWorker
 
 	@Nullable
 	@Override
+	//? if >=1.17 {
 	public Packet<ClientPlayPacketListener> toUpdatePacket() {
+		//? if >=1.20.5 {
+		/* return BlockEntityUpdateS2CPacket.create(this); */
+		//?} else {
 		return BlockEntityUpdateS2CPacket.create(this, BlockEntity::toInitialChunkDataNbt);
+		//?}
 	}
+	//?} else {
+	/* public BlockEntityUpdateS2CPacket toUpdatePacket() {
+		return new BlockEntityUpdateS2CPacket(pos, Registry.BLOCK_ENTITY_TYPE.getRawId(getType()),
+				toInitialChunkDataNbt());
+	} */
+	//?}
 }

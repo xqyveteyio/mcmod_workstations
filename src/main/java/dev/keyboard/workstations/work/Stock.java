@@ -1,5 +1,7 @@
 package dev.keyboard.workstations.work;
 
+import dev.keyboard.workstations.Mc;
+
 import net.minecraft.inventory.Inventory;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
@@ -192,7 +194,7 @@ public final class Stock {
 			for (int slot = 0; slot < box.size(); slot++) {
 				ItemStack existing = box.getStack(slot);
 
-				if (ItemStack.canCombine(existing, stack)) {
+				if (Mc.stacksMatch(existing, stack)) {
 					held += existing.getCount();
 				}
 			}
@@ -230,7 +232,7 @@ public final class Stock {
 				break;
 			}
 
-			if (!ItemStack.canCombine(existing, stack)) {
+			if (!Mc.stacksMatch(existing, stack)) {
 				continue;
 			}
 

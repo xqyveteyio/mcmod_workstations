@@ -1,16 +1,27 @@
 package dev.keyboard.workstations.block;
 
+import dev.keyboard.workstations.Mc;
+
 import dev.keyboard.workstations.WorkstationsMod;
 import net.minecraft.block.BlockState;
+//? if >=1.17 {
 import net.minecraft.block.entity.ChestLidAnimator;
 import net.minecraft.block.entity.LidOpenable;
-import net.minecraft.block.entity.LootableContainerBlockEntity;
 import net.minecraft.block.entity.ViewerCountManager;
+//?} else {
+/* import net.minecraft.block.entity.ChestBlockEntity;
+import net.minecraft.util.Tickable;
+import net.minecraft.util.math.MathHelper; */
+//?}
+import net.minecraft.block.entity.LootableContainerBlockEntity;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.entity.player.PlayerInventory;
 import net.minecraft.inventory.Inventories;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NbtCompound;
+//? if >=1.20.5 {
+/* import net.minecraft.registry.RegistryWrapper; */
+//?}
 import net.minecraft.screen.GenericContainerScreenHandler;
 import net.minecraft.screen.ScreenHandler;
 import net.minecraft.sound.SoundCategory;
@@ -33,7 +44,13 @@ import net.minecraft.world.World;
  * the viewer counting below is worth its length. Nothing but the count crosses to the client: the
  * lid's actual angle is worked out there from how long it has been open.
  */
-public class SeedBoxBlockEntity extends LootableContainerBlockEntity implements LidOpenable {
+public class SeedBoxBlockEntity extends LootableContainerBlockEntity implements AnimatedLid
+		//? if >=1.17 {
+		, LidOpenable
+		//?} else {
+		/* , Tickable */
+		//?}
+		{
 	/** Slots. Two chests' worth, which is about what a field's seed and its returns come to. */
 	public static final int INVENTORY_SIZE = 54;
 
@@ -41,6 +58,7 @@ public class SeedBoxBlockEntity extends LootableContainerBlockEntity implements 
 	private static final int VIEWER_COUNT_EVENT = 1;
 
 	private DefaultedList<ItemStack> inventory = DefaultedList.ofSize(INVENTORY_SIZE, ItemStack.EMPTY);
+	//? if >=1.17 {
 	private final ChestLidAnimator lid = new ChestLidAnimator();
 
 	private final ViewerCountManager viewers = new ViewerCountManager() {
@@ -65,12 +83,25 @@ public class SeedBoxBlockEntity extends LootableContainerBlockEntity implements 
 					&& open.getInventory() == SeedBoxBlockEntity.this;
 		}
 	};
+	//?} else {
+	/* private float animationAngle;
+	private float lastAnimationAngle;
+	private int viewerCount;
+	private int ticksOpen; */
+	//?}
 
+	//? if >=1.17 {
 	public SeedBoxBlockEntity(BlockPos pos, BlockState state) {
 		super(WorkstationsMod.SEED_BOX_BLOCK_ENTITY, pos, state);
 	}
+	//?} else {
+	/* public SeedBoxBlockEntity() {
+		super(WorkstationsMod.SEED_BOX_BLOCK_ENTITY);
+	} */
+	//?}
 
 	/** Runs on the client alone, because the lid's angle is the one thing only the client draws. */
+	//? if >=1.17 {
 	public static void clientTick(World world, BlockPos pos, BlockState state, SeedBoxBlockEntity box) {
 		box.lid.step();
 	}
@@ -104,18 +135,92 @@ public class SeedBoxBlockEntity extends LootableContainerBlockEntity implements 
 		}
 	}
 
-	/**
-	 * Recounts who is looking in.
-	 *
-	 * <p>Worth doing on a scheduled tick because a chest can be left open: a player who logs out
-	 * with the screen up, or one whose chunk goes away, never closes it, and the count would then
-	 * hold the lid up forever.
-	 */
 	public void recountViewers() {
 		if (world != null && !removed) {
 			viewers.updateViewerCount(world, pos, getCachedState());
 		}
 	}
+	//?} else {
+	/* @Override
+	public void tick() {
+		BlockPos here = getPos();
+		ticksOpen++;
+		viewerCount = ChestBlockEntity.tickViewerCount(world, this, ticksOpen,
+				here.getX(), here.getY(), here.getZ(), viewerCount);
+		lastAnimationAngle = animationAngle;
+
+		if (viewerCount > 0 && animationAngle == 0.0F) {
+			creak(world, here, SoundEvents.BLOCK_CHEST_OPEN);
+		}
+
+		if (viewerCount > 0 || animationAngle > 0.0F) {
+			float previous = animationAngle;
+
+			if (viewerCount > 0) {
+				animationAngle += 0.1F;
+			} else {
+				animationAngle -= 0.1F;
+			}
+
+			if (animationAngle > 1.0F) {
+				animationAngle = 1.0F;
+			}
+
+			if (animationAngle < 0.0F) {
+				animationAngle = 0.0F;
+			}
+
+			if (previous < 0.5F && animationAngle >= 0.5F) {
+				creak(world, here, SoundEvents.BLOCK_CHEST_CLOSE);
+			}
+		}
+	}
+
+	@Override
+	public float getAnimationProgress(float tickDelta) {
+		return MathHelper.lerp(tickDelta, lastAnimationAngle, animationAngle);
+	}
+
+	@Override
+	public boolean onSyncedBlockEvent(int type, int data) {
+		if (type != VIEWER_COUNT_EVENT) {
+			return super.onSyncedBlockEvent(type, data);
+		}
+
+		viewerCount = data;
+		return true;
+	}
+
+	@Override
+	public void onOpen(PlayerEntity player) {
+		if (world != null && !removed && !player.isSpectator()) {
+			if (viewerCount < 0) {
+				viewerCount = 0;
+			}
+
+			viewerCount++;
+			world.addSyncedBlockEvent(pos, getCachedState().getBlock(), VIEWER_COUNT_EVENT, viewerCount);
+			world.updateNeighborsAlways(pos, getCachedState().getBlock());
+		}
+	}
+
+	@Override
+	public void onClose(PlayerEntity player) {
+		if (world != null && !removed && !player.isSpectator()) {
+			viewerCount--;
+			world.addSyncedBlockEvent(pos, getCachedState().getBlock(), VIEWER_COUNT_EVENT, viewerCount);
+			world.updateNeighborsAlways(pos, getCachedState().getBlock());
+		}
+	}
+
+	public void recountViewers() {
+		if (world != null) {
+			viewerCount = ChestBlockEntity.countViewers(world, this, pos.getX(), pos.getY(), pos.getZ());
+			world.addSyncedBlockEvent(pos, getCachedState().getBlock(), VIEWER_COUNT_EVENT, viewerCount);
+			world.updateNeighborsAlways(pos, getCachedState().getBlock());
+		}
+	} */
+	//?}
 
 	private void creak(World world, BlockPos pos, SoundEvent sound) {
 		world.playSound(null, pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5, sound,
@@ -129,9 +234,21 @@ public class SeedBoxBlockEntity extends LootableContainerBlockEntity implements 
 
 	@Override
 	protected Text getContainerName() {
-		return Text.translatable("container.keyboard_workstations.seed_box");
+		return Mc.translatable("container.keyboard_workstations.seed_box");
 	}
 
+	//? if >=1.21 {
+	/* @Override
+	protected DefaultedList<ItemStack> getHeldStacks() {
+		return inventory;
+	}
+
+	@Override
+	protected void setHeldStacks(DefaultedList<ItemStack> list) {
+		inventory = list;
+	}
+	*/
+	//?} else {
 	@Override
 	protected DefaultedList<ItemStack> getInvStackList() {
 		return inventory;
@@ -141,6 +258,7 @@ public class SeedBoxBlockEntity extends LootableContainerBlockEntity implements 
 	protected void setInvStackList(DefaultedList<ItemStack> list) {
 		inventory = list;
 	}
+	//?}
 
 	@Override
 	protected ScreenHandler createScreenHandler(int syncId, PlayerInventory playerInventory) {
@@ -148,6 +266,16 @@ public class SeedBoxBlockEntity extends LootableContainerBlockEntity implements 
 	}
 
 	@Override
+	//? if >=1.20.5 {
+	/* protected void writeNbt(NbtCompound nbt, RegistryWrapper.WrapperLookup registryLookup) {
+		super.writeNbt(nbt, registryLookup);
+
+		if (!writeLootTable(nbt)) {
+			Inventories.writeNbt(nbt, inventory, registryLookup);
+		}
+	}
+	*/
+	//?} elif >=1.17 {
 	protected void writeNbt(NbtCompound nbt) {
 		super.writeNbt(nbt);
 
@@ -155,8 +283,30 @@ public class SeedBoxBlockEntity extends LootableContainerBlockEntity implements 
 			Inventories.writeNbt(nbt, inventory);
 		}
 	}
+	//?} else {
+	/* public NbtCompound writeNbt(NbtCompound nbt) {
+		super.writeNbt(nbt);
+
+		if (!serializeLootTable(nbt)) {
+			Inventories.writeNbt(nbt, inventory);
+		}
+
+		return nbt;
+	} */
+	//?}
 
 	@Override
+	//? if >=1.20.5 {
+	/* protected void readNbt(NbtCompound nbt, RegistryWrapper.WrapperLookup registryLookup) {
+		super.readNbt(nbt, registryLookup);
+		inventory = DefaultedList.ofSize(INVENTORY_SIZE, ItemStack.EMPTY);
+
+		if (!readLootTable(nbt)) {
+			Inventories.readNbt(nbt, inventory, registryLookup);
+		}
+	}
+	*/
+	//?} elif >=1.17 {
 	public void readNbt(NbtCompound nbt) {
 		super.readNbt(nbt);
 		inventory = DefaultedList.ofSize(INVENTORY_SIZE, ItemStack.EMPTY);
@@ -165,4 +315,14 @@ public class SeedBoxBlockEntity extends LootableContainerBlockEntity implements 
 			Inventories.readNbt(nbt, inventory);
 		}
 	}
+	//?} else {
+	/* public void fromTag(BlockState state, NbtCompound nbt) {
+		super.fromTag(state, nbt);
+		inventory = DefaultedList.ofSize(INVENTORY_SIZE, ItemStack.EMPTY);
+
+		if (!deserializeLootTable(nbt)) {
+			Inventories.readNbt(nbt, inventory);
+		}
+	} */
+	//?}
 }

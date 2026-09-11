@@ -1,5 +1,7 @@
 package dev.keyboard.workstations.work;
 
+import dev.keyboard.workstations.Mc;
+
 import net.minecraft.nbt.NbtCompound;
 import net.minecraft.nbt.NbtElement;
 import net.minecraft.util.math.MathHelper;
@@ -97,7 +99,7 @@ public abstract class SettingOption<S> {
 
 		@Override
 		public void read(S settings, NbtCompound nbt) {
-			if (nbt.contains(key(), NbtElement.BYTE_TYPE)) {
+			if (nbt.contains(key(), Mc.NBT_BYTE)) {
 				set(settings, nbt.getBoolean(key()));
 			}
 		}
@@ -145,7 +147,7 @@ public abstract class SettingOption<S> {
 
 		@Override
 		public void read(S settings, NbtCompound nbt) {
-			if (nbt.contains(key(), NbtElement.INT_TYPE)) {
+			if (nbt.contains(key(), Mc.NBT_INT)) {
 				set(settings, nbt.getInt(key()));
 			}
 		}
@@ -195,7 +197,7 @@ public abstract class SettingOption<S> {
 
 		@Override
 		public void read(S settings, NbtCompound nbt) {
-			if (nbt.contains(key(), NbtElement.INT_TYPE)) {
+			if (nbt.contains(key(), Mc.NBT_INT)) {
 				set(settings, nbt.getInt(key()));
 			}
 		}

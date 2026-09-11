@@ -1,5 +1,7 @@
 package dev.keyboard.workstations.entity;
 
+import dev.keyboard.workstations.Mc;
+
 import dev.keyboard.workstations.block.FarmBlockEntity;
 import dev.keyboard.workstations.block.StationWorker;
 import dev.keyboard.workstations.ModConfig;
@@ -30,7 +32,9 @@ import net.minecraft.inventory.SimpleInventory;
 import net.minecraft.nbt.NbtCompound;
 import net.minecraft.nbt.NbtElement;
 import net.minecraft.nbt.NbtHelper;
+//? if >=1.20 {
 import net.minecraft.registry.tag.DamageTypeTags;
+//?}
 import net.minecraft.sound.SoundEvent;
 import net.minecraft.sound.SoundEvents;
 import net.minecraft.text.Text;
@@ -73,7 +77,7 @@ public class FarmerEntity extends PathAwareEntity implements StationWorker, Work
 	 * same farmer and it is still the same one after a restart.
 	 */
 	private static final TrackedData<NbtCompound> DISGUISE =
-			DataTracker.registerData(FarmerEntity.class, TrackedDataHandlerRegistry.NBT_COMPOUND);
+			DataTracker.registerData(FarmerEntity.class, Mc.nbtTracker());
 
 	private static final String STATION_KEY = "Station";
 	private static final String CARRIED_KEY = "Carried";
@@ -106,12 +110,22 @@ public class FarmerEntity extends PathAwareEntity implements StationWorker, Work
 	}
 
 	@Override
+	//? if >=1.20.5 {
+	/* protected void initDataTracker(DataTracker.Builder builder) {
+		super.initDataTracker(builder);
+		builder.add(SKIN, 0);
+		builder.add(BURIED, 0);
+		builder.add(DISGUISE, new NbtCompound());
+	}
+	*/
+	//?} else {
 	protected void initDataTracker() {
 		super.initDataTracker();
 		dataTracker.startTracking(SKIN, 0);
 		dataTracker.startTracking(BURIED, 0);
 		dataTracker.startTracking(DISGUISE, new NbtCompound());
 	}
+	//?}
 
 	public static DefaultAttributeContainer.Builder createFarmerAttributes() {
 		return MobEntity.createMobAttributes()
@@ -132,7 +146,11 @@ public class FarmerEntity extends PathAwareEntity implements StationWorker, Work
 			return true;
 		}
 
+		//? if >=1.20 {
 		return ModConfig.get().invulnerable && !source.isIn(DamageTypeTags.BYPASSES_INVULNERABILITY);
+		//?} else {
+		/* return ModConfig.get().invulnerable && !source.isOutOfWorld(); */
+		//?}
 	}
 
 	/**
@@ -299,13 +317,23 @@ public class FarmerEntity extends PathAwareEntity implements StationWorker, Work
 
 	/** A farmer that dies in a gateway must not leave the field standing open behind it. */
 	@Override
+	//? if >=1.17 {
 	public void remove(RemovalReason reason) {
-		if (!getWorld().isClient() && reason.shouldDestroy()) {
+		if (!Mc.world(this).isClient() && reason.shouldDestroy()) {
 			gates.shut(this);
 		}
 
 		super.remove(reason);
 	}
+	//?} else {
+	/* public void remove() {
+		if (!Mc.world(this).isClient) {
+			gates.shut(this);
+		}
+
+		super.remove();
+	} */
+	//?}
 
 	/**
 	 * Publishes the brain's state as the entity's name, which puts it over the farmer's head with
@@ -334,7 +362,7 @@ public class FarmerEntity extends PathAwareEntity implements StationWorker, Work
 
 		if (!label.equals(stateLabel)) {
 			stateLabel = label;
-			setCustomName(Text.literal(label));
+			setCustomName(Mc.literal(label));
 			setCustomNameVisible(true);
 		}
 	}
@@ -359,11 +387,11 @@ public class FarmerEntity extends PathAwareEntity implements StationWorker, Work
 	/** {@code null} when the station was broken, replaced, or its chunk is not loaded right now. */
 	@Nullable
 	public FarmBlockEntity getStation() {
-		if (stationPos == null || !getWorld().isChunkLoaded(stationPos.getX() >> 4, stationPos.getZ() >> 4)) {
+		if (stationPos == null || !Mc.world(this).isChunkLoaded(stationPos.getX() >> 4, stationPos.getZ() >> 4)) {
 			return null;
 		}
 
-		return getWorld().getBlockEntity(stationPos) instanceof FarmBlockEntity station ? station : null;
+		return Mc.world(this).getBlockEntity(stationPos) instanceof FarmBlockEntity station ? station : null;
 	}
 
 	@Nullable
@@ -418,7 +446,7 @@ public class FarmerEntity extends PathAwareEntity implements StationWorker, Work
 	@Override
 	protected void dropInventory() {
 		super.dropInventory();
-		ItemScatterer.spawn(getWorld(), this, carried);
+		ItemScatterer.spawn(Mc.world(this), this, carried);
 	}
 
 	@Nullable
@@ -451,7 +479,11 @@ public class FarmerEntity extends PathAwareEntity implements StationWorker, Work
 			nbt.put(STATION_KEY, NbtHelper.fromBlockPos(stationPos));
 		}
 
+		//? if >=1.20.5 {
+		/* nbt.put(CARRIED_KEY, carried.toNbtList(getRegistryManager())); */
+		//?} else {
 		nbt.put(CARRIED_KEY, carried.toNbtList());
+		//?}
 
 		NbtCompound disguise = getDisguise();
 
@@ -464,13 +496,22 @@ public class FarmerEntity extends PathAwareEntity implements StationWorker, Work
 	public void readCustomDataFromNbt(NbtCompound nbt) {
 		super.readCustomDataFromNbt(nbt);
 
-		if (nbt.contains(STATION_KEY, NbtElement.COMPOUND_TYPE)) {
+		if (nbt.contains(STATION_KEY, Mc.NBT_COMPOUND)) {
+			//? if >=1.20.5 {
+			/* stationPos = NbtHelper.toBlockPos(nbt, STATION_KEY).orElseGet(() ->
+					new BlockPos(BlockPos.ofFloored(getX(), getY(), getZ()))); */
+			//?} else {
 			stationPos = NbtHelper.toBlockPos(nbt.getCompound(STATION_KEY));
+			//?}
 		}
 
-		carried.readNbtList(nbt.getList(CARRIED_KEY, NbtElement.COMPOUND_TYPE));
+		//? if >=1.20.5 {
+		/* carried.readNbtList(nbt.getList(CARRIED_KEY, Mc.NBT_COMPOUND), getRegistryManager()); */
+		//?} else {
+		carried.readNbtList(nbt.getList(CARRIED_KEY, Mc.NBT_COMPOUND));
+		//?}
 
-		if (nbt.contains(DISGUISE_KEY, NbtElement.COMPOUND_TYPE)) {
+		if (nbt.contains(DISGUISE_KEY, Mc.NBT_COMPOUND)) {
 			dataTracker.set(DISGUISE, nbt.getCompound(DISGUISE_KEY));
 		}
 	}

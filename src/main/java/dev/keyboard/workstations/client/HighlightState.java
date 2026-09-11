@@ -2,6 +2,7 @@ package dev.keyboard.workstations.client;
 
 import dev.keyboard.workstations.WorkstationsMod;
 import dev.keyboard.workstations.ModConfig;
+import dev.keyboard.workstations.Mc;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.item.ItemStack;
@@ -41,8 +42,8 @@ public final class HighlightState {
 	}
 
 	private static boolean isStation(ItemStack stack) {
-		return stack.isOf(WorkstationsMod.RANCH_ITEM) || stack.isOf(WorkstationsMod.FARM_ITEM)
-				|| stack.isOf(WorkstationsMod.LUMBER_ITEM);
+		return Mc.isOf(stack, WorkstationsMod.RANCH_ITEM) || Mc.isOf(stack, WorkstationsMod.FARM_ITEM)
+				|| Mc.isOf(stack, WorkstationsMod.LUMBER_ITEM);
 	}
 
 	private static boolean isForced() {
