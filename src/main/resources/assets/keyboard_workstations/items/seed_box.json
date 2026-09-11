@@ -1,6 +1,10 @@
 {
 	"model": {
-		"type": "minecraft:model",
-		"model": "minecraft:item/chest"
+		"type": "minecraft:special",
+		"base": "minecraft:item/chest",
+		"model": {
+			"type": "minecraft:chest",
+			"texture": "keyboard_workstations:seed_box"
+		}
 	}
 }
