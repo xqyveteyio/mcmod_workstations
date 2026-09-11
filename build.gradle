@@ -1,75 +1,60 @@
 plugins {
-	id 'fabric-loom' version '1.9.2'
-	id 'maven-publish'
+	id 'architectury-plugin' version '3.4-SNAPSHOT'
+	id 'dev.architectury.loom' version '1.9.420' apply false
 }
 
-version = project.mod_version
-group = project.maven_group
-
-base {
-	archivesName = "${project.archives_base_name}-${project.minecraft_version}-fabric"
+architectury {
+	minecraft = rootProject.minecraft_version
 }
 
-loom {
-	accessWidenerPath = file("src/main/resources/keyboard_workstations.accesswidener")
-}
+subprojects {
+	apply plugin: 'dev.architectury.loom'
 
-repositories {
-	mavenCentral()
-}
-
-dependencies {
-	minecraft "com.mojang:minecraft:${project.minecraft_version}"
-	mappings "net.fabricmc:yarn:${project.yarn_mappings}:v2"
-	modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
-	modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
-
-	// Minecraft Comes Alive is deliberately absent. The optional integration that dresses workers
-	// as its villagers finds the few classes it needs by name at runtime, because MCA's only
-	// current download for this version renames its packages and no compiled name matches both
-	// layouts. See McaVillagers. Nothing to compile against therefore means nothing to keep in
-	// step, and no repository to depend on for a build that has to work without MCA anyway.
-}
-
-processResources {
-	inputs.property "version", project.version
-
-	filesMatching("fabric.mod.json") {
-		expand "version": inputs.properties.version
-	}
-}
-
-tasks.withType(JavaCompile).configureEach {
-	it.options.encoding = "UTF-8"
-	it.options.release = 17
-}
-
-java {
-	withSourcesJar()
-
-	sourceCompatibility = JavaVersion.VERSION_17
-	targetCompatibility = JavaVersion.VERSION_17
-
-	toolchain {
-		languageVersion = JavaLanguageVersion.of(17)
-	}
-}
-
-jar {
-	manifest {
-		attributes 'Implementation-Title': project.archives_base_name,
-				'Implementation-Version': project.version
-	}
-}
-
-publishing {
-	publications {
-		create("mavenJava", MavenPublication) {
-			artifactId = project.archives_base_name
-			from components.java
-		}
+	loom {
+		silentMojangMappingsLicense()
 	}
 
 	repositories {
+		maven { url = 'https://maven.architectury.dev/' }
+	}
+
+	dependencies {
+		minecraft "com.mojang:minecraft:${rootProject.minecraft_version}"
+		mappings "net.fabricmc:yarn:${rootProject.yarn_mappings}:v2"
+	}
+}
+
+allprojects {
+	apply plugin: 'java'
+	apply plugin: 'architectury-plugin'
+	apply plugin: 'maven-publish'
+
+	base {
+		archivesName = "${rootProject.archives_base_name}-${rootProject.minecraft_version}-${project.name}"
+	}
+
+	version = rootProject.mod_version
+	group = rootProject.maven_group
+
+	repositories {
+		mavenCentral()
+	}
+
+	tasks.withType(JavaCompile).configureEach {
+		it.options.encoding = 'UTF-8'
+		it.options.release = 17
+	}
+
+	tasks.withType(JavaExec).configureEach {
+		javaLauncher = javaToolchains.launcherFor {
+			languageVersion = JavaLanguageVersion.of(17)
+		}
+	}
+
+	java {
+		toolchain {
+			languageVersion = JavaLanguageVersion.of(17)
+		}
+		withSourcesJar()
 	}
 }
