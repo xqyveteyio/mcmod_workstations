@@ -126,13 +126,6 @@ public class ModConfig {
 
 	/** Fell every tree standing inside the work area. */
 	public boolean enableChopping = true;
-	/**
-	 * Break the canopy of a tree the lumberjack has just felled, rather than leaving the leaves
-	 * to decay. Off by default: decay is slow and the saplings come out of those leaves, so
-	 * turning this on is how the wood restocks itself from what it cuts, and leaving it off
-	 * means replanting runs on whatever the station is already holding.
-	 */
-	public boolean breakLeaves = false;
 	/** Plant a sapling again where a tree just came down. */
 	public boolean enableReplanting = true;
 	/**
@@ -142,9 +135,9 @@ public class ModConfig {
 	 */
 	public boolean autoPlanting = true;
 	/**
-	 * Spend bone meal from the station on saplings already in the ground, using vanilla's own
-	 * chance so a sapling is not a tree on the first tap. Off by default, because it eats
-	 * through a stock of bone meal and a wood that is growing on its own does not need it.
+	 * Spend bone meal from the station on crops or saplings already in the ground, using vanilla's
+	 * own chance so a plot is not ripe on the first tap. Off by default, because it eats through
+	 * a stock of bone meal and a field that is growing on its own does not need it.
 	 */
 	public boolean forceGrowing = false;
 	/** Ticks the lumberjack waits between one swing and the next. */
