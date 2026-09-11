@@ -340,7 +340,12 @@ public class LumberjackBrain {
 		}
 
 		if (job == Job.CHOP) {
-			return felling != null && felling.standing(world);
+			// Worth swinging while any of the trunk stands, and after that for as long as the
+			// tree still has blocks on the list. The second half is what covers a player felling
+			// the trunk mid-job: the canopy is still this worker's to take, and asking only
+			// whether the trunk stands would walk away and leave it hanging.
+			return felling != null
+					&& (felling.standing(world) || chopCursor < felling.falling().size());
 		}
 
 		if (targetPos == null) {
@@ -689,7 +694,7 @@ public class LumberjackBrain {
 			}
 
 			if (square) {
-				BlockPos corner = Woods.squareFrom(world, soil, block);
+				BlockPos corner = Woods.squareFrom(world, soil, block, station.getWorkArea());
 
 				if (corner == null || !affordable(station, sapling, Woods.squareGaps(world, corner, block))) {
 					continue;
@@ -904,14 +909,12 @@ public class LumberjackBrain {
 	}
 
 	/**
-	 * Breaks the next batch of the tree being felled. Logs first, then the canopy when the
-	 * station is set to take it: saplings come out of the leaves, and leaving them until the
-	 * trunk is gone means a half-chopped tree does not drop its seed onto a log the lumberjack
-	 * is about to break. With the canopy left standing the leaf list is empty and the job ends
-	 * with the last log.
+	 * Breaks the next batch of the tree being felled, in the order {@link Woods.Tree#falling}
+	 * gives: canopy first when the station is set to take it, then the trunk.
 	 *
 	 * <p>Returning false keeps the job running so the next swing continues the same tree rather
-	 * than walking off and back again.
+	 * than walking off and back again. The job is only finished once the cursor has walked the
+	 * whole tree, which is also where the stump is recorded for replanting.
 	 */
 	private boolean chop(LumberjackEntity lumberjack, ServerWorld world, LumberBlockEntity station) {
 		if (felling == null) {
@@ -921,51 +924,30 @@ public class LumberjackBrain {
 		served.add(felling.stump().asLong());
 		lumberjack.swingHand(Hand.MAIN_HAND);
 
+		List<BlockPos> falling = felling.falling();
 		int broken = 0;
-		List<BlockPos> logs = felling.logs();
 
-		while (chopCursor < logs.size() && broken < CHOP_BATCH) {
-			BlockPos log = logs.get(chopCursor++);
+		while (chopCursor < falling.size() && broken < CHOP_BATCH) {
+			BlockPos block = falling.get(chopCursor++);
 
-			if (world.isChunkLoaded(log.getX() >> 4, log.getZ() >> 4) && Woods.isLog(world.getBlockState(log))) {
-				world.breakBlock(log, true, lumberjack);
+			// A block already gone costs nothing and does not count against the swing, so a tree
+			// the player has been at is walked through rather than swung at empty air.
+			if (world.isChunkLoaded(block.getX() >> 4, block.getZ() >> 4)
+					&& Woods.isTreeBlock(world.getBlockState(block))) {
+				world.breakBlock(block, true, lumberjack);
 				broken++;
 			}
 		}
 
-		if (chopCursor < logs.size()) {
-			lumberjack.startWorkCooldown();
-			actionCooldown = SWING_INTERVAL;
-			phaseWorked = true;
-			return false;
-		}
+		lumberjack.startWorkCooldown();
+		actionCooldown = SWING_INTERVAL;
+		phaseWorked = true;
 
-		int leafIndex = chopCursor - logs.size();
-		List<BlockPos> leaves = felling.leaves();
-
-		while (leafIndex < leaves.size() && broken < CHOP_BATCH) {
-			BlockPos leaf = leaves.get(leafIndex++);
-
-			if (world.isChunkLoaded(leaf.getX() >> 4, leaf.getZ() >> 4)
-					&& Woods.isLeaves(world.getBlockState(leaf))) {
-				world.breakBlock(leaf, true, lumberjack);
-				broken++;
-			}
-		}
-
-		chopCursor = logs.size() + leafIndex;
-
-		if (leafIndex < leaves.size()) {
-			lumberjack.startWorkCooldown();
-			actionCooldown = SWING_INTERVAL;
-			phaseWorked = true;
+		if (chopCursor < falling.size()) {
 			return false;
 		}
 
 		station.noteStump(felling.stump());
-		lumberjack.startWorkCooldown();
-		actionCooldown = SWING_INTERVAL;
-		phaseWorked = true;
 		return true;
 	}
 
@@ -989,7 +971,7 @@ public class LumberjackBrain {
 		// Worked out again here rather than carried from the job: several seconds may have passed
 		// walking over, and a square only has to lose one corner to be worth nothing.
 		List<BlockPos> plots = Woods.needsSquare(sapling)
-				? squarePlots(world, soil, block)
+				? squarePlots(world, soil, block, station.getWorkArea())
 				: singlePlot(world, soil, block);
 
 		if (plots.isEmpty()) {
@@ -1044,8 +1026,8 @@ public class LumberjackBrain {
 	 * is no longer there to be had, which is the answer that stops three saplings going into the
 	 * ground around whatever is standing in the fourth corner.
 	 */
-	private static List<BlockPos> squarePlots(ServerWorld world, BlockPos soil, SaplingBlock block) {
-		BlockPos corner = Woods.squareFrom(world, soil, block);
+	private static List<BlockPos> squarePlots(ServerWorld world, BlockPos soil, SaplingBlock block, WorkArea area) {
+		BlockPos corner = Woods.squareFrom(world, soil, block, area);
 		return corner == null ? List.of() : Woods.squareGaps(world, corner, block);
 	}
 
@@ -1139,21 +1121,15 @@ public class LumberjackBrain {
 	}
 
 	/**
-	 * Saplings go into the seed boxes and wood onto the station's own shelves, which is the
-	 * whole point of sharing the box with the farm: a wood's returns are mostly saplings, and
-	 * left in with the logs they fill the station up with the one thing that was going straight
-	 * back into the ground.
+	 * Puts a stack away where it belongs and hands back whatever would not fit. The rule is
+	 * {@link Stock#stow}, shared with the farm and the ranch: saplings and seed into the boxes,
+	 * logs onto the station's own shelves.
 	 *
-	 * <p>Saplings fall back on the station when the boxes are full. Logs do not fall the other
-	 * way, or a station left unemptied would end up filling the seed boxes with oak and undo
-	 * the separation.
+	 * <p>Seed matters here as well as saplings, now that clearing a tuft of grass to plant is
+	 * part of the job and grass gives up wheat seed when it goes.
 	 */
 	private static ItemStack store(LumberBlockEntity station, ItemStack stack) {
-		if (Woods.isSapling(stack)) {
-			stack = Stock.fill(station.seedBoxes(), stack);
-		}
-
-		return Stock.fill(List.of(station), stack);
+		return Stock.stow(station, station.seedBoxes(), stack);
 	}
 
 	private boolean withinReach(LumberjackEntity lumberjack) {

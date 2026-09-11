@@ -122,12 +122,6 @@ public class FarmerBrain {
 	private static final int MAX_PATH_CHECKS = 3;
 	/** Ticks between swings, so hoeing a field is watchable rather than instant. */
 	private static final int SWING_INTERVAL = 6;
-	/**
-	 * How much of a seed that is also food the seed boxes are kept stocked with before the rest of
-	 * it counts as produce. A stack, which no field gets through between two harvests, since a plot
-	 * takes one to sow and gives several back.
-	 */
-	private static final int SEED_RESERVE = 64;
 	/** How near the station counts as being at its post, squared. */
 	private static final double POST_REACH_SQUARED = 4.0;
 	/** How long the farmer stands where it finished before setting off back to its post, in ticks. */
@@ -1181,64 +1175,12 @@ public class FarmerBrain {
 	}
 
 	/**
-	 * Puts a stack away where it belongs and hands back whatever would not fit.
-	 *
-	 * <p>Seed goes into the seed boxes and produce onto the station's own shelves, which is the
-	 * whole point of having a box: a field's returns are mostly seed, and left in with the produce
-	 * they fill the station up with the one thing that was going straight back into the ground.
-	 *
-	 * <p>Seed falls back on the station when the boxes are full, because a box that has run out of
-	 * room should not stop the harvest coming in. Produce does not fall the other way, or a station
-	 * left unemptied would end up filling the seed boxes with wheat and undo the separation.
-	 *
-	 * <p>A seed that is also food, meaning a carrot or a potato, is only seed up to a point. The
-	 * boxes are kept topped up to {@link #SEED_RESERVE} of it, which is far more than a field
-	 * consumes between harvests, and everything past that is treated as the produce it also is and
-	 * shelved with the rest. Sending all of it to the boxes instead would leave the harvest
-	 * somewhere other than where the harvest is collected, and would in time pack the boxes with
-	 * food that has nothing to do with sowing.
+	 * Puts a stack away where it belongs and hands back whatever would not fit. The rule is
+	 * {@link Stock#stow}, shared with the wood and the ranch so a seed ends up in the same place
+	 * whoever picked it up.
 	 */
 	private static ItemStack store(FarmBlockEntity station, ItemStack stack) {
-		if (Crops.isSeed(stack)) {
-			int offered = Crops.isEdibleSeed(stack)
-					? Math.min(stack.getCount(), boxRoomFor(station, stack))
-					: stack.getCount();
-
-			if (offered > 0) {
-				// Split rather than handed over whole, so the part held back is never at the mercy
-				// of how much room the boxes happen to have.
-				ItemStack refused = Stock.fill(station.seedBoxes(), stack.split(offered));
-
-				// Whatever the boxes would not take rejoins the part held back, and goes with it
-				// to the station below.
-				if (!refused.isEmpty()) {
-					if (stack.isEmpty()) {
-						stack = refused;
-					} else {
-						stack.increment(refused.getCount());
-					}
-				}
-			}
-		}
-
-		return Stock.fill(List.of(station), stack);
-	}
-
-	/** How much more of a seed that is also food the boxes should be holding. */
-	private static int boxRoomFor(FarmBlockEntity station, ItemStack stack) {
-		int held = 0;
-
-		for (Inventory box : station.seedBoxes()) {
-			for (int slot = 0; slot < box.size(); slot++) {
-				ItemStack existing = box.getStack(slot);
-
-				if (ItemStack.canCombine(existing, stack)) {
-					held += existing.getCount();
-				}
-			}
-		}
-
-		return Math.max(0, SEED_RESERVE - held);
+		return Stock.stow(station, station.seedBoxes(), stack);
 	}
 }
 

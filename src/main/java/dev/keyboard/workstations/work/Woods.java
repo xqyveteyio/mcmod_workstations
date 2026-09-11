@@ -3,22 +3,28 @@ package dev.keyboard.workstations.work;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.Blocks;
 import net.minecraft.block.SaplingBlock;
+import net.minecraft.block.sapling.LargeTreeSaplingGenerator;
+import net.minecraft.block.sapling.SaplingGenerator;
 import net.minecraft.inventory.Inventory;
 import net.minecraft.item.BlockItem;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
+import net.minecraft.registry.Registries;
 import net.minecraft.registry.tag.BlockTags;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Direction;
+import net.minecraft.util.math.random.Random;
 import net.minecraft.world.WorldView;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.IdentityHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Queue;
 import java.util.Set;
 
@@ -28,9 +34,11 @@ import java.util.Set;
  *
  * <p>Logs and leaves are recognised by the vanilla tags, not by a hardcoded list of woods. A tag
  * is what a modded tree joins to be treated as wood by the rest of the game, so it is also what
- * makes one of those trees this station's business. Everything else is left alone: a log cabin
- * built of logs will be taken, because a log is a log, but a house of planks or a fence is not
- * in the tags and is never touched.
+ * makes one of those trees this station's business. A house of planks is already out of those
+ * tags. A house whose posts happen to be logs is not: those read as the same block a trunk is.
+ * What tells them apart is the canopy, and the joinery a post sits in. A pile of logs with no
+ * leaves is a building or a leftover; a log with planks, stairs or a door against it is a post,
+ * even when a real tree has grown in against the wall.
  *
  * <p>A tree is gathered by flood-filling from a log. The fill walks every neighbouring log,
  * including diagonally and down, because a branch is still part of the same tree when it steps
@@ -73,6 +81,12 @@ public final class Woods {
 	/** Side of the block of saplings a {@link #needsSquare} wood has to be planted in. */
 	public static final int SQUARE_SIDE = 2;
 
+	/**
+	 * Whether each sapling wants a square, remembered so the grower is not asked again every
+	 * hole. Identity, because an item is one object for the life of the game.
+	 */
+	private static final Map<Item, Boolean> SQUARE = new IdentityHashMap<>();
+
 	private Woods() {
 	}
 
@@ -81,7 +95,56 @@ public final class Woods {
 	}
 
 	public static boolean isLeaves(BlockState state) {
-		return state.isIn(BlockTags.LEAVES);
+		return state.isIn(BlockTags.LEAVES) || state.isIn(BlockTags.WART_BLOCKS);
+	}
+
+	/**
+	 * Whether this log still has its bark. Stripped wood is something a player or a village
+	 * already worked, not a trunk that grew there.
+	 */
+	public static boolean isWorked(BlockState state) {
+		return Registries.BLOCK.getId(state.getBlock()).getPath().contains("stripped");
+	}
+
+	/**
+	 * Whether {@code pos} is a log built into something: planks, stairs, a door, glass. The four
+	 * sides only, so a trunk on a cobble path or a stone floor is still a trunk.
+	 */
+	public static boolean isFramed(WorldView world, BlockPos pos) {
+		for (Direction face : Direction.Type.HORIZONTAL) {
+			if (isJoinery(world.getBlockState(pos.offset(face)))) {
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	/**
+	 * The blocks a house puts against its posts, which a tree never grows next to on its own.
+	 * Fences are left out: a trunk in a pen touches those all the time and is still a tree.
+	 */
+	private static boolean isJoinery(BlockState state) {
+		return state.isIn(BlockTags.PLANKS)
+				|| state.isIn(BlockTags.WOODEN_STAIRS)
+				|| state.isIn(BlockTags.WOODEN_SLABS)
+				|| state.isIn(BlockTags.WOODEN_DOORS)
+				|| state.isIn(BlockTags.WOODEN_TRAPDOORS)
+				|| state.isIn(BlockTags.FENCE_GATES)
+				|| state.isIn(BlockTags.WOOL)
+				|| state.isIn(BlockTags.BEDS)
+				|| state.isIn(BlockTags.IMPERMEABLE);
+	}
+
+	/** A log that is still part of a tree, not a post or a beam. */
+	public static boolean isTrunkLog(WorldView world, BlockPos pos) {
+		BlockState state = world.getBlockState(pos);
+		return isLog(state) && !isWorked(state) && !isFramed(world, pos);
+	}
+
+	/** Whether this is part of a tree at all, which is what a felling swing is allowed to break. */
+	public static boolean isTreeBlock(BlockState state) {
+		return isLog(state) || isLeaves(state);
 	}
 
 	public static boolean isSapling(BlockState state) {
@@ -102,11 +165,40 @@ public final class Woods {
 	}
 
 	/**
-	 * Dark oak is the one vanilla sapling that will not grow from a single block. Planting one
-	 * on its own in a wood that will never see the other three is a sapling spent on nothing.
+	 * Whether this sapling will only grow from a block of four.
+	 *
+	 * <p>Read off the sapling's own grower rather than named as dark oak. Vanilla's mark for a
+	 * wood that cannot stand alone is a {@link LargeTreeSaplingGenerator} whose small-tree
+	 * feature is empty, which is how dark oak is written and how a mod copies it. Jungle and
+	 * spruce also grow from a square, but they still grow from one, so they plant as one.
+	 *
+	 * <p>A sapling that is not a {@link SaplingBlock}, or that grows by some other means, has
+	 * nothing here to read: there is no tag and no public method that says "I need four".
+	 * Those plant as one.
 	 */
 	public static boolean needsSquare(Item sapling) {
-		return sapling instanceof BlockItem blockItem && blockItem.getBlock() == Blocks.DARK_OAK_SAPLING;
+		return SQUARE.computeIfAbsent(sapling, Woods::detectSquare);
+	}
+
+	private static boolean detectSquare(Item item) {
+		SaplingBlock sapling = saplingFor(item);
+
+		if (sapling == null) {
+			return false;
+		}
+
+		SaplingGenerator generator = sapling.generator;
+
+		if (!(generator instanceof LargeTreeSaplingGenerator)) {
+			return false;
+		}
+
+		// Both bee answers, because a grower is allowed to keep a different tree for a hive
+		// nearby. Dark oak is empty either way; a single non-null is still a tree that grows
+		// from one.
+		Random roll = Random.create(0L);
+		return generator.getTreeFeature(roll, false) == null
+				&& generator.getTreeFeature(roll, true) == null;
 	}
 
 	/**
@@ -122,14 +214,18 @@ public final class Woods {
 	 * holds this same one, and at least one of them still needs filling. Accepting the ones
 	 * already planted is what lets a half finished square be completed rather than written off
 	 * for as long as it stands there.
+	 *
+	 * <p>The whole square has to be inside {@code area}. Letting it hang over the edge would put
+	 * a tree where this station never looks for one, so the square that does not fit the plot is
+	 * no square at all.
 	 */
 	@Nullable
-	public static BlockPos squareFrom(WorldView world, BlockPos soil, SaplingBlock sapling) {
+	public static BlockPos squareFrom(WorldView world, BlockPos soil, SaplingBlock sapling, WorkArea area) {
 		for (int dx = 1 - SQUARE_SIDE; dx <= 0; dx++) {
 			for (int dz = 1 - SQUARE_SIDE; dz <= 0; dz++) {
 				BlockPos corner = soil.add(dx, 0, dz);
 
-				if (squareWorks(world, corner, sapling)) {
+				if (squareWorks(world, corner, sapling, area)) {
 					return corner;
 				}
 			}
@@ -151,10 +247,14 @@ public final class Woods {
 		return gaps;
 	}
 
-	private static boolean squareWorks(WorldView world, BlockPos corner, SaplingBlock sapling) {
+	private static boolean squareWorks(WorldView world, BlockPos corner, SaplingBlock sapling, WorkArea area) {
 		boolean gap = false;
 
 		for (BlockPos plot : square(corner)) {
+			if (!area.contains(plot)) {
+				return false;
+			}
+
 			if (canPlant(world, plot, sapling)) {
 				gap = true;
 			} else if (!world.getBlockState(plot.up()).isOf(sapling)) {
@@ -228,7 +328,7 @@ public final class Woods {
 				continue;
 			}
 
-			if (!isLog(world.getBlockState(current))) {
+			if (!isTrunkLog(world, current)) {
 				continue;
 			}
 
@@ -257,10 +357,20 @@ public final class Woods {
 		}
 
 		if (logs.isEmpty()) {
-			return new Tree(start.toImmutable(), List.of(), List.of());
+			// The starting block is still spoken for, or a framed post would be asked about on
+			// every look and never marked seen.
+			return new Tree(start.toImmutable(), List.of(start.toImmutable()), List.of(), false);
 		}
 
-		return new Tree(stumpOf(world, logs), logs, includeLeaves ? canopy(world, logs) : List.of());
+		List<BlockPos> foundLeaves = canopy(world, logs);
+
+		// No canopy is a building, a leftover pile, or a trunk whose leaves have already gone.
+		// None of those are a tree: chopping them is how a village loses its posts.
+		if (foundLeaves.isEmpty()) {
+			return new Tree(stumpOf(world, logs), logs, List.of(), false);
+		}
+
+		return new Tree(stumpOf(world, logs), logs, includeLeaves ? foundLeaves : List.of(), true);
 	}
 
 	/**
@@ -393,13 +503,10 @@ public final class Woods {
 	 * <p>Grass and ferns give way to a player planting into them and give way here too. Insisting
 	 * on bare air made a single tuft the reason a dark oak's square came up one corner short,
 	 * which is a tree refused over something the planting itself removes.
-	 *
-	 * <p>Fluids are replaceable too and are not accepted: a sapling stood in water is a sapling
-	 * washed away the moment it is placed.
 	 */
 	private static boolean isPlantingSpace(WorldView world, BlockPos pos) {
 		BlockState state = world.getBlockState(pos);
-		return state.isAir() || (state.isReplaceable() && state.getFluidState().isEmpty());
+		return state.isAir() || isSweptAside(state);
 	}
 
 	/**
@@ -447,11 +554,25 @@ public final class Woods {
 	}
 
 	/**
-	 * Air or leaves. Leaves are treated as clear because they are what a previous tree left
-	 * behind and what this station is about to take down; a solid block is somebody's roof.
+	 * Air, leaves, or something a tree would push out of its way. Leaves are treated as clear
+	 * because they are what a previous tree left behind and what this station is about to take
+	 * down; a solid block is somebody's roof.
+	 *
+	 * <p>Grass counts as clear for the same reason it counts as plantable. Two-high grass reaches
+	 * a block above the sapling, so insisting on air here would have gone on refusing a grassy
+	 * clearing even once the square itself was allowed to be grassy.
 	 */
 	private static boolean isGrowClear(BlockState state) {
-		return state.isAir() || isLeaves(state);
+		return state.isAir() || isLeaves(state) || isSweptAside(state);
+	}
+
+	/**
+	 * Whether placing a block here would simply clear this one out of the way, the way planting
+	 * into a tuft of grass does. Fluids are replaceable too and are left out: a sapling stood in
+	 * water is a sapling washed away the moment it is placed.
+	 */
+	private static boolean isSweptAside(BlockState state) {
+		return state.isReplaceable() && state.getFluidState().isEmpty();
 	}
 
 	private record LeafStep(BlockPos pos, int distance) {
@@ -461,8 +582,12 @@ public final class Woods {
 	 * One tree, already walked: the stump to stand at, the logs to break, and the leaves that
 	 * will drop the saplings. The leaf list is empty when the station is leaving the canopy
 	 * to decay, which is still a usable tree — there is simply nothing to break after the trunk.
+	 *
+	 * <p>{@code grown} is whether this was a tree at all. A walk that found only posts or a pile
+	 * of logs still names those blocks so the survey can mark them seen, but it is not something
+	 * to fell.
 	 */
-	public record Tree(BlockPos stump, List<BlockPos> logs, List<BlockPos> leaves) {
+	public record Tree(BlockPos stump, List<BlockPos> logs, List<BlockPos> leaves, boolean grown) {
 		/** Whether any of the trunk is still standing, which is what makes the job still worth doing. */
 		public boolean standing(ServerWorld world) {
 			for (BlockPos log : logs) {
@@ -477,6 +602,28 @@ public final class Woods {
 		/** Soil the replacement sapling goes on, which is the block under the stump. */
 		public BlockPos soil() {
 			return stump.down();
+		}
+
+		/**
+		 * Every block of this tree in the order it comes down: canopy first, trunk after.
+		 *
+		 * <p>Leaves before logs so the tree is never left standing as a canopy with nothing under
+		 * it. That is the state vanilla decay works on, and decay gives up its saplings and sticks
+		 * a few at a time over a minute or more — which reads as a worker walking back for one
+		 * item, over and over, long after the tree is down. Taking the canopy while the trunk is
+		 * still there puts the whole harvest on the ground at once, for one sweep to collect.
+		 *
+		 * <p>It also keeps the trunk standing for the length of the job, so the felling cannot be
+		 * called finished while there is still canopy to take.
+		 *
+		 * <p>The list is empty of leaves when the station is leaving the canopy to decay, which
+		 * makes this the trunk on its own.
+		 */
+		public List<BlockPos> falling() {
+			List<BlockPos> order = new ArrayList<>(leaves.size() + logs.size());
+			order.addAll(leaves);
+			order.addAll(logs);
+			return order;
 		}
 	}
 }

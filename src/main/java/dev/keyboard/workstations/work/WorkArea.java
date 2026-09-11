@@ -46,6 +46,17 @@ public final class WorkArea {
 		return contains(entity.getPos());
 	}
 
+	/**
+	 * Whether a block sits inside the plot. Answered on the block coordinates rather than by
+	 * asking the box about a corner, so a block on the far edge counts as in rather than falling
+	 * a fraction outside it.
+	 */
+	public boolean contains(BlockPos pos) {
+		return Math.abs(pos.getX() - center.getX()) <= radius
+				&& Math.abs(pos.getZ() - center.getZ()) <= radius
+				&& Math.abs(pos.getY() - center.getY()) <= height;
+	}
+
 	public boolean contains(Vec3d pos) {
 		return getBox().contains(pos);
 	}

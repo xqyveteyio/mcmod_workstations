@@ -1,6 +1,7 @@
 package dev.keyboard.workstations.block;
 
 import dev.keyboard.workstations.entity.WorkerEntrance;
+import dev.keyboard.workstations.work.AreaContainers;
 import dev.keyboard.workstations.work.WorkArea;
 import dev.keyboard.workstations.work.WorkerSettings;
 import net.minecraft.block.Block;
@@ -13,6 +14,7 @@ import net.minecraft.entity.EntityType;
 import net.minecraft.entity.mob.MobEntity;
 import net.minecraft.entity.player.PlayerInventory;
 import net.minecraft.inventory.Inventories;
+import net.minecraft.inventory.Inventory;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NbtCompound;
 import net.minecraft.nbt.NbtElement;
@@ -28,6 +30,7 @@ import net.minecraft.util.math.Direction;
 import net.minecraft.world.World;
 import org.jetbrains.annotations.Nullable;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
@@ -50,12 +53,47 @@ public abstract class WorkStationBlockEntity<W extends MobEntity & StationWorker
 	private static final String RESPAWN_KEY = "Respawn";
 
 	private DefaultedList<ItemStack> inventory = DefaultedList.ofSize(INVENTORY_SIZE, ItemStack.EMPTY);
+	/** Seed boxes standing anywhere in the work area, looked up afresh now and then. */
+	private final AreaContainers<SeedBoxBlockEntity> seedBoxes =
+			new AreaContainers<>(SeedBoxBlockEntity.class);
 	@Nullable
 	private UUID workerUuid;
 	private int respawnTimer;
 
 	protected WorkStationBlockEntity(BlockEntityType<?> type, BlockPos pos, BlockState state) {
 		super(type, pos, state);
+	}
+
+	/**
+	 * The seed boxes anywhere in this station's work area, nearest first.
+	 *
+	 * <p>Kept here rather than by the stations that sow, because a box is where seed and saplings
+	 * belong whichever worker picked them up. A ranch that harvests a field of carrots on its way
+	 * past has the same reason to put them somewhere other than the shelves its produce lands on,
+	 * and a box between two stations is found by both without either writing a second scan.
+	 *
+	 * <p>Separate from {@link #seedStores()} because the boxes are where seed is meant to end up
+	 * and the station is only what catches the overflow, a distinction that matters when deciding
+	 * how much of something belongs in a box in the first place.
+	 */
+	public List<Inventory> seedBoxes() {
+		return List.copyOf(seedBoxes.in(world, getWorkArea()));
+	}
+
+	/**
+	 * Everywhere this station's seed, saplings and feed might be, the place to reach for first
+	 * listed first.
+	 *
+	 * <p>Seed boxes come before the station's own shelves: seed is taken out of a box while one
+	 * holds any, which is what keeps the station's own space clear for the produce coming the other
+	 * way. The station is last rather than absent so seed left on its shelves by hand is still
+	 * used, and with no box in the area the station is the only store there is and everything works
+	 * as it did before boxes existed.
+	 */
+	public List<Inventory> seedStores() {
+		List<Inventory> stores = new ArrayList<>(seedBoxes());
+		stores.add(this);
+		return stores;
 	}
 
 	/**

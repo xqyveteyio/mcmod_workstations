@@ -7,6 +7,7 @@ import dev.keyboard.workstations.block.MilkBarrelBlockEntity;
 import dev.keyboard.workstations.block.RanchBlockEntity;
 import dev.keyboard.workstations.entity.RancherEntity;
 import dev.keyboard.workstations.work.HerdSurvey;
+import dev.keyboard.workstations.work.Stock;
 import dev.keyboard.workstations.work.WorkArea;
 import it.unimi.dsi.fastutil.ints.Int2LongMap;
 import it.unimi.dsi.fastutil.ints.Int2LongOpenHashMap;
@@ -1188,7 +1189,7 @@ public class RancherBrain {
 			}
 
 			int before = stack.getCount();
-			ItemStack left = insert(station, stack);
+			ItemStack left = store(station, stack);
 			carried.setStack(slot, left.isEmpty() ? ItemStack.EMPTY : left);
 
 			if (left.getCount() != before) {
@@ -1198,7 +1199,6 @@ public class RancherBrain {
 
 		if (moved) {
 			rancher.swingHand(Hand.MAIN_HAND);
-			station.markDirty();
 		} else if (!carried.isEmpty()) {
 			note = "station full";
 			// Remembered for the rest of the phase, or a sweep that has cleared the ground would
@@ -1355,30 +1355,12 @@ public class RancherBrain {
 		return !stack.isEmpty() && (animal.isBreedingItem(stack) || stack.isOf(WorkstationsMod.UNIVERSAL_FEED));
 	}
 
-	/** Moves what fits into {@code target}, mutating and returning the leftover. */
-	private static ItemStack insert(Inventory target, ItemStack stack) {
-		for (int slot = 0; slot < target.size() && !stack.isEmpty(); slot++) {
-			ItemStack existing = target.getStack(slot);
-
-			if (existing.isEmpty()) {
-				target.setStack(slot, stack.copy());
-				stack.setCount(0);
-				break;
-			}
-
-			if (!ItemStack.canCombine(existing, stack)) {
-				continue;
-			}
-
-			int room = Math.min(existing.getMaxCount(), target.getMaxCountPerStack()) - existing.getCount();
-			int moved = Math.min(room, stack.getCount());
-
-			if (moved > 0) {
-				existing.increment(moved);
-				stack.decrement(moved);
-			}
-		}
-
-		return stack;
+	/**
+	 * Puts a stack away where it belongs and hands back whatever would not fit. The rule is
+	 * {@link Stock#stow}, shared with the farm and the wood: seed and saplings into the boxes,
+	 * wool and meat onto the station's own shelves.
+	 */
+	private static ItemStack store(RanchBlockEntity station, ItemStack stack) {
+		return Stock.stow(station, station.seedBoxes(), stack);
 	}
 }

@@ -58,7 +58,10 @@ public final class WoodsSurvey {
 
 			Woods.Tree tree = Woods.gather(world, log, breakLeaves);
 			claimed.addAll(tree.logs());
-			survey.trees.add(tree);
+
+			if (tree.grown()) {
+				survey.trees.add(tree);
+			}
 		}
 
 		survey.saplings.addAll(Pickings.find(world, area, Woods::isSapling));

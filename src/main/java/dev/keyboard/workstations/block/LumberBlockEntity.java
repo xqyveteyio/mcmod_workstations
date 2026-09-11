@@ -9,7 +9,6 @@ import dev.keyboard.workstations.work.WoodsSurvey;
 import net.minecraft.block.Block;
 import net.minecraft.block.BlockState;
 import net.minecraft.entity.EntityType;
-import net.minecraft.inventory.Inventory;
 import net.minecraft.item.Item;
 import net.minecraft.nbt.NbtCompound;
 import net.minecraft.server.world.ServerWorld;
@@ -18,7 +17,6 @@ import net.minecraft.util.math.BlockPos;
 
 import java.util.Collections;
 import java.util.LinkedHashSet;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -132,20 +130,6 @@ public class LumberBlockEntity extends WorkStationBlockEntity<LumberjackEntity, 
 		if (world != null) {
 			world.updateListeners(pos, getCachedState(), getCachedState(), Block.NOTIFY_LISTENERS);
 		}
-	}
-
-	/**
-	 * The seed boxes anywhere in this station's work area, nearest first. Same discovery the
-	 * farm uses: {@link SeedStock} walks the block-entity table, so a box sitting between a farm
-	 * and a lumber station is found by both without either writing a second scan.
-	 */
-	public List<Inventory> seedBoxes() {
-		return stock.boxes(world, getWorkArea());
-	}
-
-	/** Everywhere this station's saplings and bone meal might be, boxes first. */
-	public List<Inventory> seedStores() {
-		return stock.stores(this, world, getWorkArea());
 	}
 
 	public Map<Item, Integer> getPlantedTally() {
