@@ -34,7 +34,9 @@ import net.minecraft.util.math.Matrix4f; */
  * cares what the work inside it is.
  */
 public class WorkAreaHighlightRenderer<T extends WorkStationBlockEntity<?, ?>>
-		//? if >=1.17 {
+		//? if >=26.1 {
+		/* { */
+		//?} elif >=1.17 {
 		implements BlockEntityRenderer<T> {
 		//?} else {
 		/* extends BlockEntityRenderer<T> { */
@@ -52,6 +54,7 @@ public class WorkAreaHighlightRenderer<T extends WorkStationBlockEntity<?, ?>>
 	} */
 	//?}
 
+	//? if <26.1 {
 	@Override
 	public boolean rendersOutsideBoundingBox(T blockEntity) {
 		return true;
@@ -65,6 +68,7 @@ public class WorkAreaHighlightRenderer<T extends WorkStationBlockEntity<?, ?>>
 	}
 
 	@Override
+	//?}
 	public void render(T blockEntity, float tickDelta, MatrixStack matrices,
 			VertexConsumerProvider vertexConsumers, int light, int overlay) {
 		if (!HighlightState.shouldRender()) {

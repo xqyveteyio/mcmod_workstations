@@ -166,8 +166,8 @@ public class SeedBoxBlock extends BlockWithEntity {
 		}
 	}
 
-	@Override
 	//? if <26.1 {
+	@Override
 	public void onStateReplaced(BlockState state, World world, BlockPos pos, BlockState newState, boolean moved) {
 		if (!state.isOf(newState.getBlock()) && world.getBlockEntity(pos) instanceof SeedBoxBlockEntity box) {
 			ItemScatterer.spawn(world, pos, box);

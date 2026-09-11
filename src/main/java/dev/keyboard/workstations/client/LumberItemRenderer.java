@@ -1,7 +1,9 @@
 package dev.keyboard.workstations.client;
 
 import dev.keyboard.workstations.WorkstationsMod;
+//? if <26.1 {
 import net.fabricmc.fabric.api.client.rendering.v1.BuiltinItemRendererRegistry;
+//?}
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.render.VertexConsumerProvider;
 //? if >=1.19.4 {
@@ -19,7 +21,13 @@ import net.minecraft.item.ItemStack;
  * <p>The item model is {@code builtin/entity}, meaning it carries no geometry of its own and this
  * class draws the bench too, the way vanilla renders chests and shulker boxes.
  */
-public class LumberItemRenderer implements BuiltinItemRendererRegistry.DynamicItemRenderer {
+public class LumberItemRenderer
+		//? if <26.1 {
+		implements BuiltinItemRendererRegistry.DynamicItemRenderer {
+		//?} else {
+		/* { */
+		//?}
+	//? if <26.1 {
 	@Override
 	public void render(ItemStack stack,
 			//? if >=1.19.4 {
@@ -38,4 +46,5 @@ public class LumberItemRenderer implements BuiltinItemRendererRegistry.DynamicIt
 		AxeDisplay.render(client.world, client.getTickDelta(), matrices, vertexConsumers, light, overlay);
 		//?}
 	}
+	//?}
 }

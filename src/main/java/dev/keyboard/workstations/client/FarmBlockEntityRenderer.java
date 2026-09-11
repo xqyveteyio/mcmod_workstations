@@ -33,7 +33,9 @@ import org.joml.Matrix4f;
  * "why has it not planted that row" into something you can see from the gate.
  */
 public class FarmBlockEntityRenderer
-		//? if >=1.17 {
+		//? if >=26.1 {
+		/* implements BlockEntityRenderer<FarmBlockEntity, net.minecraft.client.renderer.blockentity.state.BlockEntityRenderState> { */
+		//?} elif >=1.17 {
 		implements BlockEntityRenderer<FarmBlockEntity> {
 		//?} else {
 		/* extends BlockEntityRenderer<FarmBlockEntity> { */
@@ -73,6 +75,37 @@ public class FarmBlockEntityRenderer
 	} */
 	//?}
 
+	//? if >=26.1 {
+	/* @Override
+	public boolean shouldRenderOffScreen() {
+		return true;
+	}
+
+	@Override
+	public int getViewDistance() {
+		return 192;
+	}
+
+	@Override
+	public net.minecraft.client.renderer.blockentity.state.BlockEntityRenderState createRenderState() {
+		return new net.minecraft.client.renderer.blockentity.state.BlockEntityRenderState();
+	}
+
+	@Override
+	public void extractRenderState(FarmBlockEntity station,
+			net.minecraft.client.renderer.blockentity.state.BlockEntityRenderState state, float tickDelta,
+			net.minecraft.world.phys.Vec3 camera,
+			net.minecraft.client.renderer.feature.ModelFeatureRenderer.CrumblingOverlay overlay) {
+		net.minecraft.client.renderer.blockentity.state.BlockEntityRenderState.extractBase(station, state, overlay);
+	}
+
+	@Override
+	public void submit(net.minecraft.client.renderer.blockentity.state.BlockEntityRenderState state,
+			MatrixStack matrices, net.minecraft.client.renderer.SubmitNodeCollector collector,
+			net.minecraft.client.renderer.state.level.CameraRenderState camera) {
+	}
+	*/
+	//?} else {
 	@Override
 	public boolean rendersOutsideBoundingBox(FarmBlockEntity station) {
 		return true;
@@ -121,6 +154,7 @@ public class FarmBlockEntityRenderer
 			}
 		}
 	}
+	//?}
 
 	/** What the farmer would do with this plot next, as a colour. */
 	private static float[] colourFor(World world, BlockPos plot, BlockState state) {

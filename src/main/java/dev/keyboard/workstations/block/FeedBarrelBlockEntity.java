@@ -124,25 +124,48 @@ public class FeedBarrelBlockEntity extends LootableContainerBlockEntity implemen
 		return true;
 	}
 
+	//? if >=26.1 {
+	/* @Override
+	public void startOpen(net.minecraft.world.entity.ContainerUser user) {
+		if (user instanceof PlayerEntity player && Mc.world(this) != null && !isRemoved() && !player.isSpectator()) {
+			viewers.incrementOpeners(player, Mc.world(this), Mc.pos(this), Mc.cached(this), player.getEyeY());
+		}
+	}
+
+	@Override
+	public void stopOpen(net.minecraft.world.entity.ContainerUser user) {
+		if (user instanceof PlayerEntity player && Mc.world(this) != null && !isRemoved() && !player.isSpectator()) {
+			viewers.decrementOpeners(player, Mc.world(this), Mc.pos(this), Mc.cached(this));
+		}
+	}
+
+	public void recountViewers() {
+		if (Mc.world(this) != null && !isRemoved()) {
+			viewers.recheckOpeners(Mc.world(this), Mc.pos(this), Mc.cached(this));
+		}
+	}
+	*/
+	//?} else {
 	@Override
 	public void onOpen(PlayerEntity player) {
-		if (world != null && !removed && !player.isSpectator()) {
+		if (world != null && !isRemoved() && !player.isSpectator()) {
 			viewers.openContainer(player, world, pos, getCachedState());
 		}
 	}
 
 	@Override
 	public void onClose(PlayerEntity player) {
-		if (world != null && !removed && !player.isSpectator()) {
+		if (world != null && !isRemoved() && !player.isSpectator()) {
 			viewers.closeContainer(player, world, pos, getCachedState());
 		}
 	}
 
 	public void recountViewers() {
-		if (world != null && !removed) {
+		if (world != null && !isRemoved()) {
 			viewers.updateViewerCount(world, pos, getCachedState());
 		}
 	}
+	//?}
 	//?} else {
 	/* @Override
 	public void tick() {
@@ -231,7 +254,11 @@ public class FeedBarrelBlockEntity extends LootableContainerBlockEntity implemen
 	}
 
 	@Override
+	//? if >=26.1 {
+	/* public int getContainerSize() { */
+	//?} else {
 	public int size() {
+	//?}
 		return INVENTORY_SIZE;
 	}
 
@@ -268,6 +295,27 @@ public class FeedBarrelBlockEntity extends LootableContainerBlockEntity implemen
 		return GenericContainerScreenHandler.createGeneric9x6(syncId, playerInventory, this);
 	}
 
+	//? if >=26.1 {
+	/* @Override
+	protected void saveAdditional(net.minecraft.world.level.storage.ValueOutput output) {
+		super.saveAdditional(output);
+
+		if (!trySaveLootTable(output)) {
+			Inventories.saveAllItems(output, inventory);
+		}
+	}
+
+	@Override
+	protected void loadAdditional(net.minecraft.world.level.storage.ValueInput input) {
+		super.loadAdditional(input);
+		inventory = DefaultedList.ofSize(INVENTORY_SIZE, ItemStack.EMPTY);
+
+		if (!tryLoadLootTable(input)) {
+			Inventories.loadAllItems(input, inventory);
+		}
+	}
+	*/
+	//?} else {
 	@Override
 	//? if >=1.20.5 {
 	/* protected void writeNbt(NbtCompound nbt, RegistryWrapper.WrapperLookup registryLookup) {
@@ -327,5 +375,6 @@ public class FeedBarrelBlockEntity extends LootableContainerBlockEntity implemen
 			Inventories.readNbt(nbt, inventory);
 		}
 	} */
+	//?}
 	//?}
 }

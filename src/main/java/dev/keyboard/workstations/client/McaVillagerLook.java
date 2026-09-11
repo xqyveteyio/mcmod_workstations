@@ -57,6 +57,9 @@ final class McaVillagerLook {
 
 	static boolean render(MobEntity worker, NbtCompound disguise, float yaw, float tickDelta,
 			MatrixStack matrices, VertexConsumerProvider vertexConsumers, int light) {
+		//? if >=26.1 {
+		/* return false; */
+		//?} else {
 		VillagerEntity standIn = standInFor(worker, disguise);
 		pose(worker, standIn);
 
@@ -66,7 +69,10 @@ final class McaVillagerLook {
 				MinecraftClient.getInstance().getEntityRenderDispatcher().getRenderer(standIn);
 		renderer.render(standIn, yaw, tickDelta, matrices, vertexConsumers, light);
 		return true;
+		//?}
 	}
+
+	//? if <26.1 {
 
 	private static VillagerEntity standInFor(MobEntity worker, NbtCompound disguise) {
 		StandIn held = STAND_INS.get(worker);
@@ -154,4 +160,5 @@ final class McaVillagerLook {
 
 		standIn.age = worker.age;
 	}
+	//?}
 }

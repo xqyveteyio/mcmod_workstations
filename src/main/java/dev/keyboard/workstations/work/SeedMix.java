@@ -150,21 +150,21 @@ public final class SeedMix {
 
 	/** An absent list leaves the mix alone, so a save from before ratios existed loses nothing. */
 	public void readNbt(NbtCompound nbt) {
-		if (!nbt.contains(WEIGHTS_KEY, Mc.NBT_LIST)) {
+		if (!Mc.has(nbt, WEIGHTS_KEY, Mc.NBT_LIST)) {
 			return;
 		}
 
 		weights.clear();
-		NbtList list = nbt.getList(WEIGHTS_KEY, Mc.NBT_COMPOUND);
+		NbtList list = Mc.list(nbt, WEIGHTS_KEY);
 
 		for (int index = 0; index < list.size(); index++) {
-			NbtCompound row = list.getCompound(index);
-			Identifier id = Identifier.tryParse(row.getString(SEED_KEY));
+			NbtCompound row = Mc.compoundAt(list, index);
+			Identifier id = Identifier.tryParse(Mc.string(row, SEED_KEY));
 
 			// A seed from a mod that is no longer installed is dropped rather than crashing the
 			// load; its weight is simply forgotten.
 			if (id != null && Mc.hasItem(id)) {
-				setWeight(Mc.item(id), row.getInt(WEIGHT_KEY));
+				setWeight(Mc.item(id), Mc.integer(row, WEIGHT_KEY));
 			}
 		}
 	}

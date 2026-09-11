@@ -961,7 +961,7 @@ public class FarmerBrain {
 
 		served.add(plot.asLong());
 		farmer.swingHand(Hand.MAIN_HAND);
-		world.setBlockState(plot, Blocks.FARMLAND.getDefaultState());
+		world.setBlockState(plot, Blocks.FARMLAND.getDefaultState(), Mc.NOTIFY_ALL);
 		world.playSound(null, plot, SoundEvents.ITEM_HOE_TILL, SoundCategory.BLOCKS, 1.0F, 1.0F);
 		farmer.startWorkCooldown();
 		actionCooldown = SWING_INTERVAL;
@@ -999,7 +999,7 @@ public class FarmerBrain {
 		}
 
 		farmer.swingHand(Hand.MAIN_HAND);
-		world.setBlockState(above, planted);
+		world.setBlockState(above, planted, Mc.NOTIFY_ALL);
 		world.playSound(null, above, SoundEvents.ITEM_CROP_PLANT, SoundCategory.BLOCKS, 1.0F, 1.0F);
 		// Recorded whether or not the seed was paid for, because the tally is what turns the mix's
 		// weights into real ratios and that has nothing to do with who owns the seed.
@@ -1068,7 +1068,7 @@ public class FarmerBrain {
 			item.setStack(remainder);
 		}
 
-		Mc.world(farmer).playSound(null, farmer.getBlockPos(), SoundEvents.ENTITY_ITEM_PICKUP,
+		Mc.world(farmer).playSound(null, Mc.blockPos(farmer), SoundEvents.ENTITY_ITEM_PICKUP,
 				SoundCategory.NEUTRAL, 0.15F,
 				(farmer.getRandom().nextFloat() - farmer.getRandom().nextFloat()) * 1.4F + 2.0F);
 		phaseWorked = true;

@@ -23,11 +23,56 @@ import net.minecraft.util.math.Vec3d;
  * <p>Which pair of files it wears comes from the farmer itself, since its station picks its look
  * out of {@link WorkerSkin#FARMER}.
  */
-public class FarmerEntityRenderer extends MobEntityRenderer<FarmerEntity, VillagerResemblingModel<FarmerEntity>> {
+public class FarmerEntityRenderer extends MobEntityRenderer<FarmerEntity,
+		//? if >=26.1 {
+		/* WorkerRenderState, VillagerResemblingModel> { */
+		//?} else {
+		VillagerResemblingModel<FarmerEntity>> {
+		//?}
 	/** The same shrink vanilla applies, without which the villager model looks oversized. */
 	private static final float MODEL_SCALE = 0.9375F;
 
-	//? if >=1.17 {
+	//? if >=26.1 {
+	/* public FarmerEntityRenderer(EntityRendererFactory.Context context) {
+		super(context, new VillagerResemblingModel(context.getPart(EntityModelLayers.VILLAGER)), 0.5F);
+		this.addFeature(new WorkerOverlayFeatureRenderer(this, state -> state.hatTexture));
+	}
+
+	@Override
+	public WorkerRenderState createRenderState() {
+		return new WorkerRenderState();
+	}
+
+	@Override
+	public void extractRenderState(FarmerEntity entity, WorkerRenderState state, float tickDelta) {
+		super.extractRenderState(entity, state, tickDelta);
+		WorkerSkin look = skin(entity);
+		state.texture = look.texture();
+		state.hatTexture = look.hatTexture();
+		state.sink = entity.getEntrance().sink(tickDelta);
+	}
+
+	@Override
+	public Identifier getTextureLocation(WorkerRenderState state) {
+		return state.texture;
+	}
+
+	@Override
+	protected void scale(WorkerRenderState state, MatrixStack matrices) {
+		matrices.scale(MODEL_SCALE, MODEL_SCALE, MODEL_SCALE);
+	}
+
+	@Override
+	public Vec3d getRenderOffset(WorkerRenderState state) {
+		return state.sink <= 0.0 ? super.getRenderOffset(state) : new Vec3d(0.0, -state.sink, 0.0);
+	}
+
+	@Override
+	protected boolean shouldShowName(FarmerEntity entity, double distance) {
+		return !entity.getEntrance().isBuried() && super.shouldShowName(entity, distance);
+	}
+	*/
+	//?} elif >=1.17 {
 	public FarmerEntityRenderer(EntityRendererFactory.Context context) {
 		super(context, new VillagerResemblingModel<>(context.getPart(EntityModelLayers.VILLAGER)), 0.5F);
 		this.addFeature(new WorkerOverlayFeatureRenderer<>(this, entity -> skin(entity).hatTexture()));
@@ -39,13 +84,14 @@ public class FarmerEntityRenderer extends MobEntityRenderer<FarmerEntity, Villag
 	} */
 	//?}
 
+	private static WorkerSkin skin(FarmerEntity entity) {
+		return WorkerSkin.get(WorkerSkin.FARMER, entity.getSkin());
+	}
+
+	//? if <26.1 {
 	@Override
 	public Identifier getTexture(FarmerEntity entity) {
 		return skin(entity).texture();
-	}
-
-	private static WorkerSkin skin(FarmerEntity entity) {
-		return WorkerSkin.get(WorkerSkin.FARMER, entity.getSkin());
 	}
 
 	/** Hands the body to Minecraft Comes Alive, exactly as {@link RancherEntityRenderer} does. */
@@ -85,4 +131,5 @@ public class FarmerEntityRenderer extends MobEntityRenderer<FarmerEntity, Villag
 	protected boolean hasLabel(FarmerEntity entity) {
 		return !entity.getEntrance().isBuried() && super.hasLabel(entity);
 	}
+	//?}
 }

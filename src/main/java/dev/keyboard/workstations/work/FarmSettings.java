@@ -139,8 +139,8 @@ public final class FarmSettings implements WorkerSettings<FarmSettings> {
 			option.read(this, nbt);
 		}
 
-		if (nbt.contains(MIX_KEY, Mc.NBT_COMPOUND)) {
-			seedMix.readNbt(nbt.getCompound(MIX_KEY));
+		if (Mc.has(nbt, MIX_KEY, Mc.NBT_COMPOUND)) {
+			seedMix.readNbt(Mc.compound(nbt, MIX_KEY));
 		}
 
 		WorkerSettings.inheritWorkRadius(nbt, v -> workAlong = v, v -> workAcross = v);

@@ -21,7 +21,9 @@ import net.minecraft.util.Identifier;
  * model baked once into the chunk cannot do.
  */
 public class StationChestBlockEntityRenderer<T extends BlockEntity & AnimatedLid>
-		//? if >=1.17 {
+		//? if >=26.1 {
+		/* implements BlockEntityRenderer<T, net.minecraft.client.renderer.blockentity.state.BlockEntityRenderState> { */
+		//?} elif >=1.17 {
 		implements BlockEntityRenderer<T> {
 		//?} else {
 		/* extends BlockEntityRenderer<T> { */
@@ -40,9 +42,30 @@ public class StationChestBlockEntityRenderer<T extends BlockEntity & AnimatedLid
 	//?}
 
 	@Override
+	//? if >=26.1 {
+	/* public net.minecraft.client.renderer.blockentity.state.BlockEntityRenderState createRenderState() {
+		return new net.minecraft.client.renderer.blockentity.state.BlockEntityRenderState();
+	}
+
+	@Override
+	public void extractRenderState(T box,
+			net.minecraft.client.renderer.blockentity.state.BlockEntityRenderState state, float tickDelta,
+			net.minecraft.world.phys.Vec3 camera,
+			net.minecraft.client.renderer.feature.ModelFeatureRenderer.CrumblingOverlay overlay) {
+		net.minecraft.client.renderer.blockentity.state.BlockEntityRenderState.extractBase(box, state, overlay);
+	}
+
+	@Override
+	public void submit(net.minecraft.client.renderer.blockentity.state.BlockEntityRenderState state,
+			MatrixStack matrices, net.minecraft.client.renderer.SubmitNodeCollector collector,
+			net.minecraft.client.renderer.state.level.CameraRenderState camera) {
+	}
+	*/
+	//?} else {
 	public void render(T box, float tickDelta, MatrixStack matrices,
 			VertexConsumerProvider vertexConsumers, int light, int overlay) {
 		model.render(box.getCachedState(), box.getAnimationProgress(tickDelta),
 				matrices, vertexConsumers, light, overlay);
 	}
+	//?}
 }

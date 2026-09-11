@@ -1,5 +1,7 @@
 package dev.keyboard.workstations.block;
 
+import dev.keyboard.workstations.Mc;
+
 import dev.keyboard.workstations.WorkstationsMod;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.entity.BlockEntity;
@@ -74,13 +76,27 @@ public class MilkBarrelBlockEntity extends BlockEntity {
 		stored = MathHelper.clamp(amount, 0, CAPACITY);
 		markDirty();
 
-		if (world != null) {
+		if (Mc.world(this) != null) {
 			// Both of these read the new amount, so neither can be folded into markDirty.
-			MilkBarrelBlock.showLevel(world, pos, getCachedState(), stored);
-			world.updateComparators(pos, getCachedState().getBlock());
+			MilkBarrelBlock.showLevel(Mc.world(this), Mc.pos(this), Mc.cached(this), stored);
+			Mc.world(this).updateComparators(Mc.pos(this), Mc.cached(this).getBlock());
 		}
 	}
 
+	//? if >=26.1 {
+	/* @Override
+	protected void loadAdditional(net.minecraft.world.level.storage.ValueInput input) {
+		super.loadAdditional(input);
+		stored = MathHelper.clamp(input.getIntOr(MILK_KEY, 0), 0, CAPACITY);
+	}
+
+	@Override
+	protected void saveAdditional(net.minecraft.world.level.storage.ValueOutput output) {
+		super.saveAdditional(output);
+		output.putInt(MILK_KEY, stored);
+	}
+	*/
+	//?} else {
 	@Override
 	//? if >=1.20.5 {
 	/* protected void readNbt(NbtCompound nbt, RegistryWrapper.WrapperLookup registryLookup) {
@@ -94,7 +110,7 @@ public class MilkBarrelBlockEntity extends BlockEntity {
 		super.fromTag(state, nbt);
 	*/
 	//?}
-		stored = MathHelper.clamp(nbt.getInt(MILK_KEY), 0, CAPACITY);
+		stored = MathHelper.clamp(Mc.integer(nbt, MILK_KEY), 0, CAPACITY);
 	}
 
 	@Override
@@ -115,4 +131,5 @@ public class MilkBarrelBlockEntity extends BlockEntity {
 		/* return nbt; */
 		//?}
 	}
+	//?}
 }

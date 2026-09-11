@@ -65,16 +65,42 @@ public final class SeedStock {
 		nbt.put(PLANTED_KEY, tally);
 	}
 
-	public void readNbt(NbtCompound nbt) {
-		planted.clear();
-		NbtList tally = nbt.getList(PLANTED_KEY, Mc.NBT_COMPOUND);
+	//? if >=26.1 {
+	/* public void save(net.minecraft.world.level.storage.ValueOutput output) {
+		var list = output.list(PLANTED_KEY, NbtCompound.CODEC);
 
-		for (int index = 0; index < tally.size(); index++) {
-			NbtCompound row = tally.getCompound(index);
-			Identifier id = Identifier.tryParse(row.getString(SEED_KEY));
+		for (Map.Entry<Item, Integer> entry : planted.entrySet()) {
+			NbtCompound row = new NbtCompound();
+			row.putString(SEED_KEY, Mc.itemId(entry.getKey()).toString());
+			row.putInt(COUNT_KEY, entry.getValue());
+			list.add(row);
+		}
+	}
+
+	public void load(net.minecraft.world.level.storage.ValueInput input) {
+		planted.clear();
+
+		for (NbtCompound row : input.listOrEmpty(PLANTED_KEY, NbtCompound.CODEC)) {
+			Identifier id = Identifier.tryParse(Mc.string(row, SEED_KEY));
 
 			if (id != null && Mc.hasItem(id)) {
-				planted.put(Mc.item(id), row.getInt(COUNT_KEY));
+				planted.put(Mc.item(id), Mc.integer(row, COUNT_KEY));
+			}
+		}
+	}
+	*/
+	//?}
+
+	public void readNbt(NbtCompound nbt) {
+		planted.clear();
+		NbtList tally = Mc.list(nbt, PLANTED_KEY);
+
+		for (int index = 0; index < tally.size(); index++) {
+			NbtCompound row = Mc.compoundAt(tally, index);
+			Identifier id = Identifier.tryParse(Mc.string(row, SEED_KEY));
+
+			if (id != null && Mc.hasItem(id)) {
+				planted.put(Mc.item(id), Mc.integer(row, COUNT_KEY));
 			}
 		}
 	}

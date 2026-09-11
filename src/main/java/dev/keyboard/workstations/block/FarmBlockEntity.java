@@ -257,6 +257,34 @@ public class FarmBlockEntity extends WorkStationBlockEntity<FarmerEntity, FarmSe
 		return packed;
 	}
 
+	//? if >=26.1 {
+	/* @Override
+	protected void saveAdditional(net.minecraft.world.level.storage.ValueOutput output) {
+		super.saveAdditional(output);
+		var plotsOut = output.list(PLOTS_KEY, net.minecraft.core.BlockPos.CODEC);
+
+		for (BlockPos plot : plots) {
+			plotsOut.add(plot);
+		}
+
+		output.putBoolean(SURVEYED_KEY, surveyed);
+		stock.save(output);
+	}
+
+	@Override
+	protected void loadAdditional(net.minecraft.world.level.storage.ValueInput input) {
+		super.loadAdditional(input);
+		plots.clear();
+
+		for (BlockPos plot : input.listOrEmpty(PLOTS_KEY, net.minecraft.core.BlockPos.CODEC)) {
+			plots.add(plot);
+		}
+
+		surveyed = input.getBooleanOr(SURVEYED_KEY, false);
+		stock.load(input);
+	}
+	*/
+	//?} else {
 	@Override
 	//? if >=1.20.5 {
 	/* protected void writeNbt(NbtCompound nbt, RegistryWrapper.WrapperLookup registryLookup) {
@@ -293,11 +321,12 @@ public class FarmBlockEntity extends WorkStationBlockEntity<FarmerEntity, FarmSe
 	//?}
 		plots.clear();
 
-		for (long packed : nbt.getLongArray(PLOTS_KEY)) {
+		for (long packed : Mc.longs(nbt, PLOTS_KEY)) {
 			plots.add(BlockPos.fromLong(packed));
 		}
 
-		surveyed = nbt.getBoolean(SURVEYED_KEY);
+		surveyed = Mc.bool(nbt, SURVEYED_KEY);
 		stock.readNbt(nbt);
 	}
+	//?}
 }

@@ -202,7 +202,12 @@ public abstract class WorkerSettingsScreen<S extends WorkerSettings<S>> extends 
 	}
 
 	@Override
-	//? if >=1.20 {
+	//? if >=26.1 {
+	/* public void extractRenderState(DrawContext context, int mouseX, int mouseY, float delta) {
+		super.extractRenderState(context, mouseX, mouseY, delta);
+	}
+	*/
+	//?} elif >=1.20 {
 	public void render(DrawContext context, int mouseX, int mouseY, float delta) {
 		//? if >=1.21 {
 		/* super.render(context, mouseX, mouseY, delta); */
@@ -319,6 +324,29 @@ public abstract class WorkerSettingsScreen<S extends WorkerSettings<S>> extends 
 		}
 
 		@Override
+		//? if >=26.1 {
+		/* public void visitWidgets(java.util.function.Consumer<ClickableWidget> consumer) {
+			if (control != null) {
+				consumer.accept(control);
+			}
+		}
+
+		@Override
+		public void extractContent(DrawContext context, int mouseX, int mouseY, boolean hovered, float tickDelta) {
+			int x = getX();
+			int y = getY();
+			int entryWidth = getWidth();
+			int entryHeight = getHeight();
+			context.text(textRenderer, label, x, y + (entryHeight - textRenderer.fontHeight) / 2, 0xFFFFFF, true);
+
+			if (control != null) {
+				control.setX(x + entryWidth - CONTROL_WIDTH);
+				control.setY(y);
+				control.extractRenderState(context, mouseX, mouseY, tickDelta);
+			}
+		}
+		*/
+		//?} else {
 		public List<? extends Element> children() {
 			return control == null ? List.of() : List.of(control);
 		}
@@ -354,6 +382,7 @@ public abstract class WorkerSettingsScreen<S extends WorkerSettings<S>> extends 
 				control.render(matrices, mouseX, mouseY, tickDelta);
 			}
 		} */
+		//?}
 		//?}
 	}
 

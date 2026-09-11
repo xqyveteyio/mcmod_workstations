@@ -1008,7 +1008,7 @@ public class LumberjackBrain {
 				world.breakBlock(at, true, lumberjack);
 			}
 
-			world.setBlockState(at, block.getDefaultState());
+			world.setBlockState(at, block.getDefaultState(), Mc.NOTIFY_ALL);
 			// The rest of the square is spoken for, or its other corners would each be taken as a
 			// planting job of their own and find a sapling already standing there.
 			served.add(plot.asLong());
@@ -1090,7 +1090,7 @@ public class LumberjackBrain {
 			item.setStack(remainder);
 		}
 
-		Mc.world(lumberjack).playSound(null, lumberjack.getBlockPos(), SoundEvents.ENTITY_ITEM_PICKUP,
+		Mc.world(lumberjack).playSound(null, Mc.blockPos(lumberjack), SoundEvents.ENTITY_ITEM_PICKUP,
 				SoundCategory.NEUTRAL, 0.15F,
 				(lumberjack.getRandom().nextFloat() - lumberjack.getRandom().nextFloat()) * 1.4F + 2.0F);
 		phaseWorked = true;

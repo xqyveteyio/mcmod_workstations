@@ -141,8 +141,8 @@ public final class LumberSettings implements WorkerSettings<LumberSettings> {
 			option.read(this, nbt);
 		}
 
-		if (nbt.contains(MIX_KEY, Mc.NBT_COMPOUND)) {
-			saplingMix.readNbt(nbt.getCompound(MIX_KEY));
+		if (Mc.has(nbt, MIX_KEY, Mc.NBT_COMPOUND)) {
+			saplingMix.readNbt(Mc.compound(nbt, MIX_KEY));
 		}
 
 		WorkerSettings.inheritWorkRadius(nbt, v -> workAlong = v, v -> workAcross = v);

@@ -5,6 +5,7 @@ import net.minecraft.entity.Entity;
 import net.minecraft.entity.data.TrackedDataHandler;
 import net.minecraft.entity.data.TrackedDataHandlerRegistry;
 import net.minecraft.nbt.NbtCompound;
+import net.minecraft.nbt.NbtList;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemPlacementContext;
 import net.minecraft.item.ItemStack;
@@ -92,9 +93,17 @@ public final class Mc {
 
 	public static net.minecraft.util.math.BlockPos pos(net.minecraft.block.entity.BlockEntity blockEntity) {
 		//? if >=26.1 {
-		/* return blockEntity.worldPosition; */
+		/* return blockEntity.getBlockPos(); */
 		//?} else {
 		return blockEntity.getPos();
+		//?}
+	}
+
+	public static net.minecraft.util.math.BlockPos blockPos(Entity entity) {
+		//? if >=26.1 {
+		/* return entity.blockPosition(); */
+		//?} else {
+		return entity.getBlockPos();
 		//?}
 	}
 
@@ -314,6 +323,46 @@ public final class Mc {
 		/* return nbt.getIntOr(key, 0); */
 		//?} else {
 		return nbt.getInt(key);
+		//?}
+	}
+
+	public static boolean bool(NbtCompound nbt, String key) {
+		//? if >=26.1 {
+		/* return nbt.getBooleanOr(key, false); */
+		//?} else {
+		return nbt.getBoolean(key);
+		//?}
+	}
+
+	public static String string(NbtCompound nbt, String key) {
+		//? if >=26.1 {
+		/* return nbt.getStringOr(key, ""); */
+		//?} else {
+		return nbt.getString(key);
+		//?}
+	}
+
+	public static NbtList list(NbtCompound nbt, String key) {
+		//? if >=26.1 {
+		/* return nbt.getListOrEmpty(key); */
+		//?} else {
+		return nbt.getList(key, NBT_COMPOUND);
+		//?}
+	}
+
+	public static NbtCompound compoundAt(NbtList list, int index) {
+		//? if >=26.1 {
+		/* return list.getCompoundOrEmpty(index); */
+		//?} else {
+		return list.getCompound(index);
+		//?}
+	}
+
+	public static long[] longs(NbtCompound nbt, String key) {
+		//? if >=26.1 {
+		/* return nbt.getLongArray(key).orElse(new long[0]); */
+		//?} else {
+		return nbt.getLongArray(key);
 		//?}
 	}
 

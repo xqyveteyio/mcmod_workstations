@@ -99,8 +99,8 @@ public abstract class SettingOption<S> {
 
 		@Override
 		public void read(S settings, NbtCompound nbt) {
-			if (nbt.contains(key(), Mc.NBT_BYTE)) {
-				set(settings, nbt.getBoolean(key()));
+			if (Mc.has(nbt, key(), Mc.NBT_BYTE)) {
+				set(settings, Mc.bool(nbt, key()));
 			}
 		}
 
@@ -147,8 +147,8 @@ public abstract class SettingOption<S> {
 
 		@Override
 		public void read(S settings, NbtCompound nbt) {
-			if (nbt.contains(key(), Mc.NBT_INT)) {
-				set(settings, nbt.getInt(key()));
+			if (Mc.has(nbt, key(), Mc.NBT_INT)) {
+				set(settings, Mc.integer(nbt, key()));
 			}
 		}
 
@@ -197,8 +197,8 @@ public abstract class SettingOption<S> {
 
 		@Override
 		public void read(S settings, NbtCompound nbt) {
-			if (nbt.contains(key(), Mc.NBT_INT)) {
-				set(settings, nbt.getInt(key()));
+			if (Mc.has(nbt, key(), Mc.NBT_INT)) {
+				set(settings, Mc.integer(nbt, key()));
 			}
 		}
 

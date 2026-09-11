@@ -522,6 +522,31 @@ public class LumberjackEntity extends PathAwareEntity implements StationWorker, 
 	}
 
 	@Override
+	//? if >=26.1 {
+	/* protected void addAdditionalSaveData(net.minecraft.world.level.storage.ValueOutput output) {
+		super.addAdditionalSaveData(output);
+
+		if (stationPos != null) {
+			output.store(STATION_KEY, net.minecraft.core.BlockPos.CODEC, stationPos);
+		}
+
+		carried.storeAsItemList(output.list(CARRIED_KEY, net.minecraft.world.item.ItemStack.CODEC));
+		NbtCompound disguise = getDisguise();
+
+		if (!disguise.isEmpty()) {
+			output.store(DISGUISE_KEY, NbtCompound.CODEC, disguise);
+		}
+	}
+
+	@Override
+	protected void readAdditionalSaveData(net.minecraft.world.level.storage.ValueInput input) {
+		super.readAdditionalSaveData(input);
+		stationPos = input.read(STATION_KEY, net.minecraft.core.BlockPos.CODEC).orElse(null);
+		carried.fromItemList(input.listOrEmpty(CARRIED_KEY, net.minecraft.world.item.ItemStack.CODEC));
+		input.read(DISGUISE_KEY, NbtCompound.CODEC).ifPresent(tag -> dataTracker.set(DISGUISE, tag));
+	}
+	*/
+	//?} else {
 	public void writeCustomDataToNbt(NbtCompound nbt) {
 		super.writeCustomDataToNbt(nbt);
 
@@ -546,7 +571,7 @@ public class LumberjackEntity extends PathAwareEntity implements StationWorker, 
 	public void readCustomDataFromNbt(NbtCompound nbt) {
 		super.readCustomDataFromNbt(nbt);
 
-		if (nbt.contains(STATION_KEY, Mc.NBT_COMPOUND)) {
+		if (Mc.has(nbt, STATION_KEY, Mc.NBT_COMPOUND)) {
 			//? if >=1.20.5 {
 			/* stationPos = NbtHelper.toBlockPos(nbt, STATION_KEY).orElseGet(() ->
 					new BlockPos(BlockPos.ofFloored(getX(), getY(), getZ()))); */
@@ -561,8 +586,9 @@ public class LumberjackEntity extends PathAwareEntity implements StationWorker, 
 		carried.readNbtList(nbt.getList(CARRIED_KEY, Mc.NBT_COMPOUND));
 		//?}
 
-		if (nbt.contains(DISGUISE_KEY, Mc.NBT_COMPOUND)) {
-			dataTracker.set(DISGUISE, nbt.getCompound(DISGUISE_KEY));
+		if (Mc.has(nbt, DISGUISE_KEY, Mc.NBT_COMPOUND)) {
+			dataTracker.set(DISGUISE, Mc.compound(nbt, DISGUISE_KEY));
 		}
 	}
+	//?}
 }

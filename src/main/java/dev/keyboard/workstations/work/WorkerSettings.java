@@ -56,9 +56,9 @@ public interface WorkerSettings<S extends WorkerSettings<S>> {
 	 * that value, so a station that was 8 in every direction stays 8 in every direction.
 	 */
 	static void inheritWorkRadius(NbtCompound nbt, IntConsumer along, IntConsumer across) {
-		if (!nbt.contains("work_along", Mc.NBT_INT)
-				&& nbt.contains("work_radius", Mc.NBT_INT)) {
-			int radius = nbt.getInt("work_radius");
+		if (!Mc.has(nbt, "work_along", Mc.NBT_INT)
+				&& Mc.has(nbt, "work_radius", Mc.NBT_INT)) {
+			int radius = Mc.integer(nbt, "work_radius");
 			along.accept(radius);
 			across.accept(radius);
 		}
@@ -69,9 +69,9 @@ public interface WorkerSettings<S extends WorkerSettings<S>> {
 	 * that value, so a station that was 4 either way stays 4 either way.
 	 */
 	static void inheritWorkHeight(NbtCompound nbt, IntConsumer above, IntConsumer below) {
-		if (!nbt.contains("work_above", Mc.NBT_INT)
-				&& nbt.contains("work_height", Mc.NBT_INT)) {
-			int height = nbt.getInt("work_height");
+		if (!Mc.has(nbt, "work_above", Mc.NBT_INT)
+				&& Mc.has(nbt, "work_height", Mc.NBT_INT)) {
+			int height = Mc.integer(nbt, "work_height");
 			above.accept(height);
 			below.accept(height);
 		}

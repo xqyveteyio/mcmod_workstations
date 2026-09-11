@@ -1,6 +1,8 @@
 package dev.keyboard.workstations.client;
 
+//? if <26.1 {
 import net.fabricmc.fabric.api.client.rendering.v1.BuiltinItemRendererRegistry;
+//?}
 import net.minecraft.block.Block;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.render.VertexConsumerProvider;
@@ -23,7 +25,12 @@ import org.jetbrains.annotations.Nullable;
  * <p>The item model is {@code builtin/entity}, carrying no geometry of its own, the way vanilla's
  * chest item does.
  */
-public class StationChestItemRenderer implements BuiltinItemRendererRegistry.DynamicItemRenderer {
+public class StationChestItemRenderer
+		//? if <26.1 {
+		implements BuiltinItemRendererRegistry.DynamicItemRenderer {
+		//?} else {
+		/* { */
+		//?}
 	private final Block block;
 	private final Identifier texture;
 
@@ -39,6 +46,7 @@ public class StationChestItemRenderer implements BuiltinItemRendererRegistry.Dyn
 		this.texture = texture;
 	}
 
+	//? if <26.1 {
 	@Override
 	public void render(ItemStack stack,
 			//? if >=1.19.4 {
@@ -59,4 +67,5 @@ public class StationChestItemRenderer implements BuiltinItemRendererRegistry.Dyn
 
 		model.render(block.getDefaultState(), 0.0F, matrices, vertexConsumers, light, overlay);
 	}
+	//?}
 }

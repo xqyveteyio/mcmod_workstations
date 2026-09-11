@@ -184,8 +184,8 @@ public class FarmBlock extends BlockWithEntity {
 		return ActionResult.CONSUME;
 	}
 
-	@Override
 	//? if <26.1 {
+	@Override
 	public void onStateReplaced(BlockState state, World world, BlockPos pos, BlockState newState, boolean moved) {
 		if (!state.isOf(newState.getBlock()) && world.getBlockEntity(pos) instanceof FarmBlockEntity station) {
 			if (world instanceof ServerWorld serverWorld) {

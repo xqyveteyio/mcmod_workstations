@@ -184,6 +184,32 @@ public class LumberBlockEntity extends WorkStationBlockEntity<LumberjackEntity, 
 		return packed;
 	}
 
+	//? if >=26.1 {
+	/* @Override
+	protected void saveAdditional(net.minecraft.world.level.storage.ValueOutput output) {
+		super.saveAdditional(output);
+		var stumpsOut = output.list(STUMPS_KEY, net.minecraft.core.BlockPos.CODEC);
+
+		for (BlockPos stump : stumps) {
+			stumpsOut.add(stump);
+		}
+
+		stock.save(output);
+	}
+
+	@Override
+	protected void loadAdditional(net.minecraft.world.level.storage.ValueInput input) {
+		super.loadAdditional(input);
+		stumps.clear();
+
+		for (BlockPos stump : input.listOrEmpty(STUMPS_KEY, net.minecraft.core.BlockPos.CODEC)) {
+			stumps.add(stump);
+		}
+
+		stock.load(input);
+	}
+	*/
+	//?} else {
 	@Override
 	//? if >=1.20.5 {
 	/* protected void writeNbt(NbtCompound nbt, RegistryWrapper.WrapperLookup registryLookup) {
@@ -219,10 +245,11 @@ public class LumberBlockEntity extends WorkStationBlockEntity<LumberjackEntity, 
 	//?}
 		stumps.clear();
 
-		for (long packed : nbt.getLongArray(STUMPS_KEY)) {
+		for (long packed : Mc.longs(nbt, STUMPS_KEY)) {
 			stumps.add(BlockPos.fromLong(packed));
 		}
 
 		stock.readNbt(nbt);
 	}
+	//?}
 }

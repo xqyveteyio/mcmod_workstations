@@ -308,7 +308,7 @@ public final class WorkerEntrance {
 		Random random = worker.getRandom();
 		// The worker only looks buried: it stands on the floor throughout, so the block under it is
 		// the one it is supposedly clawing through.
-		BlockState under = world.getBlockState(worker.getBlockPos().down());
+		BlockState under = world.getBlockState(Mc.blockPos(worker).down());
 		BlockState spoil = under.isAir() ? Blocks.DIRT.getDefaultState() : under;
 		double x = worker.getX();
 		double y = worker.getY();

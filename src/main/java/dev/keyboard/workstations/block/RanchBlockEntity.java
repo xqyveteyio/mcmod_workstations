@@ -122,6 +122,7 @@ public class RanchBlockEntity extends WorkStationBlockEntity<RancherEntity, Stat
 		return Mc.translatable("container.keyboard_workstations.ranch_station");
 	}
 
+	//? if <26.1 {
 	@Override
 	//? if >=1.20.5 {
 	/* protected void readNbt(NbtCompound nbt, RegistryWrapper.WrapperLookup registryLookup) {
@@ -139,13 +140,14 @@ public class RanchBlockEntity extends WorkStationBlockEntity<RancherEntity, Stat
 		// Stations saved before settings were per block only recorded the area size. Checked only
 		// when there are no settings to read, so a station that has both because someone merged the
 		// old keys back in is not dragged back to them.
-		if (!nbt.contains(SETTINGS_KEY, Mc.NBT_COMPOUND)
-				&& nbt.contains(LEGACY_RADIUS_KEY, Mc.NBT_INT)) {
-			settings.workAlong = nbt.getInt(LEGACY_RADIUS_KEY);
-			settings.workAcross = nbt.getInt(LEGACY_RADIUS_KEY);
-			settings.workAbove = nbt.getInt(LEGACY_HEIGHT_KEY);
-			settings.workBelow = nbt.getInt(LEGACY_HEIGHT_KEY);
+		if (!Mc.has(nbt, SETTINGS_KEY, Mc.NBT_COMPOUND)
+				&& Mc.has(nbt, LEGACY_RADIUS_KEY, Mc.NBT_INT)) {
+			settings.workAlong = Mc.integer(nbt, LEGACY_RADIUS_KEY);
+			settings.workAcross = Mc.integer(nbt, LEGACY_RADIUS_KEY);
+			settings.workAbove = Mc.integer(nbt, LEGACY_HEIGHT_KEY);
+			settings.workBelow = Mc.integer(nbt, LEGACY_HEIGHT_KEY);
 			settings.clamp();
 		}
 	}
+	//?}
 }

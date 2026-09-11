@@ -27,11 +27,56 @@ import net.minecraft.util.math.Vec3d;
  * <p>Which pair of files that is comes from the rancher itself, since its station picks its look
  * out of {@link WorkerSkin#RANCHER}.
  */
-public class RancherEntityRenderer extends MobEntityRenderer<RancherEntity, VillagerResemblingModel<RancherEntity>> {
+public class RancherEntityRenderer extends MobEntityRenderer<RancherEntity,
+		//? if >=26.1 {
+		/* WorkerRenderState, VillagerResemblingModel> { */
+		//?} else {
+		VillagerResemblingModel<RancherEntity>> {
+		//?}
 	/** The same shrink vanilla applies, without which the villager model looks oversized. */
 	private static final float MODEL_SCALE = 0.9375F;
 
-	//? if >=1.17 {
+	//? if >=26.1 {
+	/* public RancherEntityRenderer(EntityRendererFactory.Context context) {
+		super(context, new VillagerResemblingModel(context.getPart(EntityModelLayers.VILLAGER)), 0.5F);
+		this.addFeature(new WorkerOverlayFeatureRenderer(this, state -> state.hatTexture));
+	}
+
+	@Override
+	public WorkerRenderState createRenderState() {
+		return new WorkerRenderState();
+	}
+
+	@Override
+	public void extractRenderState(RancherEntity entity, WorkerRenderState state, float tickDelta) {
+		super.extractRenderState(entity, state, tickDelta);
+		WorkerSkin look = skin(entity);
+		state.texture = look.texture();
+		state.hatTexture = look.hatTexture();
+		state.sink = entity.getEntrance().sink(tickDelta);
+	}
+
+	@Override
+	public Identifier getTextureLocation(WorkerRenderState state) {
+		return state.texture;
+	}
+
+	@Override
+	protected void scale(WorkerRenderState state, MatrixStack matrices) {
+		matrices.scale(MODEL_SCALE, MODEL_SCALE, MODEL_SCALE);
+	}
+
+	@Override
+	public Vec3d getRenderOffset(WorkerRenderState state) {
+		return state.sink <= 0.0 ? super.getRenderOffset(state) : new Vec3d(0.0, -state.sink, 0.0);
+	}
+
+	@Override
+	protected boolean shouldShowName(RancherEntity entity, double distance) {
+		return !entity.getEntrance().isBuried() && super.shouldShowName(entity, distance);
+	}
+	*/
+	//?} elif >=1.17 {
 	public RancherEntityRenderer(EntityRendererFactory.Context context) {
 		super(context, new VillagerResemblingModel<>(context.getPart(EntityModelLayers.VILLAGER)), 0.5F);
 		this.addFeature(new WorkerOverlayFeatureRenderer<>(this, entity -> skin(entity).hatTexture()));
@@ -43,13 +88,14 @@ public class RancherEntityRenderer extends MobEntityRenderer<RancherEntity, Vill
 	} */
 	//?}
 
+	private static WorkerSkin skin(RancherEntity entity) {
+		return WorkerSkin.get(WorkerSkin.RANCHER, entity.getSkin());
+	}
+
+	//? if <26.1 {
 	@Override
 	public Identifier getTexture(RancherEntity entity) {
 		return skin(entity).texture();
-	}
-
-	private static WorkerSkin skin(RancherEntity entity) {
-		return WorkerSkin.get(WorkerSkin.RANCHER, entity.getSkin());
 	}
 
 	/**
@@ -98,4 +144,5 @@ public class RancherEntityRenderer extends MobEntityRenderer<RancherEntity, Vill
 	protected boolean hasLabel(RancherEntity entity) {
 		return !entity.getEntrance().isBuried() && super.hasLabel(entity);
 	}
+	//?}
 }

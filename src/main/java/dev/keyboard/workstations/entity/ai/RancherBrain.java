@@ -1163,7 +1163,7 @@ public class RancherBrain {
 			item.setStack(remainder);
 		}
 
-		Mc.world(rancher).playSound(null, rancher.getBlockPos(), SoundEvents.ENTITY_ITEM_PICKUP,
+		Mc.world(rancher).playSound(null, Mc.blockPos(rancher), SoundEvents.ENTITY_ITEM_PICKUP,
 				SoundCategory.NEUTRAL, 0.15F,
 				(rancher.getRandom().nextFloat() - rancher.getRandom().nextFloat()) * 1.4F + 2.0F);
 		phaseWorked = true;
@@ -1297,7 +1297,7 @@ public class RancherBrain {
 		}
 
 		if (rancher.getSettings().playFeedSound) {
-			world.playSound(null, animal.getBlockPos(), SoundEvents.ENTITY_GENERIC_EAT, SoundCategory.NEUTRAL, 0.5F,
+			world.playSound(null, Mc.blockPos(animal), SoundEvents.ENTITY_GENERIC_EAT, SoundCategory.NEUTRAL, 0.5F,
 					world.random.nextFloat() * 0.2F + 0.9F);
 		}
 

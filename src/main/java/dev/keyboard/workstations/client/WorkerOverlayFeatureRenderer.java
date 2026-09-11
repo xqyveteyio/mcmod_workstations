@@ -8,7 +8,9 @@ import net.minecraft.client.render.entity.feature.FeatureRenderer;
 import net.minecraft.client.render.entity.feature.FeatureRendererContext;
 import net.minecraft.client.render.entity.model.VillagerResemblingModel;
 import net.minecraft.client.util.math.MatrixStack;
+//? if <26.1 {
 import net.minecraft.entity.LivingEntity;
+//?}
 import net.minecraft.util.Identifier;
 
 import java.util.function.Function;
@@ -25,6 +27,36 @@ import java.util.function.Function;
  * <p>Asked for the texture per entity rather than given one, since two workers of the same kind can
  * be dressed differently by their own stations.
  */
+//? if >=26.1 {
+/* public class WorkerOverlayFeatureRenderer extends FeatureRenderer<WorkerRenderState, VillagerResemblingModel> {
+	private final Function<WorkerRenderState, Identifier> texture;
+
+	public WorkerOverlayFeatureRenderer(FeatureRendererContext<WorkerRenderState, VillagerResemblingModel> context,
+			Function<WorkerRenderState, Identifier> texture) {
+		super(context);
+		this.texture = texture;
+	}
+
+	@Override
+	public void submit(MatrixStack matrices, net.minecraft.client.renderer.SubmitNodeCollector collector, int light,
+			WorkerRenderState state, float limbAngle, float limbDistance) {
+		Identifier hat = texture.apply(state);
+
+		if (hat == null || state.isInvisible) {
+			return;
+		}
+
+		collector.submitModel(getParentModel(), state, matrices, hat, light, OverlayTexture.DEFAULT_UV, 0, null);
+	}
+}
+
+class WorkerRenderState extends net.minecraft.client.renderer.entity.state.VillagerRenderState {
+	public Identifier texture;
+	public Identifier hatTexture;
+	public double sink;
+}
+*/
+//?} else {
 public class WorkerOverlayFeatureRenderer<T extends LivingEntity>
 		extends FeatureRenderer<T, VillagerResemblingModel<T>> {
 	private final Function<T, Identifier> texture;
@@ -51,3 +83,4 @@ public class WorkerOverlayFeatureRenderer<T extends LivingEntity>
 		//?}
 	}
 }
+//?}
