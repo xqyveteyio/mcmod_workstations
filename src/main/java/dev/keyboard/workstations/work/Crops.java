@@ -136,6 +136,11 @@ public final class Crops {
 		return state.getBlock() instanceof CropBlock crop && crop.isMaxAge(state);
 	}
 
+	/** Whether a plot has a crop that is not yet ripe, which is what bone meal is aimed at. */
+	public static boolean isGrowing(BlockGetter world, BlockPos plot) {
+		return growingOn(world, plot) != null && !isRipe(world, plot);
+	}
+
 	public static boolean isMushroom(BlockState state) {
 		return MUSHROOMS.contains(state.getBlock());
 	}

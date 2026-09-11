@@ -97,7 +97,7 @@ public class LumberBlockEntity extends WorkStationBlockEntity<LumberjackEntity, 
 
 	/** One look at the wood, for the lumberjack to pick work from and for placement to count trees. */
 	public WoodsSurvey surveyWoods(ServerLevel world) {
-		return WoodsSurvey.of(world, getWorkArea(), stumps, settings.autoPlanting, settings.breakLeaves);
+		return WoodsSurvey.of(world, getWorkArea(), stumps, settings.autoPlanting);
 	}
 
 	public Set<BlockPos> getStumps() {

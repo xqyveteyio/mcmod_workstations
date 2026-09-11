@@ -4,6 +4,7 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.IdentityHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -22,7 +23,9 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.LevelReader;
+import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.LeavesBlock;
 import net.minecraft.world.level.block.SaplingBlock;
 import net.minecraft.world.level.block.grower.TreeGrower;
 import net.minecraft.world.level.block.state.BlockState;
@@ -39,18 +42,18 @@ import net.minecraft.world.level.block.state.BlockState;
  * leaves is a building or a leftover; a log with planks, stairs or a door against it is a post,
  * even when a real tree has grown in against the wall.
  *
- * <p>A tree is gathered by flood-filling from a log. The fill walks every neighbouring log,
- * including diagonally and down, because a branch is still part of the same tree when it steps
- * sideways or dips; stopping at the six cardinal faces would leave an acacia half standing. The
+ * <p>A tree is gathered by flood-filling from a log. The fill walks every neighbouring log of
+ * the same wood, including diagonally and down, because a branch is still part of the same tree
+ * when it steps sideways or dips; stopping at the six cardinal faces would leave an acacia half
+ * standing, and walking into a birch because it touched an oak would fell two trees as one. The
  * walk is capped so a giant jungle or a mod's world tree cannot hold the tick hostage.
  *
- * <p>Whether the canopy comes down with the trunk is a station setting. Decay is random and only
- * runs while a leaf is still near a log, so a tree whose last log has just gone can sit for a
- * long time dropping nothing, and the saplings the lumberjack needs to replant come out of the
- * leaf loot table. Breaking the leaves makes that harvest immediate and reliable; leaving them
- * is cheaper and quieter, and replanting then runs on whatever saplings the station already
- * holds. The flood fill that would walk the canopy is skipped entirely when the setting is off.
- * The same cap applies when it is on, and only tagged leaves are broken.
+ * <p>The canopy always comes down with the trunk: nether hats never decay, and overworld leaves
+ * left to vanilla would drip saplings for a minute after the wood was already empty. The box
+ * around those logs is the same extents Tree Harvester uses: three blocks out in the overworld,
+ * five in the nether, one below the stump and five above the highest log. A leaf still sitting
+ * within two of another tree's log is left for that tree. Matching leaf blocks keeps a birch
+ * from taking the oak beside it.
  */
 public final class Woods {
 	/**
@@ -59,14 +62,30 @@ public final class Woods {
 	 * rather than walked in one tick.
 	 */
 	public static final int MAX_LOGS = 256;
-	/** Same bound for the canopy, which is usually several times the trunk. */
-	public static final int MAX_LEAVES = 256;
 	/**
-	 * How far a leaf may sit from a log of this tree and still be taken. Vanilla's own leaf
-	 * distance tops out at 7; staying inside that keeps a neighbouring tree's canopy, which is
-	 * equally close to its own trunk, from being stolen.
+	 * Bound on how many canopy blocks one tree may take. The box around a large fungus or a
+	 * 2x2 jungle is several times the trunk; this keeps a mod's world tree from holding the tick.
 	 */
-	public static final int LEAF_REACH = 6;
+	public static final int MAX_LEAVES = 1024;
+	/**
+	 * How far the canopy box extends from the trunk in the overworld, matching Tree Harvester.
+	 * Branches already widen the box; this is the extra around the outermost log.
+	 */
+	public static final int LEAF_PAD = 3;
+	/**
+	 * The same extra in the nether. A huge fungus hat is a hollow shell up to four across, so
+	 * the overworld pad would leave most of it standing after the stem came down.
+	 */
+	public static final int FUNGUS_PAD = 5;
+	/** Blocks above the highest log that still count as this tree's canopy. */
+	public static final int CANOPY_ABOVE = 5;
+	/** Blocks below the lowest log, so hanging mangrove leaves and weeping vines are not missed. */
+	public static final int CANOPY_BELOW = 1;
+	/**
+	 * A leaf this close to a log that is not this tree's is left standing. Tree Harvester uses
+	 * the same gap so two trunks side by side do not steal each other's hats.
+	 */
+	public static final int FOREIGN_LOG_KEEP = 2;
 	/** Air a sapling wants above it before it is worth planting, in blocks. */
 	public static final int GROW_HEIGHT = 7;
 	/** Light a sapling needs to grow, matching vanilla's own random-tick gate. */
@@ -90,11 +109,61 @@ public final class Woods {
 	}
 
 	public static boolean isLog(BlockState state) {
-		return state.is(BlockTags.LOGS);
+		return state.is(BlockTags.LOGS) || isMangroveRoot(state);
 	}
 
 	public static boolean isLeaves(BlockState state) {
-		return state.is(BlockTags.LEAVES) || state.is(BlockTags.WART_BLOCKS);
+		return state.is(BlockTags.LEAVES) || isFungusCanopy(state);
+	}
+
+	/**
+	 * The nether equivalent of a leaf, matching Tree Harvester: wart blocks of the hat and the
+	 * shroomlights grown into it. Weeping vines hang off a crimson hat in the same box, so they
+	 * come down with it; twisting vines grow from the ground and would walk a warped forest into
+	 * one canopy.
+	 */
+	private static boolean isFungusCanopy(BlockState state) {
+		return state.is(BlockTags.WART_BLOCKS)
+				|| state.is(Blocks.SHROOMLIGHT)
+				|| state.is(Blocks.WEEPING_VINES)
+				|| state.is(Blocks.WEEPING_VINES_PLANT);
+	}
+
+	private static boolean isMangroveRoot(BlockState state) {
+		return state.is(Blocks.MANGROVE_ROOTS) || state.is(Blocks.MUDDY_MANGROVE_ROOTS);
+	}
+
+	private static boolean isNetherStem(BlockState state) {
+		return state.is(BlockTags.CRIMSON_STEMS) || state.is(BlockTags.WARPED_STEMS);
+	}
+
+	/**
+	 * Whether two trunk blocks are the same wood. Oak must not walk into birch because the
+	 * trunks touched. Mangrove roots are the same wood as mangrove logs; crimson stem and
+	 * hyphae are one fungus.
+	 */
+	private static boolean sameWood(BlockState a, BlockState b) {
+		return woodKey(a).equals(woodKey(b));
+	}
+
+	private static String woodKey(BlockState state) {
+		String path = BuiltInRegistries.BLOCK.getKey(state.getBlock()).getPath();
+
+		if (path.contains("mangrove")) {
+			return "mangrove";
+		}
+
+		for (String suffix : new String[] {"_log", "_wood", "_stem", "_hyphae", "_roots"}) {
+			if (path.endsWith(suffix)) {
+				return path.substring(0, path.length() - suffix.length());
+			}
+		}
+
+		return path;
+	}
+
+	private static boolean isPersistent(BlockState state) {
+		return state.hasProperty(LeavesBlock.PERSISTENT) && state.getValue(LeavesBlock.PERSISTENT);
 	}
 
 	/**
@@ -299,17 +368,15 @@ public final class Woods {
 	 * <p>Logs outside the work area are still taken once the fill has started: leaving a trunk
 	 * standing because a branch crossed the line would be a tree half felled, and the cap is what
 	 * stops that from walking the rest of the world.
-	 *
-	 * @param includeLeaves whether to walk the canopy. Off leaves the list empty, which is a
-	 * tree the lumberjack will fell for its logs and otherwise leave standing to decay.
 	 */
-	public static Tree gather(ServerLevel world, BlockPos start, boolean includeLeaves) {
+	public static Tree gather(ServerLevel world, BlockPos start) {
 		List<BlockPos> logs = new ArrayList<>();
 		Set<BlockPos> seen = new LinkedHashSet<>();
 		Queue<BlockPos> queue = new ArrayDeque<>();
 		queue.add(start.immutable());
 		seen.add(start.immutable());
 
+		BlockState wood = world.getBlockState(start);
 		BlockPos.MutableBlockPos cursor = new BlockPos.MutableBlockPos();
 
 		while (!queue.isEmpty() && logs.size() < MAX_LOGS) {
@@ -319,7 +386,7 @@ public final class Woods {
 				continue;
 			}
 
-			if (!isTrunkLog(world, current)) {
+			if (!isTrunkLog(world, current) || !sameWood(wood, world.getBlockState(current))) {
 				continue;
 			}
 
@@ -361,7 +428,7 @@ public final class Woods {
 			return new Tree(stumpOf(world, logs), logs, List.of(), false);
 		}
 
-		return new Tree(stumpOf(world, logs), logs, includeLeaves ? foundLeaves : List.of(), true);
+		return new Tree(stumpOf(world, logs), logs, foundLeaves, true);
 	}
 
 	/**
@@ -385,45 +452,128 @@ public final class Woods {
 	}
 
 	/**
-	 * Leaves hanging off these logs, walked the way vanilla walks leaf distance: six faces, and
-	 * only as far as a leaf can sit from a log before it would decay on its own.
+	 * Canopy hanging off these logs. Tree Harvester does not walk leaf distance: it takes the
+	 * box around the trunk (three out, or five for a nether hat, one below and five above) and
+	 * leaves standing anything still within two of another tree's log. Overworld leaves have to
+	 * match the hat above this trunk so a birch does not take the oak beside it.
 	 */
 	private static List<BlockPos> canopy(ServerLevel world, List<BlockPos> logs) {
-		List<BlockPos> leaves = new ArrayList<>();
-		Set<BlockPos> seen = new LinkedHashSet<>(logs);
-		Queue<LeafStep> queue = new ArrayDeque<>();
+		int minX = Integer.MAX_VALUE;
+		int minY = Integer.MAX_VALUE;
+		int minZ = Integer.MAX_VALUE;
+		int maxX = Integer.MIN_VALUE;
+		int maxY = Integer.MIN_VALUE;
+		int maxZ = Integer.MIN_VALUE;
+		boolean nether = false;
 
 		for (BlockPos log : logs) {
-			queue.add(new LeafStep(log, 0));
+			minX = Math.min(minX, log.getX());
+			minY = Math.min(minY, log.getY());
+			minZ = Math.min(minZ, log.getZ());
+			maxX = Math.max(maxX, log.getX());
+			maxY = Math.max(maxY, log.getY());
+			maxZ = Math.max(maxZ, log.getZ());
+			nether = nether || isNetherStem(world.getBlockState(log));
 		}
 
-		BlockPos.MutableBlockPos cursor = new BlockPos.MutableBlockPos();
+		int pad = nether ? FUNGUS_PAD : LEAF_PAD;
+		Block kind = nether ? null : canopyKind(world, logs);
+		Set<BlockPos> ours = new HashSet<>(logs);
+		List<BlockPos> leaves = new ArrayList<>();
 
-		while (!queue.isEmpty() && leaves.size() < MAX_LEAVES) {
-			LeafStep step = queue.poll();
+		for (BlockPos pos : BlockPos.betweenClosed(
+				minX - pad, minY - CANOPY_BELOW, minZ - pad,
+				maxX + pad, maxY + CANOPY_ABOVE, maxZ + pad)) {
+			if (leaves.size() >= MAX_LEAVES) {
+				break;
+			}
 
-			if (step.distance >= LEAF_REACH) {
+			if (!world.hasChunk(pos.getX() >> 4, pos.getZ() >> 4)) {
 				continue;
 			}
 
-			for (Direction face : Direction.values()) {
-				cursor.set(step.pos).move(face);
-				BlockPos next = cursor.immutable();
+			BlockState state = world.getBlockState(pos);
 
-				if (!seen.add(next) || !world.hasChunk(next.getX() >> 4, next.getZ() >> 4)) {
-					continue;
-				}
-
-				if (!isLeaves(world.getBlockState(next))) {
-					continue;
-				}
-
-				leaves.add(next);
-				queue.add(new LeafStep(next, step.distance + 1));
+			if (!isLeaves(state) || isPersistent(state)) {
+				continue;
 			}
+
+			if (nether) {
+				if (!isFungusCanopy(state)) {
+					continue;
+				}
+			} else if (kind != null && state.getBlock() != kind) {
+				continue;
+			}
+
+			if (foreignLogNearby(world, pos, ours)) {
+				continue;
+			}
+
+			leaves.add(pos.immutable());
 		}
 
 		return leaves;
+	}
+
+	/**
+	 * The leaf block sitting on this trunk, which is what Tree Harvester uses to tell two
+	 * neighbouring woods apart. Nothing above the highest log is a nether hat, or a tree whose
+	 * leaves have already gone.
+	 */
+	@Nullable
+	private static Block canopyKind(ServerLevel world, List<BlockPos> logs) {
+		BlockPos highest = logs.get(0);
+
+		for (BlockPos log : logs) {
+			if (log.getY() > highest.getY()
+					|| (log.getY() == highest.getY() && log.asLong() < highest.asLong())) {
+				highest = log;
+			}
+		}
+
+		BlockState above = world.getBlockState(highest.above());
+
+		if (isLeaves(above) && !isPersistent(above)) {
+			return above.getBlock();
+		}
+
+		for (Direction face : Direction.values()) {
+			if (face == Direction.DOWN) {
+				continue;
+			}
+
+			BlockState around = world.getBlockState(highest.relative(face));
+
+			if (isLeaves(around) && !isPersistent(around)) {
+				return around.getBlock();
+			}
+		}
+
+		return null;
+	}
+
+	/** Whether another tree's log still sits within {@link #FOREIGN_LOG_KEEP} of this leaf. */
+	private static boolean foreignLogNearby(ServerLevel world, BlockPos pos, Set<BlockPos> ours) {
+		BlockPos.MutableBlockPos cursor = new BlockPos.MutableBlockPos();
+
+		for (int dy = -FOREIGN_LOG_KEEP; dy <= FOREIGN_LOG_KEEP; dy++) {
+			for (int dx = -FOREIGN_LOG_KEEP; dx <= FOREIGN_LOG_KEEP; dx++) {
+				for (int dz = -FOREIGN_LOG_KEEP; dz <= FOREIGN_LOG_KEEP; dz++) {
+					cursor.set(pos.getX() + dx, pos.getY() + dy, pos.getZ() + dz);
+
+					if (ours.contains(cursor) || !world.hasChunk(cursor.getX() >> 4, cursor.getZ() >> 4)) {
+						continue;
+					}
+
+					if (isLog(world.getBlockState(cursor))) {
+						return true;
+					}
+				}
+			}
+		}
+
+		return false;
 	}
 
 	/**
@@ -566,13 +716,9 @@ public final class Woods {
 		return state.canBeReplaced() && state.getFluidState().isEmpty();
 	}
 
-	private record LeafStep(BlockPos pos, int distance) {
-	}
-
 	/**
 	 * One tree, already walked: the stump to stand at, the logs to break, and the leaves that
-	 * will drop the saplings. The leaf list is empty when the station is leaving the canopy
-	 * to decay, which is still a usable tree — there is simply nothing to break after the trunk.
+	 * will drop the saplings.
 	 *
 	 * <p>{@code grown} is whether this was a tree at all. A walk that found only posts or a pile
 	 * of logs still names those blocks so the survey can mark them seen, but it is not something
@@ -596,24 +742,19 @@ public final class Woods {
 		}
 
 		/**
-		 * Every block of this tree in the order it comes down: canopy first, trunk after.
+		 * Every block of this tree in the order it comes down: trunk first, canopy after.
 		 *
-		 * <p>Leaves before logs so the tree is never left standing as a canopy with nothing under
-		 * it. That is the state vanilla decay works on, and decay gives up its saplings and sticks
-		 * a few at a time over a minute or more — which reads as a worker walking back for one
-		 * item, over and over, long after the tree is down. Taking the canopy while the trunk is
-		 * still there puts the whole harvest on the ground at once, for one sweep to collect.
+		 * <p>Logs before leaves so the tree falls the way a lumberjack fells it. The hat is
+		 * cleared on the same job once the trunk is gone, which is also what keeps a nether
+		 * fungus from standing as a floating wart block after its stem has been taken.
 		 *
-		 * <p>It also keeps the trunk standing for the length of the job, so the felling cannot be
-		 * called finished while there is still canopy to take.
-		 *
-		 * <p>The list is empty of leaves when the station is leaving the canopy to decay, which
-		 * makes this the trunk on its own.
+		 * <p>The cursor walks this whole list before the felling is called finished, so a trunk
+		 * that has already come down does not walk the worker off and leave the canopy hanging.
 		 */
 		public List<BlockPos> falling() {
 			List<BlockPos> order = new ArrayList<>(leaves.size() + logs.size());
-			order.addAll(leaves);
 			order.addAll(logs);
+			order.addAll(leaves);
 			return order;
 		}
 	}

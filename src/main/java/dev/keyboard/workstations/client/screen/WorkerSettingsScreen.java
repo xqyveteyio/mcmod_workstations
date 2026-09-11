@@ -22,6 +22,7 @@ import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.CommonComponents;
 import net.minecraft.network.chat.Component;
+import net.minecraft.util.ARGB;
 import net.minecraft.util.Mth;
 import net.minecraft.world.item.Item;
 
@@ -247,7 +248,8 @@ public abstract class WorkerSettingsScreen<S extends WorkerSettings<S>> extends 
 		@Override
 		public void extractContent(GuiGraphicsExtractor context, int mouseX, int mouseY, boolean hovered,
 				float tickDelta) {
-			context.text(font, label, getContentX(), getY() + (getHeight() - font.lineHeight) / 2, 0xFFFFFF);
+			context.text(font, label, getContentX(), getY() + (getHeight() - font.lineHeight) / 2,
+					ARGB.opaque(0xFFFFFF));
 
 			if (control != null) {
 				control.setX(getContentX() + getContentWidth() - CONTROL_WIDTH);
