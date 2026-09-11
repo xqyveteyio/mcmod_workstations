@@ -22,3 +22,5 @@ Headless server smoke test has been run successfully with:
 ```bash
 ./gradlew runServer --no-daemon
 ```
+
+sdk use java 17.0.16-tem
