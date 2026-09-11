@@ -107,7 +107,7 @@
 	"config.keyboard_workstations.enable_chopping": "砍伐树木",
 	"config.keyboard_workstations.enable_chopping.tooltip": "在工作范围内走动，砍倒其中的每一棵树。原木总会被砍下；属于这该树的树叶是否一齐打碎则是另一项设置。不属于原木或树叶标签的木板、栅栏等制品会无视。",
 	"config.keyboard_workstations.break_leaves": "打碎树叶",
-	"config.keyboard_workstations.break_leaves.tooltip": "开：砍倒一棵树后，连同属于它的树叶一起打碎，树苗会马上掉下来，可以立刻补种。\n关：只砍原木，树冠留给游戏自己凋落。伐木工则无法及时拿到树苗，补种只能使用工作站&种子箱内已有的树苗。",
+	"config.keyboard_workstations.break_leaves.tooltip": "开：砍倒一棵树后，连同属于它的树叶一起打碎，树苗会马上掉下来，可以立刻补种。下界菌菇帽子也算树冠：疣块、菌光体，以及绯红菌菇上垂下来的垂泪藤。它们不会自己凋落，所以只有开着这项才会被拆掉。\n关：只砍原木，树冠留给游戏自己凋落。伐木工则无法及时拿到树苗，补种只能使用工作站&种子箱内已有的树苗。",
 	"config.keyboard_workstations.enable_replanting": "补种树苗",
 	"config.keyboard_workstations.enable_replanting.tooltip": "树倒下后重新种上树苗。种哪一种取决于工作站&种子箱里的存货和“树苗”页的比例。是否消耗树苗遵循全局的消耗种子规则。",
 	"config.keyboard_workstations.auto_planting": "自动栽种",

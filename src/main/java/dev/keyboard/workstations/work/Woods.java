@@ -50,8 +50,15 @@ import java.util.Set;
  * long time dropping nothing, and the saplings the lumberjack needs to replant come out of the
  * leaf loot table. Breaking the leaves makes that harvest immediate and reliable; leaving them
  * is cheaper and quieter, and replanting then runs on whatever saplings the station already
- * holds. The flood fill that would walk the canopy is skipped entirely when the setting is off.
- * The same cap applies when it is on, and only tagged leaves are broken.
+ * holds. The flood fill that would walk the canopy is skipped entirely when the setting is off,
+ * save for finding one block so the walk can tell a real tree from a pile of posts.
+ *
+ * <p>A huge fungus is the same job in the nether. Its hat is wart blocks, not tagged leaves,
+ * and those blocks never decay, so the setting that takes the canopy is the only way they
+ * come down. The hat is a hollow shell around the stem, wider than an oak's crown, so walking
+ * it as if it were leaf distance would stop on the cap and leave the rest hanging. Fungus
+ * canopy is therefore walked out to a Chebyshev bound from this trunk instead, still starting
+ * from the stem so a wart farm on the ground is not eaten with it.
  */
 public final class Woods {
 	/**
@@ -60,14 +67,23 @@ public final class Woods {
 	 * rather than walked in one tick.
 	 */
 	public static final int MAX_LOGS = 256;
-	/** Same bound for the canopy, which is usually several times the trunk. */
-	public static final int MAX_LEAVES = 256;
+	/**
+	 * Same bound for the canopy. A huge fungus hat is a hollow shell several blocks across and
+	 * several high, so the old oak-sized cap left most of it standing after the stem came down.
+	 */
+	public static final int MAX_LEAVES = 1024;
 	/**
 	 * How far a leaf may sit from a log of this tree and still be taken. Vanilla's own leaf
 	 * distance tops out at 7; staying inside that keeps a neighbouring tree's canopy, which is
 	 * equally close to its own trunk, from being stolen.
 	 */
 	public static final int LEAF_REACH = 6;
+	/**
+	 * Chebyshev gap from this fungus's own stem a hat block may sit and still be taken. Vanilla
+	 * huge fungi grow a hat of radius four; a little extra covers weeping vines hanging off the
+	 * rim without walking a crimson forest's connected wart into one job.
+	 */
+	public static final int FUNGUS_REACH = 8;
 	/** Air a sapling wants above it before it is worth planting, in blocks. */
 	public static final int GROW_HEIGHT = 7;
 	/** Light a sapling needs to grow, matching vanilla's own random-tick gate. */
@@ -95,7 +111,19 @@ public final class Woods {
 	}
 
 	public static boolean isLeaves(BlockState state) {
-		return state.isIn(BlockTags.LEAVES) || state.isIn(BlockTags.WART_BLOCKS);
+		return state.isIn(BlockTags.LEAVES) || isFungusCanopy(state);
+	}
+
+	/**
+	 * The nether equivalent of a leaf: wart blocks of the hat, the shroomlights grown into it,
+	 * and weeping vines hanging from a crimson one. Twisting vines are left out — they grow up
+	 * from the ground and would walk a warped forest into one canopy.
+	 */
+	private static boolean isFungusCanopy(BlockState state) {
+		return state.isIn(BlockTags.WART_BLOCKS)
+				|| state.isOf(Blocks.SHROOMLIGHT)
+				|| state.isOf(Blocks.WEEPING_VINES)
+				|| state.isOf(Blocks.WEEPING_VINES_PLANT);
 	}
 
 	/**
@@ -309,8 +337,9 @@ public final class Woods {
 	 * standing because a branch crossed the line would be a tree half felled, and the cap is what
 	 * stops that from walking the rest of the world.
 	 *
-	 * @param includeLeaves whether to walk the canopy. Off leaves the list empty, which is a
-	 * tree the lumberjack will fell for its logs and otherwise leave standing to decay.
+	 * @param includeLeaves whether to take the canopy. Off still looks for one canopy block so
+	 * a hat can mark the trunk as a tree, then leaves the list empty so the lumberjack fells
+	 * the logs and otherwise leaves the hat standing.
 	 */
 	public static Tree gather(ServerWorld world, BlockPos start, boolean includeLeaves) {
 		List<BlockPos> logs = new ArrayList<>();
@@ -362,7 +391,7 @@ public final class Woods {
 			return new Tree(start.toImmutable(), List.of(start.toImmutable()), List.of(), false);
 		}
 
-		List<BlockPos> foundLeaves = canopy(world, logs);
+		List<BlockPos> foundLeaves = canopy(world, logs, includeLeaves);
 
 		// No canopy is a building, a leftover pile, or a trunk whose leaves have already gone.
 		// None of those are a tree: chopping them is how a village loses its posts.
@@ -394,10 +423,15 @@ public final class Woods {
 	}
 
 	/**
-	 * Leaves hanging off these logs, walked the way vanilla walks leaf distance: six faces, and
-	 * only as far as a leaf can sit from a log before it would decay on its own.
+	 * Canopy hanging off these logs. Overworld leaves are walked the way vanilla walks leaf
+	 * distance: six faces, and only as far as a leaf can sit from a log before it would decay
+	 * on its own. A fungus hat is walked the same faces, but distance is Chebyshev from this
+	 * trunk — the hat is hollow, so a leaf-style path from the stem dies on the cap.
+	 *
+	 * @param collect whether to take the whole hat. Off stops at the first canopy block, which
+	 * is enough to tell a tree from a pile and cheap enough to run every look.
 	 */
-	private static List<BlockPos> canopy(ServerWorld world, List<BlockPos> logs) {
+	private static List<BlockPos> canopy(ServerWorld world, List<BlockPos> logs, boolean collect) {
 		List<BlockPos> leaves = new ArrayList<>();
 		Set<BlockPos> seen = new LinkedHashSet<>(logs);
 		Queue<LeafStep> queue = new ArrayDeque<>();
@@ -411,10 +445,6 @@ public final class Woods {
 		while (!queue.isEmpty() && leaves.size() < MAX_LEAVES) {
 			LeafStep step = queue.poll();
 
-			if (step.distance >= LEAF_REACH) {
-				continue;
-			}
-
 			for (Direction face : Direction.values()) {
 				cursor.set(step.pos).move(face);
 				BlockPos next = cursor.toImmutable();
@@ -423,16 +453,50 @@ public final class Woods {
 					continue;
 				}
 
-				if (!isLeaves(world.getBlockState(next))) {
+				BlockState state = world.getBlockState(next);
+
+				if (!isLeaves(state)) {
+					continue;
+				}
+
+				int distance = step.distance + 1;
+
+				if (isFungusCanopy(state)) {
+					if (chebyshevToNearest(next, logs) > FUNGUS_REACH) {
+						continue;
+					}
+				} else if (distance > LEAF_REACH) {
 					continue;
 				}
 
 				leaves.add(next);
-				queue.add(new LeafStep(next, step.distance + 1));
+
+				if (!collect) {
+					return leaves;
+				}
+
+				queue.add(new LeafStep(next, distance));
 			}
 		}
 
 		return leaves;
+	}
+
+	/** Chebyshev distance from {@code pos} to the nearest log of this tree. */
+	private static int chebyshevToNearest(BlockPos pos, List<BlockPos> logs) {
+		int best = Integer.MAX_VALUE;
+
+		for (BlockPos log : logs) {
+			int gap = Math.max(
+					Math.abs(pos.getX() - log.getX()),
+					Math.max(Math.abs(pos.getY() - log.getY()), Math.abs(pos.getZ() - log.getZ())));
+
+			if (gap < best) {
+				best = gap;
+			}
+		}
+
+		return best;
 	}
 
 	/**
