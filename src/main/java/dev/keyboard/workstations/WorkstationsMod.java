@@ -2,6 +2,8 @@ package dev.keyboard.workstations;
 
 import dev.keyboard.workstations.block.FarmBlock;
 import dev.keyboard.workstations.block.FarmBlockEntity;
+import dev.keyboard.workstations.block.FeedBarrelBlock;
+import dev.keyboard.workstations.block.FeedBarrelBlockEntity;
 import dev.keyboard.workstations.block.LumberBlock;
 import dev.keyboard.workstations.block.LumberBlockEntity;
 import dev.keyboard.workstations.block.MilkBarrelBlock;
@@ -54,6 +56,7 @@ public class WorkstationsMod implements ModInitializer {
 	public static final Identifier LUMBER_ID = id("lumber_station");
 	public static final Identifier LUMBERJACK_ID = id("lumberjack");
 	public static final Identifier MILK_BARREL_ID = id("milk_barrel");
+	public static final Identifier FEED_BARREL_ID = id("feed_barrel");
 	public static final Identifier SEED_BOX_ID = id("seed_box");
 	public static final Identifier UNIVERSAL_FEED_ID = id("universal_feed");
 	public static final Identifier GROUP_ID = id("keyboard_workstations");
@@ -62,12 +65,14 @@ public class WorkstationsMod implements ModInitializer {
 	public static final FarmBlock FARM_BLOCK = new FarmBlock(stationSettings());
 	public static final LumberBlock LUMBER_BLOCK = new LumberBlock(stationSettings());
 	public static final MilkBarrelBlock MILK_BARREL_BLOCK = new MilkBarrelBlock(barrelSettings());
+	public static final FeedBarrelBlock FEED_BARREL_BLOCK = new FeedBarrelBlock(barrelSettings());
 	public static final SeedBoxBlock SEED_BOX_BLOCK = new SeedBoxBlock(chestSettings());
 
 	public static final BlockItem RANCH_ITEM = new BlockItem(RANCH_BLOCK, new Item.Settings());
 	public static final BlockItem FARM_ITEM = new BlockItem(FARM_BLOCK, new Item.Settings());
 	public static final BlockItem LUMBER_ITEM = new BlockItem(LUMBER_BLOCK, new Item.Settings());
 	public static final BlockItem MILK_BARREL_ITEM = new BlockItem(MILK_BARREL_BLOCK, new Item.Settings());
+	public static final BlockItem FEED_BARREL_ITEM = new BlockItem(FEED_BARREL_BLOCK, new Item.Settings());
 	public static final BlockItem SEED_BOX_ITEM = new BlockItem(SEED_BOX_BLOCK, new Item.Settings());
 	public static final Item UNIVERSAL_FEED = new Item(new Item.Settings());
 
@@ -84,6 +89,7 @@ public class WorkstationsMod implements ModInitializer {
 				entries.add(FARM_ITEM);
 				entries.add(LUMBER_ITEM);
 				entries.add(MILK_BARREL_ITEM);
+				entries.add(FEED_BARREL_ITEM);
 				entries.add(SEED_BOX_ITEM);
 				entries.add(UNIVERSAL_FEED);
 			})
@@ -93,6 +99,7 @@ public class WorkstationsMod implements ModInitializer {
 	public static BlockEntityType<FarmBlockEntity> FARM_BLOCK_ENTITY;
 	public static BlockEntityType<LumberBlockEntity> LUMBER_BLOCK_ENTITY;
 	public static BlockEntityType<MilkBarrelBlockEntity> MILK_BARREL_BLOCK_ENTITY;
+	public static BlockEntityType<FeedBarrelBlockEntity> FEED_BARREL_BLOCK_ENTITY;
 	public static BlockEntityType<SeedBoxBlockEntity> SEED_BOX_BLOCK_ENTITY;
 	public static EntityType<RancherEntity> RANCHER;
 	public static EntityType<FarmerEntity> FARMER;
@@ -178,6 +185,11 @@ public class WorkstationsMod implements ModInitializer {
 		Registry.register(Registries.ITEM, MILK_BARREL_ID, MILK_BARREL_ITEM);
 		MILK_BARREL_BLOCK_ENTITY = Registry.register(Registries.BLOCK_ENTITY_TYPE, MILK_BARREL_ID,
 				FabricBlockEntityTypeBuilder.create(MilkBarrelBlockEntity::new, MILK_BARREL_BLOCK).build());
+
+		Registry.register(Registries.BLOCK, FEED_BARREL_ID, FEED_BARREL_BLOCK);
+		Registry.register(Registries.ITEM, FEED_BARREL_ID, FEED_BARREL_ITEM);
+		FEED_BARREL_BLOCK_ENTITY = Registry.register(Registries.BLOCK_ENTITY_TYPE, FEED_BARREL_ID,
+				FabricBlockEntityTypeBuilder.create(FeedBarrelBlockEntity::new, FEED_BARREL_BLOCK).build());
 
 		Registry.register(Registries.BLOCK, SEED_BOX_ID, SEED_BOX_BLOCK);
 		Registry.register(Registries.ITEM, SEED_BOX_ID, SEED_BOX_ITEM);

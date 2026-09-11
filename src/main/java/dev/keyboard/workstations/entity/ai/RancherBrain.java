@@ -788,14 +788,14 @@ public class RancherBrain {
 		}
 
 		HerdSurvey.FeedPlan plan = nearestPlan(rancher, world,
-				survey(world, area).feedPlans(config), station);
+				survey(world, area).feedPlans(config), station.feedStores());
 		return plan != null && takeFeed(plan);
 	}
 
 	private boolean takeGrow(RancherEntity rancher, ServerWorld world, WorkArea area,
 			RanchBlockEntity station) {
 		AnimalEntity baby = nearestReachable(rancher, world,
-				filterFeedable(unserved(survey(world, area).babyCandidates()), station),
+				filterFeedable(unserved(survey(world, area).babyCandidates()), station.feedStores()),
 				ANIMAL_PATH_DISTANCE);
 		return baby != null && take(Job.GROW, baby);
 	}
@@ -879,11 +879,11 @@ public class RancherBrain {
 	 */
 	@Nullable
 	private HerdSurvey.FeedPlan nearestPlan(RancherEntity rancher, ServerWorld world,
-			List<HerdSurvey.FeedPlan> plans, Inventory station) {
+			List<HerdSurvey.FeedPlan> plans, List<Inventory> stores) {
 		List<AnimalEntity> heads = new ArrayList<>(plans.size());
 
 		for (HerdSurvey.FeedPlan plan : plans) {
-			if (affordable(plan, station)) {
+			if (affordable(plan, stores)) {
 				heads.add(plan.first());
 			}
 		}
@@ -903,29 +903,10 @@ public class RancherBrain {
 		return null;
 	}
 
-	/** Whether the station holds a portion for every animal in the plan. */
-	private static boolean affordable(HerdSurvey.FeedPlan plan, Inventory station) {
-		if (!ModConfig.get().requireFeedItems) {
-			return true;
-		}
-
-		int found = 0;
-
-		for (int slot = 0; slot < station.size(); slot++) {
-			ItemStack stack = station.getStack(slot);
-
-			// Both halves are the same species, so one animal's taste speaks for the pair. A pairing
-			// may be paid for half in wheat and half in universal feed: either portion will serve.
-			if (feeds(stack, plan.first())) {
-				found += stack.getCount();
-
-				if (found >= plan.portions()) {
-					return true;
-				}
-			}
-		}
-
-		return false;
+	/** Whether the stores hold a portion for every animal in the plan. */
+	private static boolean affordable(HerdSurvey.FeedPlan plan, List<Inventory> stores) {
+		return !ModConfig.get().requireFeedItems
+				|| Stock.count(stores, stack -> feeds(stack, plan.first())) >= plan.portions();
 	}
 
 	/** Closest candidate the rancher can actually walk up to, nearest tried first. */
@@ -996,22 +977,20 @@ public class RancherBrain {
 		StationSettings config = station.getSettings();
 
 		if (ModConfig.get().requireFeedItems) {
-			int slot = findFeedSlot(station, animal);
+			Stock.Held helping = findFeed(station.feedStores(), animal);
 
-			if (slot < 0) {
+			if (helping == null) {
 				note = "no feed";
 				return true;
 			}
 
-			ItemStack eaten = station.removeStack(slot, 1);
+			ItemStack eaten = helping.take(1);
 			Item remainder = eaten.getItem().getRecipeRemainder();
 
 			if (remainder != null) {
 				// Buckets and bottles come back rather than vanishing into the animal.
 				keepOrDrop(rancher, new ItemStack(remainder));
 			}
-
-			station.markDirty();
 		}
 
 		rancher.swingHand(Hand.MAIN_HAND);
@@ -1312,42 +1291,28 @@ public class RancherBrain {
 		world.spawnParticles(ParticleTypes.HAPPY_VILLAGER, center.x, center.y, center.z, 4, 0.3, 0.3, 0.3, 0.0);
 	}
 
-	private static List<AnimalEntity> filterFeedable(List<AnimalEntity> animals, Inventory station) {
+	private static List<AnimalEntity> filterFeedable(List<AnimalEntity> animals, List<Inventory> stores) {
 		if (!ModConfig.get().requireFeedItems) {
 			return animals;
 		}
 
-		return animals.stream().filter(animal -> findFeedSlot(station, animal) >= 0).toList();
+		return animals.stream().filter(animal -> findFeed(stores, animal) != null).toList();
 	}
 
 	/**
-	 * The slot this animal's next helping comes out of, or -1 when the station holds nothing it
-	 * would take.
+	 * Where this animal's next helping comes from, or null when none of the stores hold anything
+	 * it would take.
 	 *
-	 * <p>What the animal eats of its own accord wins over universal feed wherever both are in the
-	 * station, so a chest stocked with wheat for the cows spends none of the crafted stuff on them.
-	 * Universal feed is then left for the animals nothing else in there would have fed.
+	 * <p>What the animal eats of its own accord wins over universal feed wherever both are on
+	 * offer, so a trough stocked with wheat for the cows spends none of the crafted stuff on
+	 * them. Universal feed is then left for the animals nothing else in there would have fed.
+	 *
+	 * <p>Troughs are searched before the station, matching {@link RanchBlockEntity#feedStores()}.
 	 */
-	private static int findFeedSlot(Inventory station, AnimalEntity animal) {
-		int universal = -1;
-
-		for (int slot = 0; slot < station.size(); slot++) {
-			ItemStack stack = station.getStack(slot);
-
-			if (stack.isEmpty()) {
-				continue;
-			}
-
-			if (animal.isBreedingItem(stack)) {
-				return slot;
-			}
-
-			if (universal < 0 && stack.isOf(WorkstationsMod.UNIVERSAL_FEED)) {
-				universal = slot;
-			}
-		}
-
-		return universal;
+	@Nullable
+	private static Stock.Held findFeed(List<Inventory> stores, AnimalEntity animal) {
+		Stock.Held liked = Stock.find(stores, animal::isBreedingItem);
+		return liked != null ? liked : Stock.find(stores, stack -> stack.isOf(WorkstationsMod.UNIVERSAL_FEED));
 	}
 
 	/** Whether one of these is a helping this animal will accept. */

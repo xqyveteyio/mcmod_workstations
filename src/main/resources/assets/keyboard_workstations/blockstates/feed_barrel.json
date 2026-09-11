@@ -1,0 +1,9 @@
+{
+	"variants": {
+		"level=0": { "model": "keyboard_workstations:block/feed_barrel" },
+		"level=1": { "model": "keyboard_workstations:block/feed_barrel_1" },
+		"level=2": { "model": "keyboard_workstations:block/feed_barrel_2" },
+		"level=3": { "model": "keyboard_workstations:block/feed_barrel_3" },
+		"level=4": { "model": "keyboard_workstations:block/feed_barrel_4" }
+	}
+}
