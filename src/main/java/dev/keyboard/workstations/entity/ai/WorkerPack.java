@@ -4,7 +4,6 @@ import dev.keyboard.workstations.work.WorkArea;
 import net.minecraft.entity.ItemEntity;
 import net.minecraft.entity.mob.MobEntity;
 import net.minecraft.inventory.SimpleInventory;
-import net.minecraft.item.ItemStack;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.util.math.Box;
 
@@ -110,29 +109,7 @@ public final class WorkerPack {
 
 	private static List<ItemEntity> looseIn(ServerWorld world, Box box, SimpleInventory pack) {
 		return world.getEntitiesByClass(ItemEntity.class, box,
-				item -> item.isAlive() && !item.cannotPickup() && canInsert(pack, item.getStack()));
-	}
-
-	/** Whether the pack still has a slot, or room in a matching stack, for {@code stack}. */
-	private static boolean canInsert(SimpleInventory pack, ItemStack stack) {
-		if (stack.isEmpty()) {
-			return false;
-		}
-
-		for (int slot = 0; slot < pack.size(); slot++) {
-			ItemStack existing = pack.getStack(slot);
-
-			if (existing.isEmpty()) {
-				return true;
-			}
-
-			if (ItemStack.canCombine(existing, stack)
-					&& existing.getCount() < Math.min(existing.getMaxCount(), pack.getMaxCountPerStack())) {
-				return true;
-			}
-		}
-
-		return false;
+				item -> item.isAlive() && !item.cannotPickup() && pack.canInsert(item.getStack()));
 	}
 
 	/**

@@ -4,4 +4,4 @@ accessWidener	v1	named
 # tree on its own. Dark oak's is a LargeTreeSaplingGenerator whose small-tree feature is empty;
 # a mod that copies that pattern is the same kind of wood.
 accessible	field	net/minecraft/block/SaplingBlock	generator	Lnet/minecraft/block/sapling/SaplingGenerator;
-accessible	method	net/minecraft/block/sapling/SaplingGenerator	getTreeFeature	(Ljava/util/Random;Z)Lnet/minecraft/world/gen/feature/ConfiguredFeature;
+accessible	method	net/minecraft/block/sapling/SaplingGenerator	createTreeFeature	(Ljava/util/Random;Z)Lnet/minecraft/world/gen/feature/ConfiguredFeature;

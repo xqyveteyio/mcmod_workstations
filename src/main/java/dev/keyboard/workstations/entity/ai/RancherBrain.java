@@ -19,7 +19,7 @@ import net.minecraft.entity.Shearable;
 import net.minecraft.entity.ai.pathing.Path;
 import net.minecraft.entity.passive.AnimalEntity;
 import net.minecraft.entity.passive.CowEntity;
-import net.minecraft.entity.passive.PassiveEntity;
+import net.minecraft.entity.damage.DamageSource;
 import net.minecraft.inventory.Inventory;
 import net.minecraft.inventory.SimpleInventory;
 import net.minecraft.item.Item;
@@ -482,11 +482,11 @@ public class RancherBrain {
 			// Drops are allowed a few blocks past the plot edge — see WorkerPack.DROP_MARGIN —
 			// so this check must use the same wider box, or a drop just outside would be taken
 			// and then immediately written off as gone.
-			return target != null && target.isAlive() && !target.isRemoved()
+			return target != null && target.isAlive() && !target.removed
 					&& WorkerPack.dropBox(area).contains(target.getPos());
 		}
 
-		return target != null && target.isAlive() && !target.isRemoved() && area.contains(target);
+		return target != null && target.isAlive() && !target.removed && area.contains(target);
 	}
 
 	private void perform(RancherEntity rancher, RanchBlockEntity station) {
@@ -841,7 +841,7 @@ public class RancherBrain {
 		List<T> waiting = new ArrayList<>(candidates.size());
 
 		for (T candidate : candidates) {
-			if (!served.contains(candidate.getId())) {
+			if (!served.contains(candidate.getEntityId())) {
 				waiting.add(candidate);
 			}
 		}
@@ -917,7 +917,7 @@ public class RancherBrain {
 		List<T> queue = new ArrayList<>(candidates.size());
 
 		for (T candidate : candidates) {
-			if (blocked.get(candidate.getId()) <= now) {
+			if (blocked.get(candidate.getEntityId()) <= now) {
 				queue.add(candidate);
 			}
 		}
@@ -966,7 +966,7 @@ public class RancherBrain {
 	}
 
 	private void block(ServerWorld world, Entity blockedTarget) {
-		blocked.put(blockedTarget.getId(), world.getTime() + BLOCKED_COOLDOWN);
+		blocked.put(blockedTarget.getEntityId(), world.getTime() + BLOCKED_COOLDOWN);
 	}
 
 	private boolean feed(RancherEntity rancher, RanchBlockEntity station, boolean growUp) {
@@ -996,14 +996,14 @@ public class RancherBrain {
 		rancher.swingHand(Hand.MAIN_HAND);
 
 		if (growUp) {
-			animal.growUp(PassiveEntity.toGrowUpAge(-animal.getBreedingAge()), true);
+			animal.growUp((int) ((float) (-animal.getBreedingAge() / 20) * 0.1F), true);
 		} else {
 			animal.lovePlayer(null);
 		}
 
 		// Its turn is used up. For babies that is what makes a round finite, and it also stops a
 		// baby that grew to adulthood on this very helping from being served again as an adult.
-		served.add(animal.getId());
+		served.add(animal.getEntityId());
 		phaseWorked = true;
 		celebrate(rancher, animal);
 
@@ -1035,7 +1035,7 @@ public class RancherBrain {
 	}
 
 	private static boolean stillReady(AnimalEntity animal) {
-		return animal.isAlive() && !animal.isRemoved() && animal.getBreedingAge() == 0 && animal.canEat();
+		return animal.isAlive() && !animal.removed && animal.getBreedingAge() == 0 && animal.canEat();
 	}
 
 	private boolean cull(RancherEntity rancher) {
@@ -1049,7 +1049,7 @@ public class RancherBrain {
 			// Still dealt as damage rather than by emptying the health bar, so the loot table, the
 			// looting on the rancher's sword and the death animation all behave as they always do.
 			// The headroom over max health is for anything wearing armour or under resistance.
-			animal.damage(rancher.getDamageSources().mobAttack(rancher),
+			animal.damage(DamageSource.mob(rancher),
 					animal.getMaxHealth() * 10.0F + animal.getAbsorptionAmount() + 10.0F);
 		} else {
 			rancher.tryAttack(animal);
@@ -1083,7 +1083,7 @@ public class RancherBrain {
 
 		// Marked as served whatever happens next, so an animal that turns out not to need it after
 		// all cannot be picked again and stall the round.
-		served.add(animal.getId());
+		served.add(animal.getEntityId());
 
 		if (!(animal instanceof Shearable shearable) || !shearable.isShearable()) {
 			return true;
@@ -1116,7 +1116,7 @@ public class RancherBrain {
 			return true;
 		}
 
-		served.add(animal.getId());
+		served.add(animal.getEntityId());
 
 		if (!(animal instanceof CowEntity) || animal.isBaby()) {
 			return true;
@@ -1144,7 +1144,7 @@ public class RancherBrain {
 		ItemStack remainder = rancher.getCarried().addStack(item.getStack().copy());
 
 		if (remainder.isEmpty()) {
-			item.discard();
+			item.remove();
 		} else {
 			item.setStack(remainder);
 		}

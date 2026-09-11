@@ -1,7 +1,6 @@
 package dev.keyboard.workstations.work;
 
 import net.minecraft.nbt.NbtCompound;
-import net.minecraft.nbt.NbtElement;
 import net.minecraft.util.math.MathHelper;
 
 import java.util.List;

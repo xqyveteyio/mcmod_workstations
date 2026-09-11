@@ -2,13 +2,17 @@ package dev.keyboard.workstations.network;
 
 import dev.keyboard.workstations.WorkstationsMod;
 import dev.keyboard.workstations.block.FarmBlockEntity;
+import dev.keyboard.workstations.block.LumberBlockEntity;
 import dev.keyboard.workstations.block.RanchBlockEntity;
 import dev.keyboard.workstations.block.WorkStationBlockEntity;
 import dev.keyboard.workstations.work.Crops;
 import dev.keyboard.workstations.work.FarmSettings;
+import dev.keyboard.workstations.work.LumberSettings;
 import dev.keyboard.workstations.work.StationSettings;
+import dev.keyboard.workstations.work.Woods;
 import net.fabricmc.fabric.api.networking.v1.PacketByteBufs;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
+import net.minecraft.block.entity.BlockEntity;
 import net.minecraft.item.Item;
 import net.minecraft.nbt.NbtCompound;
 import net.minecraft.network.PacketByteBuf;
@@ -76,6 +80,10 @@ public final class StationNetworking {
 					FarmSettings incoming = new FarmSettings();
 					incoming.readNbt(nbt);
 					farm.applySettings(incoming);
+				} else if (station instanceof LumberBlockEntity lumber) {
+					LumberSettings incoming = new LumberSettings();
+					incoming.readNbt(nbt);
+					lumber.applySettings(incoming);
 				}
 			});
 		});
@@ -123,9 +131,7 @@ public final class StationNetworking {
 	public static void openScreen(ServerPlayerEntity player, BlockPos pos) {
 		PacketByteBuf buf = PacketByteBufs.create();
 		buf.writeBlockPos(pos);
-		List<Item> palette = player.getEntityWorld().getBlockEntity(pos) instanceof FarmBlockEntity farm
-				? Crops.palette(farm.seedStores())
-				: List.of();
+		List<Item> palette = paletteAt(player.getEntityWorld().getBlockEntity(pos));
 		buf.writeVarInt(palette.size());
 
 		for (Item seed : palette) {
@@ -133,6 +139,23 @@ public final class StationNetworking {
 		}
 
 		ServerPlayNetworking.send(player, OPEN_SCREEN, buf);
+	}
+
+	/**
+	 * The mix rows a planting station's screen is built from. A farm and a lumber station both
+	 * send their palette this way because neither sends its contents to the client; ranches send
+	 * an empty list.
+	 */
+	private static List<Item> paletteAt(@Nullable BlockEntity block) {
+		if (block instanceof FarmBlockEntity farm) {
+			return Crops.palette(farm.seedStores());
+		}
+
+		if (block instanceof LumberBlockEntity lumber) {
+			return Woods.palette(lumber.seedStores());
+		}
+
+		return List.of();
 	}
 
 	/**

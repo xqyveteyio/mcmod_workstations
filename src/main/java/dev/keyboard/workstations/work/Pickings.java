@@ -4,7 +4,6 @@ import net.minecraft.block.BlockState;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.util.math.BlockBox;
 import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.ChunkSectionPos;
 import net.minecraft.world.chunk.Chunk;
 import net.minecraft.world.chunk.ChunkSection;
 
@@ -97,9 +96,9 @@ public final class Pickings {
 	private static void sweep(ServerWorld world, Chunk chunk, Predicate<BlockState> candidate,
 			Predicate<BlockPos> accept, BlockBox slice, List<BlockPos> found) {
 		BlockPos.Mutable cursor = new BlockPos.Mutable();
-		int topSection = ChunkSectionPos.getSectionCoord(slice.maxY);
+		int topSection = slice.maxY >> 4;
 
-		for (int sectionY = ChunkSectionPos.getSectionCoord(slice.minY); sectionY <= topSection; sectionY++) {
+		for (int sectionY = slice.minY >> 4; sectionY <= topSection; sectionY++) {
 			int index = sectionY;
 
 			if (index < 0 || index >= chunk.getSectionArray().length) {
@@ -108,14 +107,14 @@ public final class Pickings {
 
 			ChunkSection section = chunk.getSectionArray()[index];
 
-			// The whole point of sweeping this way: one palette lookup rules out four thousand
-			// blocks, and over a farm nearly every section is ruled out.
+			// Empty sections are skipped whole. 1.16 has no palette predicate, so a non-empty
+			// section is walked; almost every farm section that is not empty still only holds dirt.
 			if (section == null || section.isEmpty() || !section.hasAny(candidate)) {
 				continue;
 			}
 
-			int fromY = Math.max(slice.minY, ChunkSectionPos.getBlockCoord(sectionY));
-			int toY = Math.min(slice.maxY, ChunkSectionPos.getBlockCoord(sectionY) + 15);
+			int fromY = Math.max(slice.minY, sectionY << 4);
+			int toY = Math.min(slice.maxY, (sectionY << 4) + 15);
 
 			for (int y = fromY; y <= toY; y++) {
 				for (int x = slice.minX; x <= slice.maxX; x++) {

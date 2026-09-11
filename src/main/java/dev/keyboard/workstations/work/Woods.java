@@ -197,8 +197,8 @@ public final class Woods {
 		// nearby. Dark oak is empty either way; a single non-null is still a tree that grows
 		// from one.
 		Random roll = new Random(0L);
-		return generator.getTreeFeature(roll, false) == null
-				&& generator.getTreeFeature(roll, true) == null;
+		return generator.createTreeFeature(roll, false) == null
+				&& generator.createTreeFeature(roll, true) == null;
 	}
 
 	/**

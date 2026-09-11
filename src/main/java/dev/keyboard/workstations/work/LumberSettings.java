@@ -2,7 +2,6 @@ package dev.keyboard.workstations.work;
 
 import dev.keyboard.workstations.ModConfig;
 import net.minecraft.nbt.NbtCompound;
-import net.minecraft.nbt.NbtElement;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -139,7 +138,7 @@ public final class LumberSettings implements WorkerSettings<LumberSettings> {
 			option.read(this, nbt);
 		}
 
-		if (nbt.contains(MIX_KEY, NbtElement.COMPOUND_TYPE)) {
+		if (nbt.contains(MIX_KEY, 10)) {
 			saplingMix.readNbt(nbt.getCompound(MIX_KEY));
 		}
 

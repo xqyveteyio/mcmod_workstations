@@ -3,21 +3,25 @@ package dev.keyboard.workstations.client.screen;
 import dev.keyboard.workstations.WorkstationsMod;
 import dev.keyboard.workstations.client.network.StationNetworkingClient;
 import dev.keyboard.workstations.work.FarmSettings;
-import dev.keyboard.workstations.work.SeedMix;
 import net.minecraft.client.gui.widget.ButtonWidget;
-import net.minecraft.client.gui.widget.SliderWidget;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
-import net.minecraft.text.LiteralText;
-import net.minecraft.text.Text;
 import net.minecraft.text.TranslatableText;
-import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.BlockPos;
 
 import java.util.List;
 import java.util.function.Consumer;
 
+/**
+ * The farm station's settings. Everything the ranch screen does, plus a tab of planting ratios
+ * built from the seeds the station is actually holding.
+ *
+ * <p>The seed list cannot come from the block the way the rest of the settings do, because a
+ * station deliberately does not send its contents to the client. The server puts the list in the
+ * packet that opens this screen instead, so the rows are the seeds as the server sees them.
+ */
 public class FarmSettingsScreen extends WorkerSettingsScreen<FarmSettings> {
+    /** The seeds in the station's container when the screen was opened. */
     private final List<Item> palette;
 
     public FarmSettingsScreen(BlockPos pos, FarmSettings settings, List<Item> palette) {
@@ -30,6 +34,14 @@ public class FarmSettingsScreen extends WorkerSettingsScreen<FarmSettings> {
         StationNetworkingClient.saveFarmSettings(pos, settings);
     }
 
+    /**
+     * Surveys the field and gets out of the way, so the count comes up over the hotbar with nothing
+     * covering the ground it is talking about.
+     *
+     * <p>Saved before the survey rather than on the way out. The area is what the survey reads, so
+     * a radius widened in this very screen has to reach the station first or the sweep would go by
+     * the old one and report a number that does not match what was just asked for.
+     */
     private void surveyAndLeave() {
         save();
         StationNetworkingClient.rescanPlots(pos);
@@ -47,45 +59,10 @@ public class FarmSettingsScreen extends WorkerSettingsScreen<FarmSettings> {
             return;
         }
 
-        if (!FarmSettings.SEEDS.equals(category)) {
-            return;
-        }
-
-        if (palette.isEmpty()) {
-            add.accept(new Row(new TranslatableText("config.keyboard_workstations.no_seeds")));
-            return;
-        }
-
-        for (Item seed : palette) {
-            add.accept(new Row(seed.getName().copy(), new SeedSlider(seed),
-                    new TranslatableText("config.keyboard_workstations.seed_weight.tooltip")));
-        }
-    }
-
-    private class SeedSlider extends SliderWidget {
-        private final Item seed;
-
-        SeedSlider(Item seed) {
-            super(0, 0, CONTROL_WIDTH, CONTROL_HEIGHT, new LiteralText(""),
-                    fraction(settings.seedMix.weight(seed)));
-            this.seed = seed;
-            updateMessage();
-        }
-
-        private static double fraction(int weight) {
-            return (double) (weight - SeedMix.MIN_WEIGHT) / (SeedMix.MAX_WEIGHT - SeedMix.MIN_WEIGHT);
-        }
-
-        @Override
-        protected void updateMessage() {
-            setMessage(new TranslatableText("config.keyboard_workstations.seed_weight",
-                    settings.seedMix.weight(seed), settings.seedMix.share(seed, palette)));
-        }
-
-        @Override
-        protected void applyValue() {
-            settings.seedMix.setWeight(seed, (int) Math.round(
-                    MathHelper.lerp(value, SeedMix.MIN_WEIGHT, SeedMix.MAX_WEIGHT)));
+        if (FarmSettings.SEEDS.equals(category)) {
+            addMixRows(settings.seedMix, palette,
+                    "config.keyboard_workstations.no_seeds",
+                    "config.keyboard_workstations.seed_weight.tooltip", add);
         }
     }
 }

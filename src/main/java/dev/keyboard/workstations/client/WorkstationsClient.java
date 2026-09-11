@@ -39,8 +39,15 @@ public class WorkstationsClient implements ClientModInitializer {
 		BlockEntityRendererRegistry.INSTANCE.register(WorkstationsMod.FARM_BLOCK_ENTITY, FarmBlockEntityRenderer::new);
 		EntityRendererRegistry.INSTANCE.register(WorkstationsMod.FARMER, FarmerEntityRenderer::new);
 
+		BlockEntityRendererRegistry.INSTANCE.register(WorkstationsMod.LUMBER_BLOCK_ENTITY, LumberBlockEntityRenderer::new);
+		BuiltinItemRendererRegistry.INSTANCE.register(WorkstationsMod.LUMBER_ITEM, new LumberItemRenderer());
+		EntityRendererRegistry.INSTANCE.register(WorkstationsMod.LUMBERJACK, LumberjackEntityRenderer::new);
+
 		BlockEntityRendererRegistry.INSTANCE.register(WorkstationsMod.SEED_BOX_BLOCK_ENTITY, SeedBoxBlockEntityRenderer::new);
 		BuiltinItemRendererRegistry.INSTANCE.register(WorkstationsMod.SEED_BOX_ITEM, new SeedBoxItemRenderer());
+
+		BlockEntityRendererRegistry.INSTANCE.register(WorkstationsMod.FEED_BARREL_BLOCK_ENTITY, FeedBarrelBlockEntityRenderer::new);
+		BuiltinItemRendererRegistry.INSTANCE.register(WorkstationsMod.FEED_BARREL_ITEM, new FeedBarrelItemRenderer());
 
 		ClientTickEvents.END_CLIENT_TICK.register(client -> {
 			while (TOGGLE_HIGHLIGHT.wasPressed()) {

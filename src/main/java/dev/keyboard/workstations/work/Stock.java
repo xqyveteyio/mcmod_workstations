@@ -31,6 +31,11 @@ public final class Stock {
 	private Stock() {
 	}
 
+	/** Whether two stacks can share a slot. 1.16 splits this into item and tag equality. */
+	public static boolean combinable(ItemStack existing, ItemStack stack) {
+		return ItemStack.areItemsEqual(existing, stack) && ItemStack.areTagsEqual(existing, stack);
+	}
+
 	/**
 	 * Takes one of {@code item} out of the first store holding it, or reports that there were none
 	 * left after all.
@@ -192,7 +197,7 @@ public final class Stock {
 			for (int slot = 0; slot < box.size(); slot++) {
 				ItemStack existing = box.getStack(slot);
 
-				if (ItemStack.canCombine(existing, stack)) {
+				if (combinable(existing, stack)) {
 					held += existing.getCount();
 				}
 			}
@@ -230,7 +235,7 @@ public final class Stock {
 				break;
 			}
 
-			if (!ItemStack.canCombine(existing, stack)) {
+			if (!combinable(existing, stack)) {
 				continue;
 			}
 

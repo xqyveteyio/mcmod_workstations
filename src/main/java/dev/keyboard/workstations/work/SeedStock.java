@@ -2,7 +2,6 @@ package dev.keyboard.workstations.work;
 
 import net.minecraft.item.Item;
 import net.minecraft.nbt.NbtCompound;
-import net.minecraft.nbt.NbtElement;
 import net.minecraft.nbt.NbtList;
 import net.minecraft.util.registry.Registry;
 import net.minecraft.util.Identifier;
@@ -66,7 +65,7 @@ public final class SeedStock {
 
 	public void readNbt(NbtCompound nbt) {
 		planted.clear();
-		NbtList tally = nbt.getList(PLANTED_KEY, NbtElement.COMPOUND_TYPE);
+		NbtList tally = nbt.getList(PLANTED_KEY, 10);
 
 		for (int index = 0; index < tally.size(); index++) {
 			NbtCompound row = tally.getCompound(index);

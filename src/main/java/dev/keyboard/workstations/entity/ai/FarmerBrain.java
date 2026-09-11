@@ -396,7 +396,7 @@ public class FarmerBrain {
 	 */
 	private boolean jobValid(ServerWorld world, FarmSettings config) {
 		if (job == Job.COLLECT) {
-			return target != null && target.isAlive() && !target.isRemoved();
+			return target != null && target.isAlive() && !target.removed;
 		}
 
 		if (targetPos == null) {
@@ -892,7 +892,7 @@ public class FarmerBrain {
 		List<ItemEntity> queue = new ArrayList<>();
 
 		for (ItemEntity drop : candidates) {
-			if (blockedDrops.get(drop.getId()) <= now) {
+			if (blockedDrops.get(drop.getEntityId()) <= now) {
 				queue.add(drop);
 			}
 		}
@@ -931,7 +931,7 @@ public class FarmerBrain {
 				return drop;
 			}
 
-			blockedDrops.put(drop.getId(), world.getTime() + BLOCKED_COOLDOWN);
+			blockedDrops.put(drop.getEntityId(), world.getTime() + BLOCKED_COOLDOWN);
 			note = "unreachable";
 		}
 
@@ -940,7 +940,7 @@ public class FarmerBrain {
 
 	private void blockCurrentTarget(ServerWorld world) {
 		if (target != null) {
-			blockedDrops.put(target.getId(), world.getTime() + BLOCKED_COOLDOWN);
+			blockedDrops.put(target.getEntityId(), world.getTime() + BLOCKED_COOLDOWN);
 		} else if (targetPos != null && job != Job.DEPOSIT) {
 			blockedPlots.put(targetPos.asLong(), world.getTime() + BLOCKED_COOLDOWN);
 		}
@@ -1062,7 +1062,7 @@ public class FarmerBrain {
 		ItemStack remainder = farmer.getCarried().addStack(item.getStack().copy());
 
 		if (remainder.isEmpty()) {
-			item.discard();
+			item.remove();
 		} else {
 			item.setStack(remainder);
 		}
