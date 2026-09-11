@@ -6,6 +6,7 @@ import dev.keyboard.workstations.WorkstationsMod;
 //? if >=1.21 {
 /* import com.mojang.serialization.MapCodec; */
 //?}
+import net.minecraft.block.AbstractBlock;
 import net.minecraft.block.Block;
 import net.minecraft.block.BlockRenderType;
 import net.minecraft.block.BlockState;
@@ -63,7 +64,7 @@ public class RanchBlock extends BlockWithEntity {
 			Block.createCuboidShape(0.0, 12.0, 1.0, 1.0, 16.0, 15.0),
 			Block.createCuboidShape(15.0, 12.0, 1.0, 16.0, 16.0, 15.0));
 
-	public RanchBlock(Settings settings) {
+	public RanchBlock(AbstractBlock.Settings settings) {
 		super(settings);
 		setDefaultState(getStateManager().getDefaultState().with(FACING, Direction.NORTH));
 	}
@@ -194,6 +195,7 @@ public class RanchBlock extends BlockWithEntity {
 	}
 
 	@Override
+	//? if <26.1 {
 	public void onStateReplaced(BlockState state, World world, BlockPos pos, BlockState newState, boolean moved) {
 		if (!state.isOf(newState.getBlock()) && world.getBlockEntity(pos) instanceof RanchBlockEntity station) {
 			if (world instanceof ServerWorld serverWorld) {
@@ -206,6 +208,7 @@ public class RanchBlock extends BlockWithEntity {
 
 		super.onStateReplaced(state, world, pos, newState, moved);
 	}
+	//?}
 
 	@Override
 	public boolean hasComparatorOutput(BlockState state) {
@@ -213,7 +216,11 @@ public class RanchBlock extends BlockWithEntity {
 	}
 
 	@Override
+	//? if >=26.1 {
+	/* protected int getAnalogOutputSignal(BlockState state, World world, BlockPos pos, Direction direction) { */
+	//?} else {
 	public int getComparatorOutput(BlockState state, World world, BlockPos pos) {
+	//?}
 		return ScreenHandler.calculateComparatorOutput(world.getBlockEntity(pos));
 	}
 }

@@ -6,6 +6,7 @@ import dev.keyboard.workstations.WorkstationsMod;
 //? if >=1.21 {
 /* import com.mojang.serialization.MapCodec; */
 //?}
+import net.minecraft.block.AbstractBlock;
 import net.minecraft.block.Block;
 import net.minecraft.block.BlockRenderType;
 import net.minecraft.block.BlockState;
@@ -59,7 +60,7 @@ public class FarmBlock extends BlockWithEntity {
 			Block.createCuboidShape(14.0, 0.0, 14.0, 16.0, 10.0, 16.0),
 			Block.createCuboidShape(0.0, 10.0, 0.0, 16.0, 14.0, 16.0));
 
-	public FarmBlock(Settings settings) {
+	public FarmBlock(AbstractBlock.Settings settings) {
 		super(settings);
 		setDefaultState(getStateManager().getDefaultState().with(FACING, Direction.NORTH));
 	}
@@ -184,6 +185,7 @@ public class FarmBlock extends BlockWithEntity {
 	}
 
 	@Override
+	//? if <26.1 {
 	public void onStateReplaced(BlockState state, World world, BlockPos pos, BlockState newState, boolean moved) {
 		if (!state.isOf(newState.getBlock()) && world.getBlockEntity(pos) instanceof FarmBlockEntity station) {
 			if (world instanceof ServerWorld serverWorld) {
@@ -197,13 +199,19 @@ public class FarmBlock extends BlockWithEntity {
 		super.onStateReplaced(state, world, pos, newState, moved);
 	}
 
+	//?}
+
 	@Override
 	public boolean hasComparatorOutput(BlockState state) {
 		return true;
 	}
 
 	@Override
+	//? if >=26.1 {
+	/* protected int getAnalogOutputSignal(BlockState state, World world, BlockPos pos, Direction direction) { */
+	//?} else {
 	public int getComparatorOutput(BlockState state, World world, BlockPos pos) {
+	//?}
 		return ScreenHandler.calculateComparatorOutput(world.getBlockEntity(pos));
 	}
 }

@@ -311,8 +311,8 @@ public final class Woods {
 		Set<Item> saplings = new LinkedHashSet<>();
 
 		for (Inventory store : stores) {
-			for (int slot = 0; slot < store.size(); slot++) {
-				ItemStack stack = store.getStack(slot);
+			for (int slot = 0; slot < Mc.slots(store); slot++) {
+				ItemStack stack = Mc.stack(store, slot);
 
 				if (isSapling(stack)) {
 					saplings.add(stack.getItem());

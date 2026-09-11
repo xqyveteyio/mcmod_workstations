@@ -1,5 +1,7 @@
 package dev.keyboard.workstations.work;
 
+import dev.keyboard.workstations.Mc;
+
 import net.minecraft.block.AttachedStemBlock;
 import net.minecraft.block.Block;
 import net.minecraft.block.BlockState;
@@ -96,8 +98,8 @@ public final class Crops {
 		Set<Item> seeds = new LinkedHashSet<>();
 
 		for (Inventory store : stores) {
-			for (int slot = 0; slot < store.size(); slot++) {
-				ItemStack stack = store.getStack(slot);
+			for (int slot = 0; slot < Mc.slots(store); slot++) {
+				ItemStack stack = Mc.stack(store, slot);
 
 				if (isSeed(stack)) {
 					seeds.add(stack.getItem());

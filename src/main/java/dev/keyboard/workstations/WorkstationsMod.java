@@ -301,6 +301,13 @@ public class WorkstationsMod implements ModInitializer {
 	}
 
 	private static EntityType<RancherEntity> rancherType() {
+		//? if >=26.1 {
+		/* return EntityType.Builder.of(RancherEntity::new, SpawnGroup.MISC)
+				.sized(0.6F, 1.95F)
+				.clientTrackingRange(10)
+				.build(net.minecraft.resources.ResourceKey.create(
+						net.minecraft.core.registries.BuiltInRegistries.ENTITY_TYPE.key(), RANCHER_ID)); */
+		//?} else {
 		return EntityType.Builder.<RancherEntity>create(RancherEntity::new, SpawnGroup.MISC)
 				//? if >=1.21 {
 				/* .dimensions(0.6F, 1.95F) */
@@ -309,9 +316,17 @@ public class WorkstationsMod implements ModInitializer {
 				//?}
 				.maxTrackingRange(10)
 				.build(RANCHER_ID.getPath());
+		//?}
 	}
 
 	private static EntityType<FarmerEntity> farmerType() {
+		//? if >=26.1 {
+		/* return EntityType.Builder.of(FarmerEntity::new, SpawnGroup.MISC)
+				.sized(0.6F, 1.95F)
+				.clientTrackingRange(10)
+				.build(net.minecraft.resources.ResourceKey.create(
+						net.minecraft.core.registries.BuiltInRegistries.ENTITY_TYPE.key(), FARMER_ID)); */
+		//?} else {
 		return EntityType.Builder.<FarmerEntity>create(FarmerEntity::new, SpawnGroup.MISC)
 				//? if >=1.21 {
 				/* .dimensions(0.6F, 1.95F) */
@@ -320,9 +335,17 @@ public class WorkstationsMod implements ModInitializer {
 				//?}
 				.maxTrackingRange(10)
 				.build(FARMER_ID.getPath());
+		//?}
 	}
 
 	private static EntityType<LumberjackEntity> lumberjackType() {
+		//? if >=26.1 {
+		/* return EntityType.Builder.of(LumberjackEntity::new, SpawnGroup.MISC)
+				.sized(0.6F, 1.95F)
+				.clientTrackingRange(10)
+				.build(net.minecraft.resources.ResourceKey.create(
+						net.minecraft.core.registries.BuiltInRegistries.ENTITY_TYPE.key(), LUMBERJACK_ID)); */
+		//?} else {
 		return EntityType.Builder.<LumberjackEntity>create(LumberjackEntity::new, SpawnGroup.MISC)
 				//? if >=1.21 {
 				/* .dimensions(0.6F, 1.95F) */
@@ -331,6 +354,7 @@ public class WorkstationsMod implements ModInitializer {
 				//?}
 				.maxTrackingRange(10)
 				.build(LUMBERJACK_ID.getPath());
+		//?}
 	}
 
 	/**
@@ -391,7 +415,9 @@ public class WorkstationsMod implements ModInitializer {
 	}
 
 	public static Identifier id(String namespace, String path) {
-		//? if >=1.21 {
+		//? if >=26.1 {
+		/* return Identifier.fromNamespaceAndPath(namespace, path); */
+		//?} elif >=1.21 {
 		/* return Identifier.of(namespace, path); */
 		//?} else {
 		return new Identifier(namespace, path);

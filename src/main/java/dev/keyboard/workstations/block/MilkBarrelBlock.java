@@ -5,6 +5,7 @@ import dev.keyboard.workstations.Mc;
 //? if >=1.21 {
 /* import com.mojang.serialization.MapCodec; */
 //?}
+import net.minecraft.block.AbstractBlock;
 import net.minecraft.block.Block;
 import net.minecraft.block.BlockRenderType;
 import net.minecraft.block.BlockState;
@@ -46,7 +47,7 @@ public class MilkBarrelBlock extends BlockWithEntity {
 	/** How full the barrel looks, in quarters. The count behind it is far finer than the model. */
 	public static final IntProperty LEVEL = IntProperty.of("level", 0, 4);
 
-	public MilkBarrelBlock(Settings settings) {
+	public MilkBarrelBlock(AbstractBlock.Settings settings) {
 		super(settings);
 		setDefaultState(getStateManager().getDefaultState().with(LEVEL, 0));
 	}
@@ -96,7 +97,48 @@ public class MilkBarrelBlock extends BlockWithEntity {
 	 * Trades a bucket either way: an empty one comes out full, a full one goes in empty. Anything
 	 * else in hand, or an empty hand, just reads the level off instead.
 	 */
-	//? if >=1.21 {
+	//? if >=26.1 {
+	/* @Override
+	protected ActionResult useItemOn(ItemStack stack, BlockState state, World world, BlockPos pos,
+			PlayerEntity player, Hand hand, BlockHitResult hit) {
+		if (world.isClient) {
+			return ActionResult.SUCCESS;
+		}
+
+		if (!(world.getBlockEntity(pos) instanceof MilkBarrelBlockEntity barrel)) {
+			return ActionResult.TRY_WITH_EMPTY_HAND;
+		}
+
+		if (Mc.isOf(stack, Items.BUCKET) && barrel.drain()) {
+			swap(player, hand, stack, new ItemStack(Items.MILK_BUCKET));
+			announce(world, pos, player, barrel, SoundEvents.ITEM_BUCKET_FILL);
+			return ActionResult.SUCCESS;
+		}
+
+		if (Mc.isOf(stack, Items.MILK_BUCKET) && barrel.fill()) {
+			swap(player, hand, stack, new ItemStack(Items.BUCKET));
+			announce(world, pos, player, barrel, SoundEvents.ITEM_BUCKET_EMPTY);
+			return ActionResult.SUCCESS;
+		}
+
+		return ActionResult.TRY_WITH_EMPTY_HAND;
+	}
+
+	@Override
+	protected ActionResult useWithoutItem(BlockState state, World world, BlockPos pos, PlayerEntity player, BlockHitResult hit) {
+		if (world.isClient) {
+			return ActionResult.SUCCESS;
+		}
+
+		if (!(world.getBlockEntity(pos) instanceof MilkBarrelBlockEntity barrel)) {
+			return ActionResult.PASS;
+		}
+
+		Mc.tell(player, level(barrel), true);
+		return ActionResult.SUCCESS;
+	}
+	*/
+	//?} elif >=1.21 {
 	/* @Override
 	protected ItemActionResult onUseWithItem(ItemStack stack, BlockState state, World world, BlockPos pos,
 			PlayerEntity player, Hand hand, BlockHitResult hit) {
@@ -206,7 +248,11 @@ public class MilkBarrelBlock extends BlockWithEntity {
 
 	/** Reads out how full it is, so a hopper line can be told to stop feeding a barrel nobody empties. */
 	@Override
+	//? if >=26.1 {
+	/* protected int getAnalogOutputSignal(BlockState state, World world, BlockPos pos, net.minecraft.util.math.Direction direction) { */
+	//?} else {
 	public int getComparatorOutput(BlockState state, World world, BlockPos pos) {
+	//?}
 		if (!(world.getBlockEntity(pos) instanceof MilkBarrelBlockEntity barrel) || barrel.isEmpty()) {
 			return 0;
 		}

@@ -347,11 +347,26 @@ public abstract class WorkStationBlockEntity<W extends MobEntity & StationWorker
 	}
 
 	@Override
+	//? if >=26.1 {
+	/* public int getContainerSize() { */
+	//?} else {
 	public int size() {
+	//?}
 		return INVENTORY_SIZE;
 	}
 
-	//? if >=1.21 {
+	//? if >=26.1 {
+	/* @Override
+	protected DefaultedList<ItemStack> getItems() {
+		return inventory;
+	}
+
+	@Override
+	protected void setItems(DefaultedList<ItemStack> list) {
+		inventory = list;
+	}
+	*/
+	//?} elif >=1.21 {
 	/* @Override
 	protected DefaultedList<ItemStack> getHeldStacks() {
 		return inventory;
@@ -379,6 +394,48 @@ public abstract class WorkStationBlockEntity<W extends MobEntity & StationWorker
 		return GenericContainerScreenHandler.createGeneric9x6(syncId, playerInventory, this);
 	}
 
+	//? if >=26.1 {
+	/* @Override
+	protected void saveAdditional(net.minecraft.world.level.storage.ValueOutput output) {
+		super.saveAdditional(output);
+
+		if (!trySaveLootTable(output)) {
+			Inventories.saveAllItems(output, inventory);
+		}
+
+		if (workerUuid != null) {
+			output.store(WORKER_KEY, net.minecraft.core.UUIDUtil.CODEC, workerUuid);
+		}
+
+		output.putInt(RESPAWN_KEY, respawnTimer);
+		output.store(SETTINGS_KEY, NbtCompound.CODEC, settingsNbt());
+	}
+
+	@Override
+	protected void loadAdditional(net.minecraft.world.level.storage.ValueInput input) {
+		super.loadAdditional(input);
+		inventory = DefaultedList.ofSize(INVENTORY_SIZE, ItemStack.EMPTY);
+
+		if (!tryLoadLootTable(input)) {
+			Inventories.loadAllItems(input, inventory);
+		}
+
+		workerUuid = input.read(WORKER_KEY, net.minecraft.core.UUIDUtil.CODEC).orElse(null);
+		input.read(SETTINGS_KEY, NbtCompound.CODEC).ifPresent(tag -> getSettings().readNbt(tag));
+		respawnTimer = input.getInt(RESPAWN_KEY).orElseGet(this::respawnTicks);
+	}
+
+	@Override
+	public void preRemoveSideEffects(BlockPos pos, BlockState state) {
+		if (getLevel() instanceof ServerWorld serverWorld) {
+			dismissWorker(serverWorld);
+			net.minecraft.util.ItemScatterer.spawn(serverWorld, pos, this);
+		}
+
+		super.preRemoveSideEffects(pos, state);
+	}
+	*/
+	//?} else {
 	@Override
 	//? if >=1.20.5 {
 	/* protected void writeNbt(NbtCompound nbt, RegistryWrapper.WrapperLookup registryLookup) {
@@ -406,7 +463,7 @@ public abstract class WorkStationBlockEntity<W extends MobEntity & StationWorker
 	//?}
 
 		if (workerUuid != null) {
-			nbt.putUuid(WORKER_KEY, workerUuid);
+			Mc.putUuid(nbt, WORKER_KEY, workerUuid);
 		}
 
 		nbt.putInt(RESPAWN_KEY, respawnTimer);
@@ -445,10 +502,10 @@ public abstract class WorkStationBlockEntity<W extends MobEntity & StationWorker
 	*/
 	//?}
 
-		workerUuid = nbt.containsUuid(WORKER_KEY) ? nbt.getUuid(WORKER_KEY) : null;
+		workerUuid = Mc.hasUuid(nbt, WORKER_KEY) ? Mc.uuid(nbt, WORKER_KEY) : null;
 
-		if (nbt.contains(SETTINGS_KEY, Mc.NBT_COMPOUND)) {
-			getSettings().readNbt(nbt.getCompound(SETTINGS_KEY));
+		if (Mc.has(nbt, SETTINGS_KEY, Mc.NBT_COMPOUND)) {
+			getSettings().readNbt(Mc.compound(nbt, SETTINGS_KEY));
 		}
 
 		// The worker lives in the entity region, not with this block, and the two are loaded on
@@ -458,12 +515,13 @@ public abstract class WorkStationBlockEntity<W extends MobEntity & StationWorker
 		// not start over; a station that has none is given a full delay, because the field would
 		// otherwise be zero and the wait would be over on the first tick. respawnTicks() is asked
 		// after the settings have been read, which is where that delay is kept.
-		if (nbt.contains(RESPAWN_KEY, Mc.NBT_INT)) {
-			respawnTimer = nbt.getInt(RESPAWN_KEY);
+		if (Mc.has(nbt, RESPAWN_KEY, Mc.NBT_INT)) {
+			respawnTimer = Mc.integer(nbt, RESPAWN_KEY);
 		} else {
 			respawnTimer = respawnTicks();
 		}
 	}
+	//?}
 
 	protected NbtCompound settingsNbt() {
 		NbtCompound nbt = new NbtCompound();

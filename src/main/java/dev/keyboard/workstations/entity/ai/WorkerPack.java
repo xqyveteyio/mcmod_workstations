@@ -1,5 +1,6 @@
 package dev.keyboard.workstations.entity.ai;
 
+import dev.keyboard.workstations.Mc;
 import dev.keyboard.workstations.work.WorkArea;
 import net.minecraft.entity.ItemEntity;
 import net.minecraft.entity.mob.MobEntity;
@@ -74,8 +75,8 @@ public final class WorkerPack {
 	public static int count(SimpleInventory pack) {
 		int used = 0;
 
-		for (int slot = 0; slot < pack.size(); slot++) {
-			if (!pack.getStack(slot).isEmpty()) {
+		for (int slot = 0; slot < Mc.slots(pack); slot++) {
+			if (!Mc.stack(pack, slot).isEmpty()) {
 				used++;
 			}
 		}
@@ -85,7 +86,7 @@ public final class WorkerPack {
 
 	/** Whether every slot is occupied, so nothing more can be picked up that needs a new slot. */
 	public static boolean isFull(SimpleInventory pack) {
-		return count(pack) == pack.size();
+		return count(pack) == Mc.slots(pack);
 	}
 
 	/**

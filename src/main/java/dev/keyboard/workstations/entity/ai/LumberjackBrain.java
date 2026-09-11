@@ -1101,8 +1101,8 @@ public class LumberjackBrain {
 		SimpleInventory carried = lumberjack.getCarried();
 		boolean moved = false;
 
-		for (int slot = 0; slot < carried.size(); slot++) {
-			ItemStack stack = carried.getStack(slot);
+		for (int slot = 0; slot < Mc.slots(carried); slot++) {
+			ItemStack stack = Mc.stack(carried, slot);
 
 			if (stack.isEmpty()) {
 				continue;
@@ -1110,7 +1110,7 @@ public class LumberjackBrain {
 
 			int before = stack.getCount();
 			ItemStack left = store(station, stack);
-			carried.setStack(slot, left.isEmpty() ? ItemStack.EMPTY : left);
+			Mc.stack(carried, slot, left.isEmpty() ? ItemStack.EMPTY : left);
 
 			if (left.getCount() != before) {
 				moved = true;

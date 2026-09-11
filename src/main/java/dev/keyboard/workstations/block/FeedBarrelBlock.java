@@ -6,6 +6,7 @@ import dev.keyboard.workstations.WorkstationsMod;
 //? if >=1.21 {
 /* import com.mojang.serialization.MapCodec; */
 //?}
+import net.minecraft.block.AbstractBlock;
 import net.minecraft.block.Block;
 import net.minecraft.block.BlockRenderType;
 import net.minecraft.block.BlockState;
@@ -61,7 +62,7 @@ public class FeedBarrelBlock extends BlockWithEntity {
 	/** A chest's own outline: a hair inside the block on every side but the bottom. */
 	private static final VoxelShape SHAPE = Block.createCuboidShape(1.0, 0.0, 1.0, 15.0, 14.0, 15.0);
 
-	public FeedBarrelBlock(Settings settings) {
+	public FeedBarrelBlock(AbstractBlock.Settings settings) {
 		super(settings);
 		setDefaultState(getStateManager().getDefaultState().with(FACING, Direction.NORTH));
 	}
@@ -167,6 +168,7 @@ public class FeedBarrelBlock extends BlockWithEntity {
 	}
 
 	@Override
+	//? if <26.1 {
 	public void onStateReplaced(BlockState state, World world, BlockPos pos, BlockState newState, boolean moved) {
 		if (!state.isOf(newState.getBlock()) && world.getBlockEntity(pos) instanceof FeedBarrelBlockEntity box) {
 			ItemScatterer.spawn(world, pos, box);
@@ -176,13 +178,19 @@ public class FeedBarrelBlock extends BlockWithEntity {
 		super.onStateReplaced(state, world, pos, newState, moved);
 	}
 
+	//?}
+
 	@Override
 	public boolean hasComparatorOutput(BlockState state) {
 		return true;
 	}
 
 	@Override
+	//? if >=26.1 {
+	/* protected int getAnalogOutputSignal(BlockState state, World world, BlockPos pos, Direction direction) { */
+	//?} else {
 	public int getComparatorOutput(BlockState state, World world, BlockPos pos) {
+	//?}
 		return ScreenHandler.calculateComparatorOutput(world.getBlockEntity(pos));
 	}
 }

@@ -42,12 +42,12 @@ public final class Stock {
 	 */
 	public static boolean spend(List<Inventory> stores, Item item) {
 		for (Inventory store : stores) {
-			for (int slot = 0; slot < store.size(); slot++) {
-				ItemStack stack = store.getStack(slot);
+			for (int slot = 0; slot < Mc.slots(store); slot++) {
+				ItemStack stack = Mc.stack(store, slot);
 
 				if (!stack.isEmpty() && stack.getItem() == item) {
-					store.removeStack(slot, 1);
-					store.markDirty();
+					Mc.take(store, slot, 1);
+					Mc.dirty(store);
 					return true;
 				}
 			}
@@ -69,8 +69,8 @@ public final class Stock {
 	@Nullable
 	public static Held find(List<Inventory> stores, Predicate<ItemStack> wanted) {
 		for (Inventory store : stores) {
-			for (int slot = 0; slot < store.size(); slot++) {
-				if (wanted.test(store.getStack(slot))) {
+			for (int slot = 0; slot < Mc.slots(store); slot++) {
+				if (wanted.test(Mc.stack(store, slot))) {
 					return new Held(store, slot);
 				}
 			}
@@ -84,8 +84,8 @@ public final class Stock {
 		int total = 0;
 
 		for (Inventory store : stores) {
-			for (int slot = 0; slot < store.size(); slot++) {
-				ItemStack stack = store.getStack(slot);
+			for (int slot = 0; slot < Mc.slots(store); slot++) {
+				ItemStack stack = Mc.stack(store, slot);
 
 				if (wanted.test(stack)) {
 					total += stack.getCount();
@@ -103,14 +103,14 @@ public final class Stock {
 	 */
 	public record Held(Inventory store, int slot) {
 		public ItemStack stack() {
-			return store.getStack(slot);
+			return Mc.stack(store, slot);
 		}
 
 		public ItemStack take(int amount) {
-			ItemStack taken = store.removeStack(slot, amount);
+			ItemStack taken = Mc.take(store, slot, amount);
 
 			if (!taken.isEmpty()) {
-				store.markDirty();
+				Mc.dirty(store);
 			}
 
 			return taken;
@@ -122,8 +122,8 @@ public final class Stock {
 		int total = 0;
 
 		for (Inventory store : stores) {
-			for (int slot = 0; slot < store.size(); slot++) {
-				ItemStack stack = store.getStack(slot);
+			for (int slot = 0; slot < Mc.slots(store); slot++) {
+				ItemStack stack = Mc.stack(store, slot);
 
 				if (!stack.isEmpty() && stack.getItem() == item) {
 					total += stack.getCount();
@@ -191,8 +191,8 @@ public final class Stock {
 		int held = 0;
 
 		for (Inventory box : boxes) {
-			for (int slot = 0; slot < box.size(); slot++) {
-				ItemStack existing = box.getStack(slot);
+			for (int slot = 0; slot < Mc.slots(box); slot++) {
+				ItemStack existing = Mc.stack(box, slot);
 
 				if (Mc.stacksMatch(existing, stack)) {
 					held += existing.getCount();
@@ -214,7 +214,7 @@ public final class Stock {
 			stack = insert(destination, stack);
 
 			if (stack.getCount() != before) {
-				destination.markDirty();
+				Mc.dirty(destination);
 			}
 		}
 
@@ -223,11 +223,11 @@ public final class Stock {
 
 	/** Moves what fits into {@code target}, mutating and returning the leftover. */
 	public static ItemStack insert(Inventory target, ItemStack stack) {
-		for (int slot = 0; slot < target.size() && !stack.isEmpty(); slot++) {
-			ItemStack existing = target.getStack(slot);
+		for (int slot = 0; slot < Mc.slots(target) && !stack.isEmpty(); slot++) {
+			ItemStack existing = Mc.stack(target, slot);
 
 			if (existing.isEmpty()) {
-				target.setStack(slot, stack.copy());
+				Mc.stack(target, slot, stack.copy());
 				stack.setCount(0);
 				break;
 			}
