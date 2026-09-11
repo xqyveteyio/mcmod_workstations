@@ -4,6 +4,7 @@
 	"entity.keyboard_workstations.rancher": "牧场工",
 	"category.keyboard_workstations": "工作站",
 	"itemGroup.keyboard_workstations": "工作站",
+	"itemGroup.keyboard_workstations.keyboard_workstations": "工作站",
 	"key.keyboard_workstations.toggle_highlight": "切换工作范围高亮",
 	"message.keyboard_workstations.station_placed": "工作站已放置，前后 %s 格，左右 %s 格，上 %s 格，下 %s 格",
 	"message.keyboard_workstations.worker_summoned": "已召唤新的工人",

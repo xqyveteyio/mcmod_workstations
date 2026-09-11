@@ -4,6 +4,7 @@
 	"entity.keyboard_workstations.rancher": "Rancher",
 	"category.keyboard_workstations": "Workstations",
 	"itemGroup.keyboard_workstations": "Workstations",
+	"itemGroup.keyboard_workstations.keyboard_workstations": "Workstations",
 	"key.keyboard_workstations.toggle_highlight": "Toggle work area highlight",
 	"message.keyboard_workstations.station_placed": "Ranch station placed, %s front/back, %s left/right, %s up, %s down",
 	"message.keyboard_workstations.worker_summoned": "Summoned a new worker",
