@@ -7,57 +7,85 @@ import net.minecraft.block.BlockState;
 import net.minecraft.block.BlockWithEntity;
 import net.minecraft.block.ShapeContext;
 import net.minecraft.block.entity.BlockEntity;
+import net.minecraft.block.entity.BlockEntityTicker;
+import net.minecraft.block.entity.BlockEntityType;
 import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.item.ItemPlacementContext;
 import net.minecraft.screen.NamedScreenHandlerFactory;
 import net.minecraft.screen.ScreenHandler;
+import net.minecraft.server.world.ServerWorld;
 import net.minecraft.state.StateManager;
-import net.minecraft.state.property.IntProperty;
+import net.minecraft.state.property.DirectionProperty;
+import net.minecraft.state.property.Properties;
 import net.minecraft.util.ActionResult;
+import net.minecraft.util.BlockMirror;
+import net.minecraft.util.BlockRotation;
 import net.minecraft.util.Hand;
 import net.minecraft.util.ItemScatterer;
 import net.minecraft.util.hit.BlockHitResult;
 import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.Direction;
+import net.minecraft.util.math.random.Random;
 import net.minecraft.util.shape.VoxelShape;
 import net.minecraft.world.BlockView;
 import net.minecraft.world.World;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * An open trough of feed for the ranch station to draw from, so the feed does not have to live
+ * A chest of feed for the ranch station beside it to draw from, so the feed does not have to live
  * on the same shelves the wool and meat come back onto.
  *
- * <p>Shaped like the milk barrel — a wooden vat you look down into — but lower, with a rim and
- * posts, and hay showing how full it is. How full it looks is a block state, the same trick the
- * milk barrel uses, so the client stays in step without a packet of its own.
- *
- * <p>Unlike the milk barrel it is a real inventory: right-click opens it, hoppers fill it, and
- * the rancher takes from it the way the farmer takes seed from a seed box.
+ * <p>An ordinary chest to look at and to open, drawn from vanilla's own chest model, but not a
+ * {@code ChestBlock} underneath: two of these never join into one double chest. That is not a
+ * limitation to work around. A station sweeps its work area and takes on every box it finds, and a
+ * container spread across two positions would turn up twice in that sweep, so the joining is the
+ * part deliberately left out.
  */
 public class FeedBarrelBlock extends BlockWithEntity {
-	/** How full the trough looks, in quarters. The count behind it is the inventory itself. */
-	public static final IntProperty LEVEL = IntProperty.of("level", 0, 4);
+	public static final DirectionProperty FACING = Properties.HORIZONTAL_FACING;
 
-	/** The vat plus the posts that stick up at the corners. */
-	private static final VoxelShape SHAPE = Block.createCuboidShape(0.0, 0.0, 0.0, 16.0, 10.0, 16.0);
+	/** A chest's own outline: a hair inside the block on every side but the bottom. */
+	private static final VoxelShape SHAPE = Block.createCuboidShape(1.0, 0.0, 1.0, 15.0, 14.0, 15.0);
 
 	public FeedBarrelBlock(Settings settings) {
 		super(settings);
-		setDefaultState(getStateManager().getDefaultState().with(LEVEL, 0));
+		setDefaultState(getStateManager().getDefaultState().with(FACING, Direction.NORTH));
 	}
 
 	@Override
 	protected void appendProperties(StateManager.Builder<Block, BlockState> builder) {
-		builder.add(LEVEL);
+		builder.add(FACING);
+	}
+
+	@Nullable
+	@Override
+	public BlockState getPlacementState(ItemPlacementContext ctx) {
+		return getDefaultState().with(FACING, ctx.getHorizontalPlayerFacing().getOpposite());
 	}
 
 	@Override
-	public BlockRenderType getRenderType(BlockState state) {
-		return BlockRenderType.MODEL;
+	public BlockState rotate(BlockState state, BlockRotation rotation) {
+		return state.with(FACING, rotation.rotate(state.get(FACING)));
+	}
+
+	@Override
+	public BlockState mirror(BlockState state, BlockMirror mirror) {
+		return state.rotate(mirror.getRotation(state.get(FACING)));
 	}
 
 	@Override
 	public VoxelShape getOutlineShape(BlockState state, BlockView world, BlockPos pos, ShapeContext context) {
 		return SHAPE;
+	}
+
+	/**
+	 * The block itself is drawn by nothing: its whole body is the chest model, which the block
+	 * entity's renderer puts up. All the block model behind it carries is the texture to break into
+	 * particles.
+	 */
+	@Override
+	public BlockRenderType getRenderType(BlockState state) {
+		return BlockRenderType.ENTITYBLOCK_ANIMATED;
 	}
 
 	@Nullable
@@ -66,9 +94,19 @@ public class FeedBarrelBlock extends BlockWithEntity {
 		return new FeedBarrelBlockEntity(pos, state);
 	}
 
+	/** Client side only: the lid's angle is the one thing that has to be kept moving every tick. */
+	@Nullable
 	@Override
-	public ActionResult onUse(BlockState state, World world, BlockPos pos, PlayerEntity player, Hand hand,
-			BlockHitResult hit) {
+	public <T extends BlockEntity> BlockEntityTicker<T> getTicker(World world, BlockState state, BlockEntityType<T> type) {
+		if (!world.isClient) {
+			return null;
+		}
+
+		return checkType(type, WorkstationsMod.FEED_BARREL_BLOCK_ENTITY, FeedBarrelBlockEntity::clientTick);
+	}
+
+	@Override
+	public ActionResult onUse(BlockState state, World world, BlockPos pos, PlayerEntity player, Hand hand, BlockHitResult hit) {
 		if (world.isClient) {
 			return ActionResult.SUCCESS;
 		}
@@ -82,21 +120,18 @@ public class FeedBarrelBlock extends BlockWithEntity {
 		return ActionResult.CONSUME;
 	}
 
-	/**
-	 * Brings the shown level back in line with what is actually in the trough. Called from the
-	 * block entity whenever the inventory changes, so a hopper filling it and a rancher emptying
-	 * it both update the hay without either knowing about models.
-	 */
-	static void showLevel(World world, BlockPos pos, BlockState state, int shown) {
-		if (state.get(LEVEL) != shown) {
-			world.setBlockState(pos, state.with(LEVEL, shown), Block.NOTIFY_ALL);
+	/** Recounts who has the box open, so a lid left up by a player who logged out comes back down. */
+	@Override
+	public void scheduledTick(BlockState state, ServerWorld world, BlockPos pos, Random random) {
+		if (world.getBlockEntity(pos) instanceof FeedBarrelBlockEntity box) {
+			box.recountViewers();
 		}
 	}
 
 	@Override
 	public void onStateReplaced(BlockState state, World world, BlockPos pos, BlockState newState, boolean moved) {
-		if (!state.isOf(newState.getBlock()) && world.getBlockEntity(pos) instanceof FeedBarrelBlockEntity trough) {
-			ItemScatterer.spawn(world, pos, trough);
+		if (!state.isOf(newState.getBlock()) && world.getBlockEntity(pos) instanceof FeedBarrelBlockEntity box) {
+			ItemScatterer.spawn(world, pos, box);
 			world.updateComparators(pos, this);
 		}
 

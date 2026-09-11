@@ -30,7 +30,7 @@ public class RanchBlockEntity extends WorkStationBlockEntity<RancherEntity, Stat
 	/** Milk barrels standing anywhere in the work area, looked up afresh now and then. */
 	private final AreaContainers<MilkBarrelBlockEntity> barrels =
 			new AreaContainers<>(MilkBarrelBlockEntity.class);
-	/** Feed troughs standing anywhere in the work area, looked up the same way. */
+	/** Feed boxes standing anywhere in the work area, looked up the same way. */
 	private final AreaContainers<FeedBarrelBlockEntity> feedBarrels =
 			new AreaContainers<>(FeedBarrelBlockEntity.class);
 
@@ -57,9 +57,9 @@ public class RanchBlockEntity extends WorkStationBlockEntity<RancherEntity, Stat
 	}
 
 	/**
-	 * The feed troughs anywhere in this station's work area, nearest first.
+	 * The feed boxes anywhere in this station's work area, nearest first.
 	 *
-	 * <p>Separate from {@link #feedStores()} because the trough is where feed is meant to live
+	 * <p>Separate from {@link #feedStores()} because the box is where feed is meant to live
 	 * and the station is only what catches what was left on its shelves by hand.
 	 */
 	public List<Inventory> feedBoxes() {
@@ -69,10 +69,10 @@ public class RanchBlockEntity extends WorkStationBlockEntity<RancherEntity, Stat
 	/**
 	 * Everywhere this ranch's feed might be, the place to reach for first listed first.
 	 *
-	 * <p>Troughs come before the station's own shelves, so stocking a trough is enough and the
+	 * <p>Boxes come before the station's own shelves, so stocking a box is enough and the
 	 * station stays clear for the produce coming the other way. The station is last rather than
-	 * absent so feed left on its shelves by hand is still used, and with no trough in the area
-	 * the station is the only store there is and everything works as it did before troughs existed.
+	 * absent so feed left on its shelves by hand is still used, and with no box in the area
+	 * the station is the only store there is and everything works as it did before boxes existed.
 	 */
 	public List<Inventory> feedStores() {
 		List<Inventory> stores = new ArrayList<>(feedBoxes());
@@ -87,7 +87,8 @@ public class RanchBlockEntity extends WorkStationBlockEntity<RancherEntity, Stat
 
 	@Override
 	public WorkArea getWorkArea() {
-		return new WorkArea(pos, settings.workRadius, settings.workHeight);
+		return WorkArea.of(pos, getCachedState().get(RanchBlock.FACING),
+				settings.workAlong, settings.workAcross, settings.workAbove, settings.workBelow);
 	}
 
 	@Override
@@ -119,8 +120,10 @@ public class RanchBlockEntity extends WorkStationBlockEntity<RancherEntity, Stat
 		// old keys back in is not dragged back to them.
 		if (!nbt.contains(SETTINGS_KEY, NbtElement.COMPOUND_TYPE)
 				&& nbt.contains(LEGACY_RADIUS_KEY, NbtElement.INT_TYPE)) {
-			settings.workRadius = nbt.getInt(LEGACY_RADIUS_KEY);
-			settings.workHeight = nbt.getInt(LEGACY_HEIGHT_KEY);
+			settings.workAlong = nbt.getInt(LEGACY_RADIUS_KEY);
+			settings.workAcross = nbt.getInt(LEGACY_RADIUS_KEY);
+			settings.workAbove = nbt.getInt(LEGACY_HEIGHT_KEY);
+			settings.workBelow = nbt.getInt(LEGACY_HEIGHT_KEY);
 			settings.clamp();
 		}
 	}

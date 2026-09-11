@@ -131,7 +131,8 @@ public class RanchBlock extends BlockWithEntity {
 
 		if (placer instanceof PlayerEntity player) {
 			player.sendMessage(Text.translatable("message.keyboard_workstations.station_placed",
-					station.getWorkArea().getRadius()), true);
+					station.getSettings().workAlong, station.getSettings().workAcross,
+					station.getSettings().workAbove, station.getSettings().workBelow), true);
 		}
 	}
 

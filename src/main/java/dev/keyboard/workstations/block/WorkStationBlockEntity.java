@@ -35,7 +35,7 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * Everything a station does regardless of what it is a station for: hold a chest full of supplies
+ * Everything a station does regardless of what it is a station for: hold a double chest of supplies
  * and produce, keep exactly one worker alive, and hand out the area that worker is allowed to work.
  *
  * <p>Deciding what the work actually is belongs to the worker's brain, and the orders it works to
@@ -46,7 +46,8 @@ import java.util.UUID;
  */
 public abstract class WorkStationBlockEntity<W extends MobEntity & StationWorker, S extends WorkerSettings<S>>
 		extends LootableContainerBlockEntity {
-	public static final int INVENTORY_SIZE = 27;
+	/** Slots. A double chest's worth, same as the seed box and the feed box. */
+	public static final int INVENTORY_SIZE = 54;
 
 	protected static final String SETTINGS_KEY = "Settings";
 	private static final String WORKER_KEY = "Worker";
@@ -328,7 +329,7 @@ public abstract class WorkStationBlockEntity<W extends MobEntity & StationWorker
 
 	@Override
 	protected ScreenHandler createScreenHandler(int syncId, PlayerInventory playerInventory) {
-		return GenericContainerScreenHandler.createGeneric9x3(syncId, playerInventory, this);
+		return GenericContainerScreenHandler.createGeneric9x6(syncId, playerInventory, this);
 	}
 
 	@Override

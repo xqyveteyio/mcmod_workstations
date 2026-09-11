@@ -68,7 +68,8 @@ public class FarmBlockEntity extends WorkStationBlockEntity<FarmerEntity, FarmSe
 
 	@Override
 	public WorkArea getWorkArea() {
-		return new WorkArea(pos, settings.workRadius, settings.workHeight);
+		return WorkArea.of(pos, getCachedState().get(FarmBlock.FACING),
+				settings.workAlong, settings.workAcross, settings.workAbove, settings.workBelow);
 	}
 
 	@Override
@@ -129,18 +130,20 @@ public class FarmBlockEntity extends WorkStationBlockEntity<FarmerEntity, FarmSe
 	public int registerPlots(ServerWorld world) {
 		WorkArea area = getWorkArea();
 		BlockPos center = area.getCenter();
-		int radius = area.getRadius();
-		int height = area.getHeight();
+		int xRadius = area.getXRadius();
+		int zRadius = area.getZRadius();
+		int above = area.getAbove();
+		int below = area.getBelow();
 		List<BlockPos> found = new ArrayList<>();
 		BlockPos.Mutable cursor = new BlockPos.Mutable();
 
-		for (int dx = -radius; dx <= radius; dx++) {
-			for (int dz = -radius; dz <= radius; dz++) {
+		for (int dx = -xRadius; dx <= xRadius; dx++) {
+			for (int dz = -zRadius; dz <= zRadius; dz++) {
 				if (!world.isChunkLoaded((center.getX() + dx) >> 4, (center.getZ() + dz) >> 4)) {
 					continue;
 				}
 
-				for (int dy = -height; dy <= height; dy++) {
+				for (int dy = -below; dy <= above; dy++) {
 					cursor.set(center.getX() + dx, center.getY() + dy, center.getZ() + dz);
 
 					if (Crops.isFarmland(world.getBlockState(cursor))) {

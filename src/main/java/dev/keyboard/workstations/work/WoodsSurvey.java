@@ -121,13 +121,15 @@ public final class WoodsSurvey {
 
 	private void scanOpenGround(ServerWorld world, WorkArea area, Set<BlockPos> occupied) {
 		BlockPos center = area.getCenter();
-		int radius = area.getRadius();
-		int height = area.getHeight();
+		int xRadius = area.getXRadius();
+		int zRadius = area.getZRadius();
+		int above = area.getAbove();
+		int below = area.getBelow();
 		int step = Woods.PLANT_SPACING;
 		BlockPos.Mutable cursor = new BlockPos.Mutable();
 
-		for (int dx = -radius; dx <= radius && plantable.size() < MAX_PLANTABLE; dx += step) {
-			for (int dz = -radius; dz <= radius && plantable.size() < MAX_PLANTABLE; dz += step) {
+		for (int dx = -xRadius; dx <= xRadius && plantable.size() < MAX_PLANTABLE; dx += step) {
+			for (int dz = -zRadius; dz <= zRadius && plantable.size() < MAX_PLANTABLE; dz += step) {
 				int x = center.getX() + dx;
 				int z = center.getZ() + dz;
 
@@ -135,7 +137,7 @@ public final class WoodsSurvey {
 					continue;
 				}
 
-				for (int dy = height; dy >= -height; dy--) {
+				for (int dy = above; dy >= -below; dy--) {
 					cursor.set(x, center.getY() + dy, z);
 
 					if (!Woods.canPlantAt(world, cursor)) {

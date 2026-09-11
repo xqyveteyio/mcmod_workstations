@@ -68,13 +68,12 @@ public final class Pickings {
 			Predicate<BlockPos> accept) {
 		List<BlockPos> found = new ArrayList<>();
 		BlockPos center = area.getCenter();
-		int radius = area.getRadius();
-		int minX = center.getX() - radius;
-		int maxX = center.getX() + radius;
-		int minZ = center.getZ() - radius;
-		int maxZ = center.getZ() + radius;
-		int minY = Math.max(world.getBottomY(), center.getY() - area.getHeight());
-		int maxY = Math.min(world.getTopY() - 1, center.getY() + area.getHeight());
+		int minX = center.getX() - area.getXRadius();
+		int maxX = center.getX() + area.getXRadius();
+		int minZ = center.getZ() - area.getZRadius();
+		int maxZ = center.getZ() + area.getZRadius();
+		int minY = Math.max(world.getBottomY(), center.getY() - area.getBelow());
+		int maxY = Math.min(world.getTopY() - 1, center.getY() + area.getAbove());
 
 		for (int chunkX = minX >> 4; chunkX <= maxX >> 4; chunkX++) {
 			for (int chunkZ = minZ >> 4; chunkZ <= maxZ >> 4; chunkZ++) {

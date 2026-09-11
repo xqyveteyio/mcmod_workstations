@@ -24,8 +24,10 @@ public final class FarmSettings implements WorkerSettings<FarmSettings> {
 	public boolean openFenceGates;
 	public boolean shoveBlockers;
 	public boolean showWorkerState;
-	public int workRadius;
-	public int workHeight;
+	public int workAlong;
+	public int workAcross;
+	public int workAbove;
+	public int workBelow;
 	public int workIntervalTicks;
 	public int farmIntervalTicks;
 	public int workerRespawnTicks;
@@ -52,8 +54,10 @@ public final class FarmSettings implements WorkerSettings<FarmSettings> {
 			SettingOption.flag(FIELD, "harvest_mushrooms", s -> s.harvestMushrooms, (s, v) -> s.harvestMushrooms = v),
 			SettingOption.range(FIELD, "farm_interval_ticks", 1, 200, s -> s.farmIntervalTicks, (s, v) -> s.farmIntervalTicks = v),
 
-			SettingOption.range(AREA, "work_radius", 1, 64, s -> s.workRadius, (s, v) -> s.workRadius = v),
-			SettingOption.range(AREA, "work_height", 1, 32, s -> s.workHeight, (s, v) -> s.workHeight = v),
+			SettingOption.range(AREA, "work_along", 1, 64, s -> s.workAlong, (s, v) -> s.workAlong = v),
+			SettingOption.range(AREA, "work_across", 1, 64, s -> s.workAcross, (s, v) -> s.workAcross = v),
+			SettingOption.range(AREA, "work_above", 0, 32, s -> s.workAbove, (s, v) -> s.workAbove = v),
+			SettingOption.range(AREA, "work_below", 0, 32, s -> s.workBelow, (s, v) -> s.workBelow = v),
 			SettingOption.range(AREA, "work_interval_ticks", 1, 200, s -> s.workIntervalTicks, (s, v) -> s.workIntervalTicks = v),
 			SettingOption.range(AREA, "worker_respawn_ticks", 20, 2400, s -> s.workerRespawnTicks, (s, v) -> s.workerRespawnTicks = v),
 			SettingOption.flag(AREA, "open_fence_gates", s -> s.openFenceGates, (s, v) -> s.openFenceGates = v),
@@ -74,8 +78,10 @@ public final class FarmSettings implements WorkerSettings<FarmSettings> {
 		openFenceGates = config.openFenceGates;
 		shoveBlockers = config.shoveBlockers;
 		showWorkerState = config.showWorkerState;
-		workRadius = config.workRadius;
-		workHeight = config.workHeight;
+		workAlong = config.workRadius;
+		workAcross = config.workRadius;
+		workAbove = config.workHeight;
+		workBelow = config.workHeight;
 		workIntervalTicks = config.workIntervalTicks;
 		farmIntervalTicks = config.farmIntervalTicks;
 		workerRespawnTicks = config.workerRespawnTicks;
@@ -135,6 +141,8 @@ public final class FarmSettings implements WorkerSettings<FarmSettings> {
 			seedMix.readNbt(nbt.getCompound(MIX_KEY));
 		}
 
+		WorkerSettings.inheritWorkRadius(nbt, v -> workAlong = v, v -> workAcross = v);
+		WorkerSettings.inheritWorkHeight(nbt, v -> workAbove = v, v -> workBelow = v);
 		clamp();
 	}
 

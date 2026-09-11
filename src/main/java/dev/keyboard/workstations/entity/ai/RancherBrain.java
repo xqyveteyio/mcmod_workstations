@@ -1304,10 +1304,10 @@ public class RancherBrain {
 	 * it would take.
 	 *
 	 * <p>What the animal eats of its own accord wins over universal feed wherever both are on
-	 * offer, so a trough stocked with wheat for the cows spends none of the crafted stuff on
+	 * offer, so a box stocked with wheat for the cows spends none of the crafted stuff on
 	 * them. Universal feed is then left for the animals nothing else in there would have fed.
 	 *
-	 * <p>Troughs are searched before the station, matching {@link RanchBlockEntity#feedStores()}.
+	 * <p>Boxes are searched before the station, matching {@link RanchBlockEntity#feedStores()}.
 	 */
 	@Nullable
 	private static Stock.Held findFeed(List<Inventory> stores, AnimalEntity animal) {

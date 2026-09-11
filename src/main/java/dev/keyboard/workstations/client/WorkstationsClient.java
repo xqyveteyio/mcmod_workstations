@@ -41,8 +41,17 @@ public class WorkstationsClient implements ClientModInitializer {
 		BuiltinItemRendererRegistry.INSTANCE.register(WorkstationsMod.LUMBER_ITEM, new LumberItemRenderer());
 		EntityRendererRegistry.register(WorkstationsMod.LUMBERJACK, LumberjackEntityRenderer::new);
 
-		BlockEntityRendererRegistry.register(WorkstationsMod.SEED_BOX_BLOCK_ENTITY, SeedBoxBlockEntityRenderer::new);
-		BuiltinItemRendererRegistry.INSTANCE.register(WorkstationsMod.SEED_BOX_ITEM, new SeedBoxItemRenderer());
+		BlockEntityRendererRegistry.register(WorkstationsMod.SEED_BOX_BLOCK_ENTITY,
+				ctx -> new StationChestBlockEntityRenderer<>(ctx, WorkstationsMod.id("textures/entity/seed_box.png")));
+		BuiltinItemRendererRegistry.INSTANCE.register(WorkstationsMod.SEED_BOX_ITEM,
+				new StationChestItemRenderer(WorkstationsMod.SEED_BOX_BLOCK,
+						WorkstationsMod.id("textures/entity/seed_box.png")));
+
+		BlockEntityRendererRegistry.register(WorkstationsMod.FEED_BARREL_BLOCK_ENTITY,
+				ctx -> new StationChestBlockEntityRenderer<>(ctx, WorkstationsMod.id("textures/entity/feed_barrel.png")));
+		BuiltinItemRendererRegistry.INSTANCE.register(WorkstationsMod.FEED_BARREL_ITEM,
+				new StationChestItemRenderer(WorkstationsMod.FEED_BARREL_BLOCK,
+						WorkstationsMod.id("textures/entity/feed_barrel.png")));
 
 		ClientTickEvents.END_CLIENT_TICK.register(client -> {
 			while (TOGGLE_HIGHLIGHT.wasPressed()) {

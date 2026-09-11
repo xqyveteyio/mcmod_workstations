@@ -51,7 +51,8 @@ public class LumberBlockEntity extends WorkStationBlockEntity<LumberjackEntity, 
 
 	@Override
 	public WorkArea getWorkArea() {
-		return new WorkArea(pos, settings.workRadius, settings.workHeight);
+		return WorkArea.of(pos, getCachedState().get(LumberBlock.FACING),
+				settings.workAlong, settings.workAcross, settings.workAbove, settings.workBelow);
 	}
 
 	@Override

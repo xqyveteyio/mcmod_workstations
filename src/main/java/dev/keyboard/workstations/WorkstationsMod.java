@@ -65,7 +65,7 @@ public class WorkstationsMod implements ModInitializer {
 	public static final FarmBlock FARM_BLOCK = new FarmBlock(stationSettings());
 	public static final LumberBlock LUMBER_BLOCK = new LumberBlock(stationSettings());
 	public static final MilkBarrelBlock MILK_BARREL_BLOCK = new MilkBarrelBlock(barrelSettings());
-	public static final FeedBarrelBlock FEED_BARREL_BLOCK = new FeedBarrelBlock(barrelSettings());
+	public static final FeedBarrelBlock FEED_BARREL_BLOCK = new FeedBarrelBlock(chestSettings());
 	public static final SeedBoxBlock SEED_BOX_BLOCK = new SeedBoxBlock(chestSettings());
 
 	public static final BlockItem RANCH_ITEM = new BlockItem(RANCH_BLOCK, new Item.Settings());
