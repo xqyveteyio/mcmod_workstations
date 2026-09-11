@@ -4,6 +4,7 @@ import net.minecraft.nbt.NbtCompound;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.IntConsumer;
 
 /**
  * What every kind of station's orders have in common: a list of settings that describes itself, and
@@ -29,8 +30,8 @@ public interface WorkerSettings<S extends WorkerSettings<S>> {
 	S copy();
 
 	/**
-	 * The values the mod ships with, rather than whatever the config file has been changed to, so
-	 * the reset button means the same thing on a server whose config you have never seen.
+	 * The values from {@code config/keyboard_workstations.json}, so the reset button restores what
+	 * a newly placed station would start with.
 	 */
 	S shippedDefaults();
 
@@ -45,5 +46,29 @@ public interface WorkerSettings<S extends WorkerSettings<S>> {
 		}
 
 		return tabs;
+	}
+
+	/**
+	 * A save from before the plot was a rectangle only recorded one radius. Both reaches take
+	 * that value, so a station that was 8 in every direction stays 8 in every direction.
+	 */
+	static void inheritWorkRadius(NbtCompound nbt, IntConsumer along, IntConsumer across) {
+		if (!nbt.contains("work_along", 3) && nbt.contains("work_radius", 3)) {
+			int radius = nbt.getInt("work_radius");
+			along.accept(radius);
+			across.accept(radius);
+		}
+	}
+
+	/**
+	 * A save from before up and down were separate only recorded one height. Both reaches take
+	 * that value, so a station that was 4 either way stays 4 either way.
+	 */
+	static void inheritWorkHeight(NbtCompound nbt, IntConsumer above, IntConsumer below) {
+		if (!nbt.contains("work_above", 3) && nbt.contains("work_height", 3)) {
+			int height = nbt.getInt("work_height");
+			above.accept(height);
+			below.accept(height);
+		}
 	}
 }

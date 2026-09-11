@@ -1,0 +1,18 @@
+{
+	"type": "minecraft:crafting_shaped",
+	"pattern": [
+		" A ",
+		"BCB",
+		"BDB"
+	],
+	"key": {
+		"A": { "item": "minecraft:iron_axe" },
+		"B": { "tag": "minecraft:wooden_fences" },
+		"C": { "item": "minecraft:emerald_block" },
+		"D": { "item": "minecraft:chest" }
+	},
+	"result": {
+		"item": "keyboard_workstations:lumber_station",
+		"count": 1
+	}
+}

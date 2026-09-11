@@ -7,6 +7,7 @@ import dev.keyboard.workstations.work.Crops;
 import dev.keyboard.workstations.work.FarmSettings;
 import dev.keyboard.workstations.work.Pickings;
 import dev.keyboard.workstations.work.PlotSurvey;
+import dev.keyboard.workstations.work.Stock;
 import dev.keyboard.workstations.work.WorkArea;
 import it.unimi.dsi.fastutil.ints.Int2LongMap;
 import it.unimi.dsi.fastutil.ints.Int2LongOpenHashMap;
@@ -121,12 +122,6 @@ public class FarmerBrain {
 	private static final int MAX_PATH_CHECKS = 3;
 	/** Ticks between swings, so hoeing a field is watchable rather than instant. */
 	private static final int SWING_INTERVAL = 6;
-	/**
-	 * How much of a seed that is also food the seed boxes are kept stocked with before the rest of
-	 * it counts as produce. A stack, which no field gets through between two harvests, since a plot
-	 * takes one to sow and gives several back.
-	 */
-	private static final int SEED_RESERVE = 64;
 	/** How near the station counts as being at its post, squared. */
 	private static final double POST_REACH_SQUARED = 4.0;
 	/** How long the farmer stands where it finished before setting off back to its post, in ticks. */
@@ -309,7 +304,7 @@ public class FarmerBrain {
 			text.append(" | skip ").append(blockedPlots.size() + blockedDrops.size());
 		}
 
-		int carried = countCarried(farmer);
+		int carried = WorkerPack.count(farmer.getCarried());
 
 		if (carried > 0) {
 			text.append(" | pack ").append(carried).append('/').append(FarmerEntity.CARRY_SLOTS);
@@ -401,7 +396,7 @@ public class FarmerBrain {
 	 */
 	private boolean jobValid(ServerWorld world, FarmSettings config) {
 		if (job == Job.COLLECT) {
-			return target != null && target.isAlive() && !target.removed;
+			return target != null && target.isAlive() && !target.isRemoved();
 		}
 
 		if (targetPos == null) {
@@ -524,10 +519,24 @@ public class FarmerBrain {
 		scanSurvey = null;
 		scanPickings = null;
 
-		// A full pack interrupts whatever is running. Carrying on would mean harvesting crops there
-		// is nowhere left to put.
-		if (isPackFull(farmer)) {
+		// A pack that has built up interrupts whatever is running. Waiting until every slot is
+		// occupied is what left a pile on the ground: the last swings have nowhere to put what
+		// they produce. Walking back a little earlier costs a trip; carrying on until the pack
+		// is jammed costs the harvest.
+		//
+		// The early trip stands down while the station is known full, or the farmer would wait
+		// at a station that cannot take anything instead of working the slots it still has. A
+		// pack with no room left has nowhere to put a crop either way, so that one still bites.
+		if (WorkerPack.isFull(farmer.getCarried())
+				|| (!stationFull && WorkerPack.shouldDeposit(farmer.getCarried()))) {
 			return takeDeposit(area);
+		}
+
+		// Whatever the last swing just produced, before walking on. The phase is left alone, so
+		// the next scan resumes the same harvest rather than starting the rotation over; a drop
+		// across the field is the sweep's problem, not this one's.
+		if (takeUnderfoot(farmer, world, area)) {
+			return true;
 		}
 
 		if (phase != null) {
@@ -715,6 +724,36 @@ public class FarmerBrain {
 		return true;
 	}
 
+	/**
+	 * Pockets a drop sitting at the farmer's feet without touching {@link #phase}. Taking a job
+	 * outside the phase is how a full pack already interrupts work; the same pattern lets a grab
+	 * happen between plots and then hands the phase back the next scan.
+	 *
+	 * <p>Pathfinding declining to answer is a fact about the farmer, usually that it is mid
+	 * stride, and must not pause the phase. An unreachable drop is written off as usual so the
+	 * same one cannot stall every scan from here on.
+	 */
+	private boolean takeUnderfoot(FarmerEntity farmer, ServerWorld world, WorkArea area) {
+		List<ItemEntity> nearby = WorkerPack.underfoot(farmer, world, area, farmer.getCarried());
+
+		if (nearby.isEmpty()) {
+			return false;
+		}
+
+		ItemEntity drop = nearestReachableDrop(farmer, world, nearby);
+
+		if (drop == null) {
+			pathPending = false;
+			return false;
+		}
+
+		job = Job.COLLECT;
+		target = drop;
+		targetPos = null;
+		sowing = null;
+		return true;
+	}
+
 	private boolean takeCollect(FarmerEntity farmer, ServerWorld world, WorkArea area) {
 		ItemEntity drop = nearestReachableDrop(farmer, world, area);
 
@@ -844,12 +883,16 @@ public class FarmerBrain {
 
 	@Nullable
 	private ItemEntity nearestReachableDrop(FarmerEntity farmer, ServerWorld world, WorkArea area) {
+		return nearestReachableDrop(farmer, world, WorkerPack.looseIn(world, area, farmer.getCarried()));
+	}
+
+	@Nullable
+	private ItemEntity nearestReachableDrop(FarmerEntity farmer, ServerWorld world, List<ItemEntity> candidates) {
 		long now = world.getTime();
 		List<ItemEntity> queue = new ArrayList<>();
 
-		for (ItemEntity drop : world.getEntitiesByClass(ItemEntity.class, area.getBox(),
-				item -> item.isAlive() && !item.cannotPickup() && farmer.getCarried().canInsert(item.getStack()))) {
-			if (blockedDrops.get(drop.getEntityId()) <= now) {
+		for (ItemEntity drop : candidates) {
+			if (blockedDrops.get(drop.getId()) <= now) {
 				queue.add(drop);
 			}
 		}
@@ -888,7 +931,7 @@ public class FarmerBrain {
 				return drop;
 			}
 
-			blockedDrops.put(drop.getEntityId(), world.getTime() + BLOCKED_COOLDOWN);
+			blockedDrops.put(drop.getId(), world.getTime() + BLOCKED_COOLDOWN);
 			note = "unreachable";
 		}
 
@@ -897,7 +940,7 @@ public class FarmerBrain {
 
 	private void blockCurrentTarget(ServerWorld world) {
 		if (target != null) {
-			blockedDrops.put(target.getEntityId(), world.getTime() + BLOCKED_COOLDOWN);
+			blockedDrops.put(target.getId(), world.getTime() + BLOCKED_COOLDOWN);
 		} else if (targetPos != null && job != Job.DEPOSIT) {
 			blockedPlots.put(targetPos.asLong(), world.getTime() + BLOCKED_COOLDOWN);
 		}
@@ -949,7 +992,7 @@ public class FarmerBrain {
 			return true;
 		}
 
-		if (ModConfig.get().consumeSeeds && !spendSeed(station.seedStores(), seed)) {
+		if (ModConfig.get().consumeSeeds && !Stock.spend(station.seedStores(), seed)) {
 			note = "out of seeds";
 			return true;
 		}
@@ -967,31 +1010,9 @@ public class FarmerBrain {
 	}
 
 	/**
-	 * Takes one seed out of the first store holding it, or reports that there were none left after
-	 * all.
-	 *
-	 * <p>The stores come in the order they are to be drawn down, so a seed box beside the station
-	 * is emptied of a kind before the station's own copies of it are touched.
-	 */
-	private static boolean spendSeed(List<Inventory> stores, Item seed) {
-		for (Inventory store : stores) {
-			for (int slot = 0; slot < store.size(); slot++) {
-				ItemStack stack = store.getStack(slot);
-
-				if (!stack.isEmpty() && stack.getItem() == seed) {
-					store.removeStack(slot, 1);
-					store.markDirty();
-					return true;
-				}
-			}
-		}
-
-		return false;
-	}
-
-	/**
-	 * Breaks a grown crop, leaving what it drops where it fell. Harvesting always hands over to a
-	 * sweep, so the produce is collected as part of finishing the same piece of work.
+	 * Breaks a grown crop, leaving what it drops where it fell. Whatever lands at the farmer's
+	 * feet is pocketed before the next plot, and a sweep still follows the phase for anything
+	 * that scattered further out.
 	 */
 	private boolean harvest(FarmerEntity farmer, ServerWorld world) {
 		BlockPos plot = targetPos;
@@ -1014,7 +1035,8 @@ public class FarmerBrain {
 	/**
 	 * Breaks a melon, a pumpkin or a mushroom where it grew. The block itself is the target here,
 	 * rather than the ground under it as with a plot, because nothing registered it in the first
-	 * place. Otherwise it is harvesting like any other: the drops are left for the sweep.
+	 * place. Otherwise it is harvesting like any other: whatever lands underfoot is pocketed
+	 * before the next one, and a sweep still follows the phase for the rest.
 	 */
 	private boolean gather(FarmerEntity farmer, ServerWorld world) {
 		BlockPos pick = targetPos;
@@ -1040,14 +1062,14 @@ public class FarmerBrain {
 		ItemStack remainder = farmer.getCarried().addStack(item.getStack().copy());
 
 		if (remainder.isEmpty()) {
-			item.remove();
+			item.discard();
 		} else {
 			item.setStack(remainder);
 		}
 
 		farmer.getEntityWorld().playSound(null, farmer.getBlockPos(), SoundEvents.ENTITY_ITEM_PICKUP,
 				SoundCategory.NEUTRAL, 0.15F,
-				(farmer.getEntityWorld().random.nextFloat() - farmer.getEntityWorld().random.nextFloat()) * 1.4F + 2.0F);
+				(farmer.getRandom().nextFloat() - farmer.getRandom().nextFloat()) * 1.4F + 2.0F);
 		phaseWorked = true;
 		return true;
 	}
@@ -1152,126 +1174,13 @@ public class FarmerBrain {
 		return targetPos == null ? 0.0 : Math.sqrt(farmer.squaredDistanceTo(Vec3d.ofCenter(targetPos)));
 	}
 
-	private static int countCarried(FarmerEntity farmer) {
-		SimpleInventory carried = farmer.getCarried();
-		int used = 0;
-
-		for (int slot = 0; slot < carried.size(); slot++) {
-			if (!carried.getStack(slot).isEmpty()) {
-				used++;
-			}
-		}
-
-		return used;
-	}
-
-	private static boolean isPackFull(FarmerEntity farmer) {
-		return countCarried(farmer) == farmer.getCarried().size();
-	}
-
 	/**
-	 * Puts a stack away where it belongs and hands back whatever would not fit.
-	 *
-	 * <p>Seed goes into the seed boxes and produce onto the station's own shelves, which is the
-	 * whole point of having a box: a field's returns are mostly seed, and left in with the produce
-	 * they fill the station up with the one thing that was going straight back into the ground.
-	 *
-	 * <p>Seed falls back on the station when the boxes are full, because a box that has run out of
-	 * room should not stop the harvest coming in. Produce does not fall the other way, or a station
-	 * left unemptied would end up filling the seed boxes with wheat and undo the separation.
-	 *
-	 * <p>A seed that is also food, meaning a carrot or a potato, is only seed up to a point. The
-	 * boxes are kept topped up to {@link #SEED_RESERVE} of it, which is far more than a field
-	 * consumes between harvests, and everything past that is treated as the produce it also is and
-	 * shelved with the rest. Sending all of it to the boxes instead would leave the harvest
-	 * somewhere other than where the harvest is collected, and would in time pack the boxes with
-	 * food that has nothing to do with sowing.
+	 * Puts a stack away where it belongs and hands back whatever would not fit. The rule is
+	 * {@link Stock#stow}, shared with the wood and the ranch so a seed ends up in the same place
+	 * whoever picked it up.
 	 */
 	private static ItemStack store(FarmBlockEntity station, ItemStack stack) {
-		if (Crops.isSeed(stack)) {
-			int offered = Crops.isEdibleSeed(stack)
-					? Math.min(stack.getCount(), boxRoomFor(station, stack))
-					: stack.getCount();
-
-			if (offered > 0) {
-				// Split rather than handed over whole, so the part held back is never at the mercy
-				// of how much room the boxes happen to have.
-				ItemStack refused = fill(station.seedBoxes(), stack.split(offered));
-
-				// Whatever the boxes would not take rejoins the part held back, and goes with it
-				// to the station below.
-				if (!refused.isEmpty()) {
-					if (stack.isEmpty()) {
-						stack = refused;
-					} else {
-						stack.increment(refused.getCount());
-					}
-				}
-			}
-		}
-
-		return fill(List.of(station), stack);
-	}
-
-	/** How much more of a seed that is also food the boxes should be holding. */
-	private static int boxRoomFor(FarmBlockEntity station, ItemStack stack) {
-		int held = 0;
-
-		for (Inventory box : station.seedBoxes()) {
-			for (int slot = 0; slot < box.size(); slot++) {
-				ItemStack existing = box.getStack(slot);
-
-				if (ItemStack.areItemsEqual(existing, stack)) {
-					held += existing.getCount();
-				}
-			}
-		}
-
-		return Math.max(0, SEED_RESERVE - held);
-	}
-
-	/** Works down the destinations in order, returning whatever none of them had room for. */
-	private static ItemStack fill(List<Inventory> destinations, ItemStack stack) {
-		for (Inventory destination : destinations) {
-			if (stack.isEmpty()) {
-				break;
-			}
-
-			int before = stack.getCount();
-			stack = insert(destination, stack);
-
-			if (stack.getCount() != before) {
-				destination.markDirty();
-			}
-		}
-
-		return stack;
-	}
-
-	/** Moves what fits into {@code target}, mutating and returning the leftover. */
-	private static ItemStack insert(Inventory target, ItemStack stack) {
-		for (int slot = 0; slot < target.size() && !stack.isEmpty(); slot++) {
-			ItemStack existing = target.getStack(slot);
-
-			if (existing.isEmpty()) {
-				target.setStack(slot, stack.copy());
-				stack.setCount(0);
-				break;
-			}
-
-			if (!ItemStack.areItemsEqual(existing, stack)) {
-				continue;
-			}
-
-			int room = Math.min(existing.getMaxCount(), target.getMaxCountPerStack()) - existing.getCount();
-			int moved = Math.min(room, stack.getCount());
-
-			if (moved > 0) {
-				existing.increment(moved);
-				stack.decrement(moved);
-			}
-		}
-
-		return stack;
+		return Stock.stow(station, station.seedBoxes(), stack);
 	}
 }
+

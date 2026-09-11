@@ -186,10 +186,14 @@ public class FarmerEntity extends PathAwareEntity implements StationWorker, Work
 		}
 
 		// A farmer outliving its station would keep working a field nobody owns any more.
-		if (getStation() == null) {
+		FarmBlockEntity station = getStation();
+
+		if (station == null) {
 			if (++homelessTicks > HOMELESS_LIMIT) {
 				WorkerEntrance.leave(this);
 			}
+		} else if (station.hasAdoptedOtherThan(getUuid())) {
+			WorkerEntrance.leave(this);
 		} else {
 			homelessTicks = 0;
 		}

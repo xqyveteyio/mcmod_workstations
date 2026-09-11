@@ -8,12 +8,13 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 
 /**
- * Starting values for newly placed stations, stored in {@code config/workstations.json}.
+ * Starting values for newly placed stations, and the values the settings screen's reset button
+ * restores, stored in {@code config/keyboard_workstations.json}.
  *
  * <p>Ranchers do not read this, with three exceptions noted below. Each station keeps its own
  * {@link dev.keyboard.workstations.work.StationSettings}, copied from here when the block is
- * placed and edited from the block's own screen afterwards, so changing the file only affects
- * stations built from then on.
+ * placed and edited from the block's own screen afterwards. Changing the file only affects
+ * stations built from then on, unless an existing station is reset from its settings screen.
  *
  * <p>{@link #requireFeedItems}, {@link #consumeSeeds} and {@link #invulnerable} are the exceptions.
  * They are read straight from here every time they are needed, are not copied into any station and
@@ -74,9 +75,9 @@ public class ModConfig {
 	 */
 	public boolean requireFeedItems = true;
 	/** Adults of one species kept as breeding stock. Anything above this gets slaughtered. */
-	public int keepAdultsPerType = 4;
+	public int keepAdultsPerType = 8;
 	/** Animals of one species allowed inside the area before breeding pauses. */
-	public int maxAnimalsPerType = 16;
+	public int maxAnimalsPerType = 12;
 	/** Also feed babies to speed up their growth. Off by default because it eats through feed quickly. */
 	public boolean feedBabies = false;
 	/** Play the eating sound every time an animal is fed. Off by default since a busy ranch gets noisy. */
@@ -107,9 +108,10 @@ public class ModConfig {
 	/** Pick mushrooms anywhere in the work area. Off by default for the same reason. */
 	public boolean harvestMushrooms = false;
 	/**
-	 * When true sowing spends seeds out of the farm station, so the field only runs as long as you
-	 * keep it stocked. When false what is in the container only says which seeds the farmer is
-	 * allowed to plant, and the field keeps going once you have shown it the mix.
+	 * When true sowing spends seeds (or saplings) out of the station, so the field or wood only
+	 * runs as long as you keep it stocked. When false what is in the container only says which
+	 * kinds the worker is allowed to plant, and the work keeps going once you have shown it the
+	 * mix.
 	 *
 	 * <p>This, {@link #requireFeedItems} and {@link #invulnerable} are the settings a station cannot
 	 * override, and the only ones read from here while the game runs rather than copied out when a
@@ -121,6 +123,32 @@ public class ModConfig {
 	public boolean consumeSeeds = true;
 	/** Ticks the farmer waits between one plot and the next. */
 	public int farmIntervalTicks = 10;
+
+	/** Fell every tree standing inside the work area. */
+	public boolean enableChopping = true;
+	/**
+	 * Break the canopy of a tree the lumberjack has just felled, rather than leaving the leaves
+	 * to decay. Off by default: decay is slow and the saplings come out of those leaves, so
+	 * turning this on is how the wood restocks itself from what it cuts, and leaving it off
+	 * means replanting runs on whatever the station is already holding.
+	 */
+	public boolean breakLeaves = false;
+	/** Plant a sapling again where a tree just came down. */
+	public boolean enableReplanting = true;
+	/**
+	 * Also plant saplings on open ground that could actually grow a tree, rather than only on
+	 * the stumps the lumberjack left. On by default: a wood that has room should fill itself
+	 * without the player marking every hole.
+	 */
+	public boolean autoPlanting = true;
+	/**
+	 * Spend bone meal from the station on saplings already in the ground, using vanilla's own
+	 * chance so a sapling is not a tree on the first tap. Off by default, because it eats
+	 * through a stock of bone meal and a wood that is growing on its own does not need it.
+	 */
+	public boolean forceGrowing = false;
+	/** Ticks the lumberjack waits between one swing and the next. */
+	public int lumberIntervalTicks = 10;
 
 	public static ModConfig get() {
 		if (instance == null) {

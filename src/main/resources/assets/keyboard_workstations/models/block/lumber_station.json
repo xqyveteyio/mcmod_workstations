@@ -1,0 +1,72 @@
+{
+	"parent": "block/block",
+	"ambientocclusion": false,
+	"textures": {
+		"particle": "minecraft:block/oak_planks",
+		"top": "minecraft:block/oak_planks",
+		"leg": "minecraft:block/stripped_oak_log"
+	},
+	"elements": [
+		{
+			"name": "leg_nw",
+			"from": [0, 0, 0],
+			"to": [2, 10, 2],
+			"faces": {
+				"north": {"texture": "#leg"},
+				"east": {"texture": "#leg"},
+				"south": {"texture": "#leg"},
+				"west": {"texture": "#leg"},
+				"down": {"texture": "#leg"}
+			}
+		},
+		{
+			"name": "leg_ne",
+			"from": [14, 0, 0],
+			"to": [16, 10, 2],
+			"faces": {
+				"north": {"texture": "#leg"},
+				"east": {"texture": "#leg"},
+				"south": {"texture": "#leg"},
+				"west": {"texture": "#leg"},
+				"down": {"texture": "#leg"}
+			}
+		},
+		{
+			"name": "leg_sw",
+			"from": [0, 0, 14],
+			"to": [2, 10, 16],
+			"faces": {
+				"north": {"texture": "#leg"},
+				"east": {"texture": "#leg"},
+				"south": {"texture": "#leg"},
+				"west": {"texture": "#leg"},
+				"down": {"texture": "#leg"}
+			}
+		},
+		{
+			"name": "leg_se",
+			"from": [14, 0, 14],
+			"to": [16, 10, 16],
+			"faces": {
+				"north": {"texture": "#leg"},
+				"east": {"texture": "#leg"},
+				"south": {"texture": "#leg"},
+				"west": {"texture": "#leg"},
+				"down": {"texture": "#leg"}
+			}
+		},
+		{
+			"name": "tabletop",
+			"from": [0, 10, 0],
+			"to": [16, 12, 16],
+			"faces": {
+				"north": {"texture": "#top"},
+				"east": {"texture": "#top"},
+				"south": {"texture": "#top"},
+				"west": {"texture": "#top"},
+				"up": {"texture": "#top"},
+				"down": {"texture": "#top"}
+			}
+		}
+	]
+}

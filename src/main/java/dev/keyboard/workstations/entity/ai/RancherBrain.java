@@ -7,13 +7,13 @@ import dev.keyboard.workstations.block.MilkBarrelBlockEntity;
 import dev.keyboard.workstations.block.RanchBlockEntity;
 import dev.keyboard.workstations.entity.RancherEntity;
 import dev.keyboard.workstations.work.HerdSurvey;
+import dev.keyboard.workstations.work.Stock;
 import dev.keyboard.workstations.work.WorkArea;
 import it.unimi.dsi.fastutil.ints.Int2LongMap;
 import it.unimi.dsi.fastutil.ints.Int2LongOpenHashMap;
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 import it.unimi.dsi.fastutil.ints.IntSet;
 import net.minecraft.entity.Entity;
-import net.minecraft.entity.damage.DamageSource;
 import net.minecraft.entity.ItemEntity;
 import net.minecraft.entity.Shearable;
 import net.minecraft.entity.ai.pathing.Path;
@@ -377,7 +377,7 @@ public class RancherBrain {
 			text.append(" | cull ").append(cullCooldown);
 		}
 
-		int carried = countCarried(rancher);
+		int carried = WorkerPack.count(rancher.getCarried());
 
 		if (carried > 0) {
 			text.append(" | pack ").append(carried).append('/').append(RancherEntity.CARRY_SLOTS);
@@ -478,7 +478,15 @@ public class RancherBrain {
 			return targetPos != null;
 		}
 
-		return target != null && target.isAlive() && !target.removed && area.contains(target);
+		if (job == Job.COLLECT) {
+			// Drops are allowed a few blocks past the plot edge — see WorkerPack.DROP_MARGIN —
+			// so this check must use the same wider box, or a drop just outside would be taken
+			// and then immediately written off as gone.
+			return target != null && target.isAlive() && !target.isRemoved()
+					&& WorkerPack.dropBox(area).contains(target.getPos());
+		}
+
+		return target != null && target.isAlive() && !target.isRemoved() && area.contains(target);
 	}
 
 	private void perform(RancherEntity rancher, RanchBlockEntity station) {
@@ -594,10 +602,24 @@ public class RancherBrain {
 		note = "";
 		scanSurvey = null;
 
-		// A full pack interrupts whatever is running. Carrying on would mean killing animals and
-		// shearing sheep whose drops there is nowhere left to put.
-		if (isPackFull(rancher)) {
+		// A pack that has built up interrupts whatever is running. Waiting until every slot is
+		// occupied is what left a pile on the ground: the last swings have nowhere to put what
+		// they produce. Walking back a little earlier costs a trip; carrying on until the pack
+		// is jammed costs the slaughter.
+		//
+		// The early trip stands down while the station is known full, or the rancher would wait
+		// at a station that cannot take anything instead of working the slots it still has. A
+		// pack with no room left has nowhere to put a carcass either way, so that one still bites.
+		if (WorkerPack.isFull(rancher.getCarried())
+				|| (!stationFull && WorkerPack.shouldDeposit(rancher.getCarried()))) {
 			return takeDeposit(area);
+		}
+
+		// Whatever the last swing just produced, before walking on. The phase is left alone, so
+		// the next scan resumes the same cull rather than starting the rotation over; a drop
+		// across the pen is the sweep's problem, not this one's.
+		if (takeUnderfoot(rancher, world, area)) {
+			return true;
 		}
 
 		if (phase != null) {
@@ -714,10 +736,35 @@ public class RancherBrain {
 		return victim != null && take(Job.CULL, victim);
 	}
 
+	/**
+	 * Pockets a drop sitting at the rancher's feet without touching {@link #phase}. Taking a job
+	 * outside the phase is how a full pack already interrupts work; the same pattern lets a grab
+	 * happen between animals and then hands the phase back the next scan.
+	 *
+	 * <p>Pathfinding declining to answer is a fact about the rancher, usually that it is mid
+	 * stride, and must not pause the phase. An unreachable drop is written off as usual so the
+	 * same one cannot stall every scan from here on.
+	 */
+	private boolean takeUnderfoot(RancherEntity rancher, ServerWorld world, WorkArea area) {
+		List<ItemEntity> nearby = WorkerPack.underfoot(rancher, world, area, rancher.getCarried());
+
+		if (nearby.isEmpty()) {
+			return false;
+		}
+
+		ItemEntity drop = nearestReachable(rancher, world, nearby, COLLECT_PATH_DISTANCE);
+
+		if (drop == null) {
+			pathPending = false;
+			return false;
+		}
+
+		return take(Job.COLLECT, drop);
+	}
+
 	private boolean takeCollect(RancherEntity rancher, ServerWorld world, WorkArea area) {
-		ItemEntity drop = nearestReachable(rancher, world, world.getEntitiesByClass(ItemEntity.class, area.getBox(),
-				item -> item.isAlive() && !item.cannotPickup() && rancher.getCarried().canInsert(item.getStack())),
-				COLLECT_PATH_DISTANCE);
+		ItemEntity drop = nearestReachable(rancher, world,
+				WorkerPack.looseIn(world, area, rancher.getCarried()), COLLECT_PATH_DISTANCE);
 
 		if (drop != null) {
 			return take(Job.COLLECT, drop);
@@ -741,14 +788,14 @@ public class RancherBrain {
 		}
 
 		HerdSurvey.FeedPlan plan = nearestPlan(rancher, world,
-				survey(world, area).feedPlans(config), station);
+				survey(world, area).feedPlans(config), station.feedStores());
 		return plan != null && takeFeed(plan);
 	}
 
 	private boolean takeGrow(RancherEntity rancher, ServerWorld world, WorkArea area,
 			RanchBlockEntity station) {
 		AnimalEntity baby = nearestReachable(rancher, world,
-				filterFeedable(unserved(survey(world, area).babyCandidates()), station),
+				filterFeedable(unserved(survey(world, area).babyCandidates()), station.feedStores()),
 				ANIMAL_PATH_DISTANCE);
 		return baby != null && take(Job.GROW, baby);
 	}
@@ -794,7 +841,7 @@ public class RancherBrain {
 		List<T> waiting = new ArrayList<>(candidates.size());
 
 		for (T candidate : candidates) {
-			if (!served.contains(candidate.getEntityId())) {
+			if (!served.contains(candidate.getId())) {
 				waiting.add(candidate);
 			}
 		}
@@ -832,11 +879,11 @@ public class RancherBrain {
 	 */
 	@Nullable
 	private HerdSurvey.FeedPlan nearestPlan(RancherEntity rancher, ServerWorld world,
-			List<HerdSurvey.FeedPlan> plans, Inventory station) {
+			List<HerdSurvey.FeedPlan> plans, List<Inventory> stores) {
 		List<AnimalEntity> heads = new ArrayList<>(plans.size());
 
 		for (HerdSurvey.FeedPlan plan : plans) {
-			if (affordable(plan, station)) {
+			if (affordable(plan, stores)) {
 				heads.add(plan.first());
 			}
 		}
@@ -856,29 +903,10 @@ public class RancherBrain {
 		return null;
 	}
 
-	/** Whether the station holds a portion for every animal in the plan. */
-	private static boolean affordable(HerdSurvey.FeedPlan plan, Inventory station) {
-		if (!ModConfig.get().requireFeedItems) {
-			return true;
-		}
-
-		int found = 0;
-
-		for (int slot = 0; slot < station.size(); slot++) {
-			ItemStack stack = station.getStack(slot);
-
-			// Both halves are the same species, so one animal's taste speaks for the pair. A pairing
-			// may be paid for half in wheat and half in universal feed: either portion will serve.
-			if (feeds(stack, plan.first())) {
-				found += stack.getCount();
-
-				if (found >= plan.portions()) {
-					return true;
-				}
-			}
-		}
-
-		return false;
+	/** Whether the stores hold a portion for every animal in the plan. */
+	private static boolean affordable(HerdSurvey.FeedPlan plan, List<Inventory> stores) {
+		return !ModConfig.get().requireFeedItems
+				|| Stock.count(stores, stack -> feeds(stack, plan.first())) >= plan.portions();
 	}
 
 	/** Closest candidate the rancher can actually walk up to, nearest tried first. */
@@ -889,7 +917,7 @@ public class RancherBrain {
 		List<T> queue = new ArrayList<>(candidates.size());
 
 		for (T candidate : candidates) {
-			if (blocked.get(candidate.getEntityId()) <= now) {
+			if (blocked.get(candidate.getId()) <= now) {
 				queue.add(candidate);
 			}
 		}
@@ -938,7 +966,7 @@ public class RancherBrain {
 	}
 
 	private void block(ServerWorld world, Entity blockedTarget) {
-		blocked.put(blockedTarget.getEntityId(), world.getTime() + BLOCKED_COOLDOWN);
+		blocked.put(blockedTarget.getId(), world.getTime() + BLOCKED_COOLDOWN);
 	}
 
 	private boolean feed(RancherEntity rancher, RanchBlockEntity station, boolean growUp) {
@@ -949,35 +977,33 @@ public class RancherBrain {
 		StationSettings config = station.getSettings();
 
 		if (ModConfig.get().requireFeedItems) {
-			int slot = findFeedSlot(station, animal);
+			Stock.Held helping = findFeed(station.feedStores(), animal);
 
-			if (slot < 0) {
+			if (helping == null) {
 				note = "no feed";
 				return true;
 			}
 
-			ItemStack eaten = station.removeStack(slot, 1);
+			ItemStack eaten = helping.take(1);
 			Item remainder = eaten.getItem().getRecipeRemainder();
 
 			if (remainder != null) {
 				// Buckets and bottles come back rather than vanishing into the animal.
 				keepOrDrop(rancher, new ItemStack(remainder));
 			}
-
-			station.markDirty();
 		}
 
 		rancher.swingHand(Hand.MAIN_HAND);
 
 		if (growUp) {
-			animal.growUp(-animal.getBreedingAge(), true);
+			animal.growUp(PassiveEntity.toGrowUpAge(-animal.getBreedingAge()), true);
 		} else {
 			animal.lovePlayer(null);
 		}
 
 		// Its turn is used up. For babies that is what makes a round finite, and it also stops a
 		// baby that grew to adulthood on this very helping from being served again as an adult.
-		served.add(animal.getEntityId());
+		served.add(animal.getId());
 		phaseWorked = true;
 		celebrate(rancher, animal);
 
@@ -1009,7 +1035,7 @@ public class RancherBrain {
 	}
 
 	private static boolean stillReady(AnimalEntity animal) {
-		return animal.isAlive() && !animal.removed && animal.getBreedingAge() == 0 && animal.canEat();
+		return animal.isAlive() && !animal.isRemoved() && animal.getBreedingAge() == 0 && animal.canEat();
 	}
 
 	private boolean cull(RancherEntity rancher) {
@@ -1023,7 +1049,7 @@ public class RancherBrain {
 			// Still dealt as damage rather than by emptying the health bar, so the loot table, the
 			// looting on the rancher's sword and the death animation all behave as they always do.
 			// The headroom over max health is for anything wearing armour or under resistance.
-			animal.damage(DamageSource.mob(rancher),
+			animal.damage(rancher.getDamageSources().mobAttack(rancher),
 					animal.getMaxHealth() * 10.0F + animal.getAbsorptionAmount() + 10.0F);
 		} else {
 			rancher.tryAttack(animal);
@@ -1038,8 +1064,9 @@ public class RancherBrain {
 		// The interval paces one animal to the next, so it starts on the blow that finished this
 		// one rather than on merely having swung at it.
 		rancher.startCullCooldown();
-		// What it dropped is left where it fell. Culling always hands over to a sweep, so the
-		// carcass is collected as part of finishing the same piece of work.
+		// What it dropped is left where it fell. Whatever lands at the rancher's feet is
+		// pocketed before the next animal, and a sweep still follows the phase for anything
+		// that scattered further out.
 		phaseWorked = true;
 		return true;
 	}
@@ -1056,7 +1083,7 @@ public class RancherBrain {
 
 		// Marked as served whatever happens next, so an animal that turns out not to need it after
 		// all cannot be picked again and stall the round.
-		served.add(animal.getEntityId());
+		served.add(animal.getId());
 
 		if (!(animal instanceof Shearable shearable) || !shearable.isShearable()) {
 			return true;
@@ -1089,7 +1116,7 @@ public class RancherBrain {
 			return true;
 		}
 
-		served.add(animal.getEntityId());
+		served.add(animal.getId());
 
 		if (!(animal instanceof CowEntity) || animal.isBaby()) {
 			return true;
@@ -1117,14 +1144,14 @@ public class RancherBrain {
 		ItemStack remainder = rancher.getCarried().addStack(item.getStack().copy());
 
 		if (remainder.isEmpty()) {
-			item.remove();
+			item.discard();
 		} else {
 			item.setStack(remainder);
 		}
 
 		rancher.getEntityWorld().playSound(null, rancher.getBlockPos(), SoundEvents.ENTITY_ITEM_PICKUP,
 				SoundCategory.NEUTRAL, 0.15F,
-				(rancher.getEntityWorld().random.nextFloat() - rancher.getEntityWorld().random.nextFloat()) * 1.4F + 2.0F);
+				(rancher.getRandom().nextFloat() - rancher.getRandom().nextFloat()) * 1.4F + 2.0F);
 		phaseWorked = true;
 		return true;
 	}
@@ -1141,7 +1168,7 @@ public class RancherBrain {
 			}
 
 			int before = stack.getCount();
-			ItemStack left = insert(station, stack);
+			ItemStack left = store(station, stack);
 			carried.setStack(slot, left.isEmpty() ? ItemStack.EMPTY : left);
 
 			if (left.getCount() != before) {
@@ -1151,7 +1178,6 @@ public class RancherBrain {
 
 		if (moved) {
 			rancher.swingHand(Hand.MAIN_HAND);
-			station.markDirty();
 		} else if (!carried.isEmpty()) {
 			note = "station full";
 			// Remembered for the rest of the phase, or a sweep that has cleared the ground would
@@ -1241,23 +1267,6 @@ public class RancherBrain {
 		return targetPos == null ? 0.0 : Math.sqrt(rancher.squaredDistanceTo(Vec3d.ofCenter(targetPos)));
 	}
 
-	private static int countCarried(RancherEntity rancher) {
-		SimpleInventory carried = rancher.getCarried();
-		int used = 0;
-
-		for (int slot = 0; slot < carried.size(); slot++) {
-			if (!carried.getStack(slot).isEmpty()) {
-				used++;
-			}
-		}
-
-		return used;
-	}
-
-	private static boolean isPackFull(RancherEntity rancher) {
-		return countCarried(rancher) == rancher.getCarried().size();
-	}
-
 	/** Drops the rancher cannot pocket land at its feet rather than disappearing. */
 	private static void keepOrDrop(RancherEntity rancher, ItemStack stack) {
 		ItemStack remainder = rancher.getCarried().addStack(stack);
@@ -1282,42 +1291,28 @@ public class RancherBrain {
 		world.spawnParticles(ParticleTypes.HAPPY_VILLAGER, center.x, center.y, center.z, 4, 0.3, 0.3, 0.3, 0.0);
 	}
 
-	private static List<AnimalEntity> filterFeedable(List<AnimalEntity> animals, Inventory station) {
+	private static List<AnimalEntity> filterFeedable(List<AnimalEntity> animals, List<Inventory> stores) {
 		if (!ModConfig.get().requireFeedItems) {
 			return animals;
 		}
 
-		return animals.stream().filter(animal -> findFeedSlot(station, animal) >= 0).toList();
+		return animals.stream().filter(animal -> findFeed(stores, animal) != null).toList();
 	}
 
 	/**
-	 * The slot this animal's next helping comes out of, or -1 when the station holds nothing it
-	 * would take.
+	 * Where this animal's next helping comes from, or null when none of the stores hold anything
+	 * it would take.
 	 *
-	 * <p>What the animal eats of its own accord wins over universal feed wherever both are in the
-	 * station, so a chest stocked with wheat for the cows spends none of the crafted stuff on them.
-	 * Universal feed is then left for the animals nothing else in there would have fed.
+	 * <p>What the animal eats of its own accord wins over universal feed wherever both are on
+	 * offer, so a box stocked with wheat for the cows spends none of the crafted stuff on
+	 * them. Universal feed is then left for the animals nothing else in there would have fed.
+	 *
+	 * <p>Boxes are searched before the station, matching {@link RanchBlockEntity#feedStores()}.
 	 */
-	private static int findFeedSlot(Inventory station, AnimalEntity animal) {
-		int universal = -1;
-
-		for (int slot = 0; slot < station.size(); slot++) {
-			ItemStack stack = station.getStack(slot);
-
-			if (stack.isEmpty()) {
-				continue;
-			}
-
-			if (animal.isBreedingItem(stack)) {
-				return slot;
-			}
-
-			if (universal < 0 && stack.getItem() == WorkstationsMod.UNIVERSAL_FEED) {
-				universal = slot;
-			}
-		}
-
-		return universal;
+	@Nullable
+	private static Stock.Held findFeed(List<Inventory> stores, AnimalEntity animal) {
+		Stock.Held liked = Stock.find(stores, animal::isBreedingItem);
+		return liked != null ? liked : Stock.find(stores, stack -> stack.getItem() == WorkstationsMod.UNIVERSAL_FEED);
 	}
 
 	/** Whether one of these is a helping this animal will accept. */
@@ -1325,30 +1320,12 @@ public class RancherBrain {
 		return !stack.isEmpty() && (animal.isBreedingItem(stack) || stack.getItem() == WorkstationsMod.UNIVERSAL_FEED);
 	}
 
-	/** Moves what fits into {@code target}, mutating and returning the leftover. */
-	private static ItemStack insert(Inventory target, ItemStack stack) {
-		for (int slot = 0; slot < target.size() && !stack.isEmpty(); slot++) {
-			ItemStack existing = target.getStack(slot);
-
-			if (existing.isEmpty()) {
-				target.setStack(slot, stack.copy());
-				stack.setCount(0);
-				break;
-			}
-
-			if (!ItemStack.areItemsEqual(existing, stack)) {
-				continue;
-			}
-
-			int room = Math.min(existing.getMaxCount(), target.getMaxCountPerStack()) - existing.getCount();
-			int moved = Math.min(room, stack.getCount());
-
-			if (moved > 0) {
-				existing.increment(moved);
-				stack.decrement(moved);
-			}
-		}
-
-		return stack;
+	/**
+	 * Puts a stack away where it belongs and hands back whatever would not fit. The rule is
+	 * {@link Stock#stow}, shared with the farm and the wood: seed and saplings into the boxes,
+	 * wool and meat onto the station's own shelves.
+	 */
+	private static ItemStack store(RanchBlockEntity station, ItemStack stack) {
+		return Stock.stow(station, station.seedBoxes(), stack);
 	}
 }
