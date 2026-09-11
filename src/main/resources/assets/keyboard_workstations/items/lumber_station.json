@@ -1,0 +1,18 @@
+{
+	"model": {
+		"type": "minecraft:composite",
+		"models": [
+			{
+				"type": "minecraft:model",
+				"model": "keyboard_workstations:block/lumber_station"
+			},
+			{
+				"type": "minecraft:special",
+				"base": "keyboard_workstations:block/lumber_station",
+				"model": {
+					"type": "keyboard_workstations:lumber_axe"
+				}
+			}
+		]
+	}
+}

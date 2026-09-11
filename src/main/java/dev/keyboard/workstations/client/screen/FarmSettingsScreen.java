@@ -3,13 +3,12 @@ package dev.keyboard.workstations.client.screen;
 import dev.keyboard.workstations.WorkstationsMod;
 import dev.keyboard.workstations.client.network.StationNetworkingClient;
 import dev.keyboard.workstations.work.FarmSettings;
-import net.minecraft.client.gui.widget.ButtonWidget;
-import net.minecraft.item.Item;
-import net.minecraft.text.Text;
-import net.minecraft.util.math.BlockPos;
-
 import java.util.List;
 import java.util.function.Consumer;
+import net.minecraft.client.gui.components.Button;
+import net.minecraft.core.BlockPos;
+import net.minecraft.network.chat.Component;
+import net.minecraft.world.item.Item;
 
 /**
  * The farm station's settings. Everything the ranch screen does, plus a tab of planting ratios
@@ -50,12 +49,12 @@ public class FarmSettingsScreen extends WorkerSettingsScreen<FarmSettings> {
 	@Override
 	protected void addExtraRows(String category, Consumer<Row> add) {
 		if (FarmSettings.FIELD.equals(category)) {
-			add.accept(new Row(Text.translatable("config.keyboard_workstations.rescan_plots"),
-					ButtonWidget.builder(Text.translatable("config.keyboard_workstations.rescan_plots.action"),
+			add.accept(new Row(Component.translatable("config.keyboard_workstations.rescan_plots"),
+					Button.builder(Component.translatable("config.keyboard_workstations.rescan_plots.action"),
 									button -> surveyAndLeave())
-							.dimensions(0, 0, CONTROL_WIDTH, CONTROL_HEIGHT)
+							.bounds(0, 0, CONTROL_WIDTH, CONTROL_HEIGHT)
 							.build(),
-					Text.translatable("config.keyboard_workstations.rescan_plots.tooltip")));
+					Component.translatable("config.keyboard_workstations.rescan_plots.tooltip")));
 			return;
 		}
 

@@ -1,11 +1,9 @@
 package dev.keyboard.workstations.work;
 
-import net.minecraft.nbt.NbtCompound;
-import net.minecraft.nbt.NbtElement;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.IntConsumer;
+import net.minecraft.nbt.CompoundTag;
 
 /**
  * What every kind of station's orders have in common: a list of settings that describes itself, and
@@ -22,9 +20,9 @@ public interface WorkerSettings<S extends WorkerSettings<S>> {
 	/** Every setting this kind of station has, in the order the screen should lay them out. */
 	List<SettingOption<S>> options();
 
-	void writeNbt(NbtCompound nbt);
+	void writeNbt(CompoundTag nbt);
 
-	void readNbt(NbtCompound nbt);
+	void readNbt(CompoundTag nbt);
 
 	void copyFrom(S other);
 
@@ -53,10 +51,9 @@ public interface WorkerSettings<S extends WorkerSettings<S>> {
 	 * A save from before the plot was a rectangle only recorded one radius. Both reaches take
 	 * that value, so a station that was 8 in every direction stays 8 in every direction.
 	 */
-	static void inheritWorkRadius(NbtCompound nbt, IntConsumer along, IntConsumer across) {
-		if (!nbt.contains("work_along", NbtElement.INT_TYPE)
-				&& nbt.contains("work_radius", NbtElement.INT_TYPE)) {
-			int radius = nbt.getInt("work_radius");
+	static void inheritWorkRadius(CompoundTag nbt, IntConsumer along, IntConsumer across) {
+		if (!nbt.contains("work_along") && nbt.contains("work_radius")) {
+			int radius = nbt.getIntOr("work_radius", 0);
 			along.accept(radius);
 			across.accept(radius);
 		}
@@ -66,10 +63,9 @@ public interface WorkerSettings<S extends WorkerSettings<S>> {
 	 * A save from before up and down were separate only recorded one height. Both reaches take
 	 * that value, so a station that was 4 either way stays 4 either way.
 	 */
-	static void inheritWorkHeight(NbtCompound nbt, IntConsumer above, IntConsumer below) {
-		if (!nbt.contains("work_above", NbtElement.INT_TYPE)
-				&& nbt.contains("work_height", NbtElement.INT_TYPE)) {
-			int height = nbt.getInt("work_height");
+	static void inheritWorkHeight(CompoundTag nbt, IntConsumer above, IntConsumer below) {
+		if (!nbt.contains("work_above") && nbt.contains("work_height")) {
+			int height = nbt.getIntOr("work_height", 0);
 			above.accept(height);
 			below.accept(height);
 		}

@@ -1,11 +1,9 @@
 package dev.keyboard.workstations.work;
 
 import dev.keyboard.workstations.ModConfig;
-import net.minecraft.nbt.NbtCompound;
-import net.minecraft.nbt.NbtElement;
-
 import java.util.ArrayList;
 import java.util.List;
+import net.minecraft.nbt.CompoundTag;
 
 /**
  * One farm station's own orders, the counterpart to {@link StationSettings}. Same framework, so a
@@ -115,31 +113,29 @@ public final class FarmSettings implements WorkerSettings<FarmSettings> {
 
 	@Override
 	public void copyFrom(FarmSettings other) {
-		NbtCompound carrier = new NbtCompound();
+		CompoundTag carrier = new CompoundTag();
 		other.writeNbt(carrier);
 		readNbt(carrier);
 	}
 
 	@Override
-	public void writeNbt(NbtCompound nbt) {
+	public void writeNbt(CompoundTag nbt) {
 		for (SettingOption<FarmSettings> option : OPTIONS) {
 			option.write(this, nbt);
 		}
 
-		NbtCompound mix = new NbtCompound();
+		CompoundTag mix = new CompoundTag();
 		seedMix.writeNbt(mix);
 		nbt.put(MIX_KEY, mix);
 	}
 
 	@Override
-	public void readNbt(NbtCompound nbt) {
+	public void readNbt(CompoundTag nbt) {
 		for (SettingOption<FarmSettings> option : OPTIONS) {
 			option.read(this, nbt);
 		}
 
-		if (nbt.contains(MIX_KEY, NbtElement.COMPOUND_TYPE)) {
-			seedMix.readNbt(nbt.getCompound(MIX_KEY));
-		}
+		nbt.getCompound(MIX_KEY).ifPresent(seedMix::readNbt);
 
 		WorkerSettings.inheritWorkRadius(nbt, v -> workAlong = v, v -> workAcross = v);
 		WorkerSettings.inheritWorkHeight(nbt, v -> workAbove = v, v -> workBelow = v);

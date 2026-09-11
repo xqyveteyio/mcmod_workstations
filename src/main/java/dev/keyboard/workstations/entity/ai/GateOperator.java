@@ -1,16 +1,16 @@
 package dev.keyboard.workstations.entity.ai;
 
-import net.minecraft.block.Block;
-import net.minecraft.block.BlockState;
-import net.minecraft.block.FenceGateBlock;
-import net.minecraft.entity.ai.pathing.Path;
-import net.minecraft.entity.mob.MobEntity;
-import net.minecraft.sound.SoundCategory;
-import net.minecraft.sound.SoundEvents;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Box;
-import net.minecraft.world.World;
-import net.minecraft.world.event.GameEvent;
+import net.minecraft.core.BlockPos;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.sounds.SoundSource;
+import net.minecraft.world.entity.Mob;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.FenceGateBlock;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.gameevent.GameEvent;
+import net.minecraft.world.level.pathfinder.Path;
+import net.minecraft.world.phys.AABB;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -56,7 +56,7 @@ public class GateOperator {
 	private int openTicks;
 	private int cooldown;
 
-	public void tick(MobEntity worker) {
+	public void tick(Mob worker) {
 		if (!gatesAllowed(worker)) {
 			shut(worker);
 			return;
@@ -95,28 +95,28 @@ public class GateOperator {
 	}
 
 	/** Shuts whatever is still open, for a worker that died or was dismissed mid gateway. */
-	public void shut(MobEntity worker) {
+	public void shut(Mob worker) {
 		if (gate != null) {
 			setOpen(worker, gate, false);
 			gate = null;
 		}
 	}
 
-	private static boolean gatesAllowed(MobEntity worker) {
+	private static boolean gatesAllowed(Mob worker) {
 		return worker instanceof WorkerMob mob && mob.mayOpenGates();
 	}
 
-	private void hold(MobEntity worker) {
+	private void hold(Mob worker) {
 		BlockPos current = gate;
 
 		if (current == null) {
 			return;
 		}
 
-		BlockState state = worker.getWorld().getBlockState(current);
+		BlockState state = worker.level().getBlockState(current);
 
 		// Somebody else shut it, or the gate was broken while the worker was walking through.
-		if (!(state.getBlock() instanceof FenceGateBlock) || !state.get(FenceGateBlock.OPEN)) {
+		if (!(state.getBlock() instanceof FenceGateBlock) || !state.getValue(FenceGateBlock.OPEN)) {
 			gate = null;
 			return;
 		}
@@ -148,13 +148,13 @@ public class GateOperator {
 	 * not: the shape is a thin slab across the passage, so it stops overlapping the moment the
 	 * worker is through, rather than while it merely stands in the neighbouring block.
 	 */
-	private static boolean wouldTrap(MobEntity worker, BlockPos pos, BlockState state) {
-		Box body = worker.getBoundingBox();
+	private static boolean wouldTrap(Mob worker, BlockPos pos, BlockState state) {
+		AABB body = worker.getBoundingBox();
 
-		for (Box slab : state.with(FenceGateBlock.OPEN, false)
-				.getCollisionShape(worker.getWorld(), pos)
-				.getBoundingBoxes()) {
-			if (slab.offset(pos.getX(), pos.getY(), pos.getZ()).intersects(body)) {
+		for (AABB slab : state.setValue(FenceGateBlock.OPEN, false)
+				.getCollisionShape(worker.level(), pos)
+				.toAabbs()) {
+			if (slab.move(pos.getX(), pos.getY(), pos.getZ()).intersects(body)) {
 				return true;
 			}
 		}
@@ -166,17 +166,17 @@ public class GateOperator {
 	 * True while the gate is one of the next few steps, which covers both walking up to it and
 	 * turning round to come back through. Once it drops off the path the worker is done with it.
 	 */
-	private static boolean isOnPathAhead(MobEntity worker, BlockPos pos) {
-		Path path = worker.getNavigation().getCurrentPath();
+	private static boolean isOnPathAhead(Mob worker, BlockPos pos) {
+		Path path = worker.getNavigation().getPath();
 
-		if (path == null || path.isFinished()) {
+		if (path == null || path.isDone()) {
 			return false;
 		}
 
-		int last = Math.min(path.getCurrentNodeIndex() + LOOKAHEAD, path.getLength());
+		int last = Math.min(path.getNextNodeIndex() + LOOKAHEAD, path.getNodeCount());
 
-		for (int index = path.getCurrentNodeIndex(); index < last; index++) {
-			if (path.getNode(index).getBlockPos().equals(pos)) {
+		for (int index = path.getNextNodeIndex(); index < last; index++) {
+			if (path.getNode(index).asBlockPos().equals(pos)) {
 				return true;
 			}
 		}
@@ -185,20 +185,20 @@ public class GateOperator {
 	}
 
 	@Nullable
-	private static BlockPos findGateAhead(MobEntity worker) {
-		Path path = worker.getNavigation().getCurrentPath();
+	private static BlockPos findGateAhead(Mob worker) {
+		Path path = worker.getNavigation().getPath();
 
-		if (path == null || path.isFinished()) {
+		if (path == null || path.isDone()) {
 			return null;
 		}
 
-		int last = Math.min(path.getCurrentNodeIndex() + LOOKAHEAD, path.getLength());
+		int last = Math.min(path.getNextNodeIndex() + LOOKAHEAD, path.getNodeCount());
 
-		for (int index = path.getCurrentNodeIndex(); index < last; index++) {
-			BlockPos pos = path.getNode(index).getBlockPos();
+		for (int index = path.getNextNodeIndex(); index < last; index++) {
+			BlockPos pos = path.getNode(index).asBlockPos();
 
 			if (horizontalDistanceSquared(worker, pos) <= OPEN_RANGE_SQUARED
-					&& WorkerNavigation.isClosedGate(worker.getWorld().getBlockState(pos))) {
+					&& WorkerNavigation.isClosedGate(worker.level().getBlockState(pos))) {
 				return pos;
 			}
 		}
@@ -207,24 +207,24 @@ public class GateOperator {
 	}
 
 	/** Measured flat, since a gate the worker is walking through is at its own feet level. */
-	private static double horizontalDistanceSquared(MobEntity worker, BlockPos pos) {
+	private static double horizontalDistanceSquared(Mob worker, BlockPos pos) {
 		double dx = worker.getX() - (pos.getX() + 0.5);
 		double dz = worker.getZ() - (pos.getZ() + 0.5);
 		return dx * dx + dz * dz;
 	}
 
-	private static void setOpen(MobEntity worker, BlockPos pos, boolean open) {
-		World world = worker.getWorld();
+	private static void setOpen(Mob worker, BlockPos pos, boolean open) {
+		Level world = worker.level();
 		BlockState state = world.getBlockState(pos);
 
-		if (!(state.getBlock() instanceof FenceGateBlock) || state.get(FenceGateBlock.OPEN) == open) {
+		if (!(state.getBlock() instanceof FenceGateBlock) || state.getValue(FenceGateBlock.OPEN) == open) {
 			return;
 		}
 
-		world.setBlockState(pos, state.with(FenceGateBlock.OPEN, open), Block.NOTIFY_LISTENERS);
+		world.setBlock(pos, state.setValue(FenceGateBlock.OPEN, open), Block.UPDATE_CLIENTS);
 		world.playSound(null, pos,
-				open ? SoundEvents.BLOCK_FENCE_GATE_OPEN : SoundEvents.BLOCK_FENCE_GATE_CLOSE,
-				SoundCategory.BLOCKS, 1.0F, world.getRandom().nextFloat() * 0.1F + 0.9F);
-		world.emitGameEvent(worker, open ? GameEvent.BLOCK_OPEN : GameEvent.BLOCK_CLOSE, pos);
+				open ? SoundEvents.FENCE_GATE_OPEN : SoundEvents.FENCE_GATE_CLOSE,
+				SoundSource.BLOCKS, 1.0F, world.getRandom().nextFloat() * 0.1F + 0.9F);
+		world.gameEvent(worker, open ? GameEvent.BLOCK_OPEN : GameEvent.BLOCK_CLOSE, pos);
 	}
 }

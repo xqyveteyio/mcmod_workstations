@@ -1,10 +1,10 @@
 package dev.keyboard.workstations.client;
 
 import dev.keyboard.workstations.WorkstationsMod;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.world.item.ItemStack;
 import dev.keyboard.workstations.ModConfig;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.item.ItemStack;
 
 /**
  * Decides whether the debug work area highlight is drawn. Always on while a station block of either
@@ -31,19 +31,19 @@ public final class HighlightState {
 			return true;
 		}
 
-		ClientPlayerEntity player = MinecraftClient.getInstance().player;
+		LocalPlayer player = Minecraft.getInstance().player;
 
 		if (player == null) {
 			return false;
 		}
 
-		return isStation(player.getMainHandStack()) || isStation(player.getOffHandStack());
+		return isStation(player.getMainHandItem()) || isStation(player.getOffhandItem());
 	}
 
 	private static boolean isStation(ItemStack stack) {
-		return stack.isOf(WorkstationsMod.RANCH_ITEM)
-				|| stack.isOf(WorkstationsMod.FARM_ITEM)
-				|| stack.isOf(WorkstationsMod.LUMBER_ITEM);
+		return stack.is(WorkstationsMod.RANCH_ITEM)
+				|| stack.is(WorkstationsMod.FARM_ITEM)
+				|| stack.is(WorkstationsMod.LUMBER_ITEM);
 	}
 
 	private static boolean isForced() {

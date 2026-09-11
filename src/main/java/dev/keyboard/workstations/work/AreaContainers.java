@@ -1,17 +1,17 @@
 package dev.keyboard.workstations.work;
 
-import net.minecraft.block.entity.BlockEntity;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Box;
-import net.minecraft.util.math.MathHelper;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.world.World;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import net.minecraft.core.BlockPos;
+import net.minecraft.util.Mth;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
 
 /**
  * The barrels and boxes a station works with, found anywhere inside its work area.
@@ -45,14 +45,14 @@ public final class AreaContainers<T extends BlockEntity> {
 	}
 
 	/** Everything of this kind in the area, nearest the station first. */
-	public List<T> in(@Nullable World world, WorkArea area) {
+	public List<T> in(@Nullable Level world, WorkArea area) {
 		if (world == null) {
 			return List.of();
 		}
 
-		if (world.getTime() >= nextScan) {
+		if (world.getGameTime() >= nextScan) {
 			rescan(world, area);
-			nextScan = world.getTime() + REFRESH_TICKS;
+			nextScan = world.getGameTime() + REFRESH_TICKS;
 		}
 
 		List<T> containers = new ArrayList<>(found.size());
@@ -76,35 +76,35 @@ public final class AreaContainers<T extends BlockEntity> {
 	 * first also means the container a player put right against the station is still the one used,
 	 * which keeps the old habit working.
 	 */
-	private void rescan(World world, WorkArea area) {
+	private void rescan(Level world, WorkArea area) {
 		found.clear();
 
-		Box box = area.getBox();
+		AABB box = area.getBox();
 		BlockPos center = area.getCenter();
-		int minChunkX = MathHelper.floor(box.minX) >> 4;
-		int maxChunkX = MathHelper.floor(box.maxX) >> 4;
-		int minChunkZ = MathHelper.floor(box.minZ) >> 4;
-		int maxChunkZ = MathHelper.floor(box.maxZ) >> 4;
+		int minChunkX = Mth.floor(box.minX) >> 4;
+		int maxChunkX = Mth.floor(box.maxX) >> 4;
+		int minChunkZ = Mth.floor(box.minZ) >> 4;
+		int maxChunkZ = Mth.floor(box.maxZ) >> 4;
 
 		for (int chunkX = minChunkX; chunkX <= maxChunkX; chunkX++) {
 			for (int chunkZ = minChunkZ; chunkZ <= maxChunkZ; chunkZ++) {
 				// Asked for only once it is known to be there. Fetching a chunk that is not loaded
 				// generates it, and a station is not a reason to build world.
-				if (!world.isChunkLoaded(chunkX, chunkZ)) {
+				if (!world.hasChunk(chunkX, chunkZ)) {
 					continue;
 				}
 
 				for (Map.Entry<BlockPos, BlockEntity> entry
 						: world.getChunk(chunkX, chunkZ).getBlockEntities().entrySet()) {
 					if (type.isInstance(entry.getValue())
-							&& box.contains(Vec3d.ofCenter(entry.getKey()))) {
-						found.add(entry.getKey().toImmutable());
+							&& box.contains(Vec3.atCenterOf(entry.getKey()))) {
+						found.add(entry.getKey().immutable());
 					}
 				}
 			}
 		}
 
-		found.sort(Comparator.comparingDouble((BlockPos pos) -> pos.getSquaredDistance(center))
+		found.sort(Comparator.comparingDouble((BlockPos pos) -> pos.distSqr(center))
 				.thenComparingLong(BlockPos::asLong));
 	}
 }

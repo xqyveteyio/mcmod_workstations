@@ -1,14 +1,12 @@
 package dev.keyboard.workstations.work;
 
-import net.minecraft.nbt.NbtCompound;
-import net.minecraft.nbt.NbtElement;
-import net.minecraft.util.math.MathHelper;
-
 import java.util.List;
 import java.util.function.BiConsumer;
 import java.util.function.Function;
 import java.util.function.ObjIntConsumer;
 import java.util.function.ToIntFunction;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.util.Mth;
 
 /**
  * One setting, described in a single place so the save file, the packet and the screen cannot
@@ -66,9 +64,9 @@ public abstract class SettingOption<S> {
 		return labelKey() + ".tooltip";
 	}
 
-	public abstract void write(S settings, NbtCompound nbt);
+	public abstract void write(S settings, CompoundTag nbt);
 
-	public abstract void read(S settings, NbtCompound nbt);
+	public abstract void read(S settings, CompoundTag nbt);
 
 	public abstract void clamp(S settings);
 
@@ -91,15 +89,13 @@ public abstract class SettingOption<S> {
 		}
 
 		@Override
-		public void write(S settings, NbtCompound nbt) {
+		public void write(S settings, CompoundTag nbt) {
 			nbt.putBoolean(key(), get(settings));
 		}
 
 		@Override
-		public void read(S settings, NbtCompound nbt) {
-			if (nbt.contains(key(), NbtElement.BYTE_TYPE)) {
-				set(settings, nbt.getBoolean(key()));
-			}
+		public void read(S settings, CompoundTag nbt) {
+			nbt.getBoolean(key()).ifPresent(value -> set(settings, value));
 		}
 
 		@Override
@@ -135,19 +131,17 @@ public abstract class SettingOption<S> {
 		}
 
 		public void set(S settings, int value) {
-			setter.accept(settings, MathHelper.clamp(value, min, max));
+			setter.accept(settings, Mth.clamp(value, min, max));
 		}
 
 		@Override
-		public void write(S settings, NbtCompound nbt) {
+		public void write(S settings, CompoundTag nbt) {
 			nbt.putInt(key(), get(settings));
 		}
 
 		@Override
-		public void read(S settings, NbtCompound nbt) {
-			if (nbt.contains(key(), NbtElement.INT_TYPE)) {
-				set(settings, nbt.getInt(key()));
-			}
+		public void read(S settings, CompoundTag nbt) {
+			nbt.getInt(key()).ifPresent(value -> set(settings, value));
 		}
 
 		/** Re-applying the value through the setter is what pulls a stale save back into bounds. */
@@ -175,7 +169,7 @@ public abstract class SettingOption<S> {
 		}
 
 		public void set(S settings, int value) {
-			setter.accept(settings, MathHelper.clamp(value, 0, valueIds.size() - 1));
+			setter.accept(settings, Mth.clamp(value, 0, valueIds.size() - 1));
 		}
 
 		/** Wraps round, so the button finds its way back rather than dead ending on the last value. */
@@ -189,15 +183,13 @@ public abstract class SettingOption<S> {
 		}
 
 		@Override
-		public void write(S settings, NbtCompound nbt) {
+		public void write(S settings, CompoundTag nbt) {
 			nbt.putInt(key(), get(settings));
 		}
 
 		@Override
-		public void read(S settings, NbtCompound nbt) {
-			if (nbt.contains(key(), NbtElement.INT_TYPE)) {
-				set(settings, nbt.getInt(key()));
-			}
+		public void read(S settings, CompoundTag nbt) {
+			nbt.getInt(key()).ifPresent(value -> set(settings, value));
 		}
 
 		/** A save naming a value this build no longer offers is pulled back to one that exists. */

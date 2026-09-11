@@ -1,16 +1,15 @@
 package dev.keyboard.workstations.work;
 
-import net.minecraft.block.BlockState;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.util.math.BlockBox;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.ChunkSectionPos;
-import net.minecraft.world.chunk.Chunk;
-import net.minecraft.world.chunk.ChunkSection;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Predicate;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.SectionPos;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.chunk.ChunkAccess;
+import net.minecraft.world.level.chunk.LevelChunkSection;
+import net.minecraft.world.level.levelgen.structure.BoundingBox;
 
 /**
  * One look around the work area for blocks that never went through a register: melons and
@@ -36,7 +35,7 @@ public final class Pickings {
 	 *
 	 * @return positions of the blocks themselves, not of the ground underneath them
 	 */
-	public static List<BlockPos> find(ServerWorld world, WorkArea area, boolean gourds, boolean mushrooms) {
+	public static List<BlockPos> find(ServerLevel world, WorkArea area, boolean gourds, boolean mushrooms) {
 		if (!gourds && !mushrooms) {
 			return new ArrayList<>();
 		}
@@ -56,7 +55,7 @@ public final class Pickings {
 	 * wood is the same kind of sparse problem, and writing a second sweep would only have to
 	 * rediscover why asking a million blocks is unaffordable.
 	 */
-	public static List<BlockPos> find(ServerWorld world, WorkArea area, Predicate<BlockState> candidate) {
+	public static List<BlockPos> find(ServerLevel world, WorkArea area, Predicate<BlockState> candidate) {
 		return find(world, area, candidate, pos -> candidate.test(world.getBlockState(pos)));
 	}
 
@@ -64,7 +63,7 @@ public final class Pickings {
 	 * Every block in the area the palette flags and {@code accept} still wants, once there is a
 	 * position to look at.
 	 */
-	public static List<BlockPos> find(ServerWorld world, WorkArea area, Predicate<BlockState> candidate,
+	public static List<BlockPos> find(ServerLevel world, WorkArea area, Predicate<BlockState> candidate,
 			Predicate<BlockPos> accept) {
 		List<BlockPos> found = new ArrayList<>();
 		BlockPos center = area.getCenter();
@@ -72,18 +71,18 @@ public final class Pickings {
 		int maxX = center.getX() + area.getXRadius();
 		int minZ = center.getZ() - area.getZRadius();
 		int maxZ = center.getZ() + area.getZRadius();
-		int minY = Math.max(world.getBottomY(), center.getY() - area.getBelow());
-		int maxY = Math.min(world.getTopY() - 1, center.getY() + area.getAbove());
+		int minY = Math.max(world.getMinY(), center.getY() - area.getBelow());
+		int maxY = Math.min(world.getMaxY(), center.getY() + area.getAbove());
 
 		for (int chunkX = minX >> 4; chunkX <= maxX >> 4; chunkX++) {
 			for (int chunkZ = minZ >> 4; chunkZ <= maxZ >> 4; chunkZ++) {
 				// Reading an unloaded chunk would load it, and a station is no reason to hold
 				// the far side of its own area in memory.
-				if (!world.isChunkLoaded(chunkX, chunkZ)) {
+				if (!world.hasChunk(chunkX, chunkZ)) {
 					continue;
 				}
 
-				BlockBox slice = new BlockBox(
+				BoundingBox slice = new BoundingBox(
 						Math.max(minX, chunkX << 4), minY, Math.max(minZ, chunkZ << 4),
 						Math.min(maxX, (chunkX << 4) + 15), maxY, Math.min(maxZ, (chunkZ << 4) + 15));
 				sweep(world, world.getChunk(chunkX, chunkZ), candidate, accept, slice, found);
@@ -94,36 +93,36 @@ public final class Pickings {
 	}
 
 	/** The part of one chunk that lies inside the area, taken a section at a time. */
-	private static void sweep(ServerWorld world, Chunk chunk, Predicate<BlockState> candidate,
-			Predicate<BlockPos> accept, BlockBox slice, List<BlockPos> found) {
-		BlockPos.Mutable cursor = new BlockPos.Mutable();
-		int topSection = ChunkSectionPos.getSectionCoord(slice.getMaxY());
+	private static void sweep(ServerLevel world, ChunkAccess chunk, Predicate<BlockState> candidate,
+			Predicate<BlockPos> accept, BoundingBox slice, List<BlockPos> found) {
+		BlockPos.MutableBlockPos cursor = new BlockPos.MutableBlockPos();
+		int topSection = SectionPos.blockToSectionCoord(slice.maxY());
 
-		for (int sectionY = ChunkSectionPos.getSectionCoord(slice.getMinY()); sectionY <= topSection; sectionY++) {
-			int index = chunk.sectionCoordToIndex(sectionY);
+		for (int sectionY = SectionPos.blockToSectionCoord(slice.minY()); sectionY <= topSection; sectionY++) {
+			int index = chunk.getSectionIndexFromSectionY(sectionY);
 
-			if (index < 0 || index >= chunk.getSectionArray().length) {
+			if (index < 0 || index >= chunk.getSections().length) {
 				continue;
 			}
 
-			ChunkSection section = chunk.getSection(index);
+			LevelChunkSection section = chunk.getSection(index);
 
 			// The whole point of sweeping this way: one palette lookup rules out four thousand
 			// blocks, and over a farm nearly every section is ruled out.
-			if (section.isEmpty() || !section.hasAny(candidate)) {
+			if (section.hasOnlyAir() || !section.maybeHas(candidate)) {
 				continue;
 			}
 
-			int fromY = Math.max(slice.getMinY(), ChunkSectionPos.getBlockCoord(sectionY));
-			int toY = Math.min(slice.getMaxY(), ChunkSectionPos.getBlockCoord(sectionY) + 15);
+			int fromY = Math.max(slice.minY(), SectionPos.sectionToBlockCoord(sectionY));
+			int toY = Math.min(slice.maxY(), SectionPos.sectionToBlockCoord(sectionY) + 15);
 
 			for (int y = fromY; y <= toY; y++) {
-				for (int x = slice.getMinX(); x <= slice.getMaxX(); x++) {
-					for (int z = slice.getMinZ(); z <= slice.getMaxZ(); z++) {
+				for (int x = slice.minX(); x <= slice.maxX(); x++) {
+					for (int z = slice.minZ(); z <= slice.maxZ(); z++) {
 						cursor.set(x, y, z);
 
 						if (accept.test(cursor)) {
-							found.add(cursor.toImmutable());
+							found.add(cursor.immutable());
 						}
 					}
 				}

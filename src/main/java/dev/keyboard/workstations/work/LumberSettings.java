@@ -1,11 +1,9 @@
 package dev.keyboard.workstations.work;
 
 import dev.keyboard.workstations.ModConfig;
-import net.minecraft.nbt.NbtCompound;
-import net.minecraft.nbt.NbtElement;
-
 import java.util.ArrayList;
 import java.util.List;
+import net.minecraft.nbt.CompoundTag;
 
 /**
  * One lumber station's own orders, the counterpart to {@link FarmSettings}. Same framework, so a
@@ -14,7 +12,7 @@ import java.util.List;
  * <p>The sapling mix sits outside the option list because it is not a fixed set of settings: its
  * rows are whatever saplings the station has been given, so it cannot be declared up front and
  * gets a tab of its own that the screen builds from the container's contents. The mix itself is
- * {@link SeedMix} reused as-is: a weight table over {@link net.minecraft.item.Item} does not care
+ * {@link SeedMix} reused as-is: a weight table over {@link net.minecraft.world.item.Item} does not care
  * whether the item is a seed or a sapling.
  */
 public final class LumberSettings implements WorkerSettings<LumberSettings> {
@@ -117,31 +115,29 @@ public final class LumberSettings implements WorkerSettings<LumberSettings> {
 
 	@Override
 	public void copyFrom(LumberSettings other) {
-		NbtCompound carrier = new NbtCompound();
+		CompoundTag carrier = new CompoundTag();
 		other.writeNbt(carrier);
 		readNbt(carrier);
 	}
 
 	@Override
-	public void writeNbt(NbtCompound nbt) {
+	public void writeNbt(CompoundTag nbt) {
 		for (SettingOption<LumberSettings> option : OPTIONS) {
 			option.write(this, nbt);
 		}
 
-		NbtCompound mix = new NbtCompound();
+		CompoundTag mix = new CompoundTag();
 		saplingMix.writeNbt(mix);
 		nbt.put(MIX_KEY, mix);
 	}
 
 	@Override
-	public void readNbt(NbtCompound nbt) {
+	public void readNbt(CompoundTag nbt) {
 		for (SettingOption<LumberSettings> option : OPTIONS) {
 			option.read(this, nbt);
 		}
 
-		if (nbt.contains(MIX_KEY, NbtElement.COMPOUND_TYPE)) {
-			saplingMix.readNbt(nbt.getCompound(MIX_KEY));
-		}
+		nbt.getCompound(MIX_KEY).ifPresent(saplingMix::readNbt);
 
 		WorkerSettings.inheritWorkRadius(nbt, v -> workAlong = v, v -> workAcross = v);
 		WorkerSettings.inheritWorkHeight(nbt, v -> workAbove = v, v -> workBelow = v);

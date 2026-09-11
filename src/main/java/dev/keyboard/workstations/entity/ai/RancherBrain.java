@@ -13,30 +13,30 @@ import it.unimi.dsi.fastutil.ints.Int2LongMap;
 import it.unimi.dsi.fastutil.ints.Int2LongOpenHashMap;
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 import it.unimi.dsi.fastutil.ints.IntSet;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.ItemEntity;
-import net.minecraft.entity.Shearable;
-import net.minecraft.entity.ai.pathing.Path;
-import net.minecraft.entity.passive.AnimalEntity;
-import net.minecraft.entity.passive.CowEntity;
-import net.minecraft.entity.passive.PassiveEntity;
-import net.minecraft.inventory.Inventory;
-import net.minecraft.inventory.SimpleInventory;
-import net.minecraft.item.Item;
-import net.minecraft.item.ItemStack;
-import net.minecraft.particle.ParticleTypes;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.sound.SoundCategory;
-import net.minecraft.sound.SoundEvents;
-import net.minecraft.util.Hand;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Vec3d;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.sounds.SoundSource;
+import net.minecraft.world.Container;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.SimpleContainer;
+import net.minecraft.world.entity.AgeableMob;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.Shearable;
+import net.minecraft.world.entity.animal.Animal;
+import net.minecraft.world.entity.animal.cow.Cow;
+import net.minecraft.world.entity.item.ItemEntity;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.level.pathfinder.Path;
+import net.minecraft.world.phys.Vec3;
 
 /**
  * The rancher's whole decision loop, as one explicit state machine driven from
@@ -227,7 +227,7 @@ public class RancherBrain {
 	private BlockPos targetPos;
 	/** The other half of a committed pairing, served straight after the first without re-deciding. */
 	@Nullable
-	private AnimalEntity pairPartner;
+	private Animal pairPartner;
 	/** Why the last scan came up empty, for the label over the rancher's head. */
 	private String note = "";
 	private int scanCooldown;
@@ -244,7 +244,7 @@ public class RancherBrain {
 	private double closest = Double.MAX_VALUE;
 
 	public void tick(RancherEntity rancher) {
-		if (!(rancher.getWorld() instanceof ServerWorld world)) {
+		if (!(rancher.level() instanceof ServerLevel world)) {
 			return;
 		}
 
@@ -261,19 +261,19 @@ public class RancherBrain {
 			return;
 		}
 
-		long now = world.getTime();
+		long now = world.getGameTime();
 		blocked.int2LongEntrySet().removeIf(entry -> entry.getLongValue() <= now);
 
 		// The state machine has to keep running in water. SwimGoal takes the JUMP control alone and
 		// never steers, so handing movement over to it leaves nothing at all moving the rancher.
 		// What it does give us is a navigation set to allow swimming, so a path out can exist.
-		swimming = rancher.isTouchingWater() ? swimming + 1 : 0;
+		swimming = rancher.isInWater() ? swimming + 1 : 0;
 
 		// Out of its depth there may be no node for pathfinding to offer. Steering by hand needs no
 		// path and only has to reach a bank the navigation can work from again.
-		if (swimming > SWIM_PATIENCE && rancher.getNavigation().isIdle()) {
+		if (swimming > SWIM_PATIENCE && rancher.getNavigation().isDone()) {
 			BlockPos post = area.getCenter();
-			rancher.getMoveControl().moveTo(post.getX() + 0.5, post.getY(), post.getZ() + 0.5, RETURN_SPEED);
+			rancher.getMoveControl().setWantedPosition(post.getX() + 0.5, post.getY(), post.getZ() + 0.5, RETURN_SPEED);
 		}
 
 		if (job != null) {
@@ -338,10 +338,10 @@ public class RancherBrain {
 
 			// Which node of the path it is on: a target accepted as reachable but a walk that never
 			// starts looks identical to plain sluggishness without this.
-			Path path = rancher.getNavigation().getCurrentPath();
+			Path path = rancher.getNavigation().getPath();
 			text.append(path == null
 					? " nopath"
-					: String.format(Locale.ROOT, " n%d/%d", path.getCurrentNodeIndex(), path.getLength()));
+					: String.format(Locale.ROOT, " n%d/%d", path.getNextNodeIndex(), path.getNodeCount()));
 		}
 
 		// Water slows the rancher down, so it is the first thing to suspect when a walk takes longer
@@ -386,7 +386,7 @@ public class RancherBrain {
 		return text.toString();
 	}
 
-	private void runJob(RancherEntity rancher, ServerWorld world, WorkArea area, RanchBlockEntity station) {
+	private void runJob(RancherEntity rancher, ServerLevel world, WorkArea area, RanchBlockEntity station) {
 		if (!jobValid(area)) {
 			note = "target gone";
 			clearJob(rancher);
@@ -394,9 +394,9 @@ public class RancherBrain {
 		}
 
 		if (target != null) {
-			rancher.getLookControl().lookAt(target, 30.0F, 30.0F);
+			rancher.getLookControl().setLookAt(target, 30.0F, 30.0F);
 		} else if (targetPos != null) {
-			rancher.getLookControl().lookAt(Vec3d.ofCenter(targetPos));
+			rancher.getLookControl().setLookAt(Vec3.atCenterOf(targetPos));
 		}
 
 		if (actionCooldown > 0) {
@@ -483,7 +483,7 @@ public class RancherBrain {
 			// so this check must use the same wider box, or a drop just outside would be taken
 			// and then immediately written off as gone.
 			return target != null && target.isAlive() && !target.isRemoved()
-					&& WorkerPack.dropBox(area).contains(target.getPos());
+					&& WorkerPack.dropBox(area).contains(target.position());
 		}
 
 		return target != null && target.isAlive() && !target.isRemoved() && area.contains(target);
@@ -552,11 +552,11 @@ public class RancherBrain {
 		settling++;
 		BlockPos post = area.getCenter();
 
-		if (rancher.squaredDistanceTo(Vec3d.ofCenter(post)) <= POST_REACH_SQUARED) {
+		if (rancher.distanceToSqr(Vec3.atCenterOf(post)) <= POST_REACH_SQUARED) {
 			state = State.IDLE;
 
 			// Stopped explicitly, or the walk home would carry on pushing it past the station.
-			if (!rancher.getNavigation().isIdle()) {
+			if (!rancher.getNavigation().isDone()) {
 				rancher.getNavigation().stop();
 			}
 
@@ -568,7 +568,7 @@ public class RancherBrain {
 		if (settling < settleTicks(config)) {
 			state = State.WAITING;
 
-			if (!rancher.getNavigation().isIdle()) {
+			if (!rancher.getNavigation().isDone()) {
 				rancher.getNavigation().stop();
 			}
 
@@ -579,9 +579,9 @@ public class RancherBrain {
 
 		// Only issued once: reissuing every tick restarts the path and the rancher never sets off.
 		// A finished hop leaves navigation idle again, which is what advances a staged walk home.
-		if (rancher.getNavigation().isIdle()
-				&& !WorkerMovement.approach(rancher, Vec3d.ofCenter(post), RETURN_SPEED)) {
-			rancher.getNavigation().startMovingTo(post.getX() + 0.5, post.getY(), post.getZ() + 0.5, RETURN_SPEED);
+		if (rancher.getNavigation().isDone()
+				&& !WorkerMovement.approach(rancher, Vec3.atCenterOf(post), RETURN_SPEED)) {
+			rancher.getNavigation().moveTo(post.getX() + 0.5, post.getY(), post.getZ() + 0.5, RETURN_SPEED);
 		}
 	}
 
@@ -597,7 +597,7 @@ public class RancherBrain {
 		return Math.max(SETTLE_TICKS, config.workIntervalTicks * 2);
 	}
 
-	private boolean chooseJob(RancherEntity rancher, ServerWorld world, WorkArea area, RanchBlockEntity station) {
+	private boolean chooseJob(RancherEntity rancher, ServerLevel world, WorkArea area, RanchBlockEntity station) {
 		StationSettings config = station.getSettings();
 		note = "";
 		scanSurvey = null;
@@ -713,7 +713,7 @@ public class RancherBrain {
 	}
 
 	/** The next errand within the current phase, or false when the phase has nothing left. */
-	private boolean takeJobIn(RancherEntity rancher, ServerWorld world, WorkArea area,
+	private boolean takeJobIn(RancherEntity rancher, ServerLevel world, WorkArea area,
 			RanchBlockEntity station, StationSettings config) {
 		pathPending = false;
 
@@ -730,8 +730,8 @@ public class RancherBrain {
 		};
 	}
 
-	private boolean takeCull(RancherEntity rancher, ServerWorld world, WorkArea area, StationSettings config) {
-		AnimalEntity victim = nearestReachable(rancher, world,
+	private boolean takeCull(RancherEntity rancher, ServerLevel world, WorkArea area, StationSettings config) {
+		Animal victim = nearestReachable(rancher, world,
 				survey(world, area).cullCandidates(config), ANIMAL_PATH_DISTANCE);
 		return victim != null && take(Job.CULL, victim);
 	}
@@ -745,7 +745,7 @@ public class RancherBrain {
 	 * stride, and must not pause the phase. An unreachable drop is written off as usual so the
 	 * same one cannot stall every scan from here on.
 	 */
-	private boolean takeUnderfoot(RancherEntity rancher, ServerWorld world, WorkArea area) {
+	private boolean takeUnderfoot(RancherEntity rancher, ServerLevel world, WorkArea area) {
 		List<ItemEntity> nearby = WorkerPack.underfoot(rancher, world, area, rancher.getCarried());
 
 		if (nearby.isEmpty()) {
@@ -762,7 +762,7 @@ public class RancherBrain {
 		return take(Job.COLLECT, drop);
 	}
 
-	private boolean takeCollect(RancherEntity rancher, ServerWorld world, WorkArea area) {
+	private boolean takeCollect(RancherEntity rancher, ServerLevel world, WorkArea area) {
 		ItemEntity drop = nearestReachable(rancher, world,
 				WorkerPack.looseIn(world, area, rancher.getCarried()), COLLECT_PATH_DISTANCE);
 
@@ -779,7 +779,7 @@ public class RancherBrain {
 		return false;
 	}
 
-	private boolean takeBreed(RancherEntity rancher, ServerWorld world, WorkArea area,
+	private boolean takeBreed(RancherEntity rancher, ServerLevel world, WorkArea area,
 			RanchBlockEntity station, StationSettings config) {
 		// One pairing is the whole phase. Breeding a pen out to its limit in a single stretch would
 		// starve everything else, and the animals just put in love need time to find each other.
@@ -792,20 +792,20 @@ public class RancherBrain {
 		return plan != null && takeFeed(plan);
 	}
 
-	private boolean takeGrow(RancherEntity rancher, ServerWorld world, WorkArea area,
+	private boolean takeGrow(RancherEntity rancher, ServerLevel world, WorkArea area,
 			RanchBlockEntity station) {
-		AnimalEntity baby = nearestReachable(rancher, world,
+		Animal baby = nearestReachable(rancher, world,
 				filterFeedable(unserved(survey(world, area).babyCandidates()), station.feedStores()),
 				ANIMAL_PATH_DISTANCE);
 		return baby != null && take(Job.GROW, baby);
 	}
 
-	private boolean takeHarvest(RancherEntity rancher, ServerWorld world, WorkArea area,
+	private boolean takeHarvest(RancherEntity rancher, ServerLevel world, WorkArea area,
 			RanchBlockEntity station, StationSettings config) {
 		HerdSurvey survey = survey(world, area);
 
 		if (config.enableShearing) {
-			AnimalEntity woolly = nearestReachable(rancher, world,
+			Animal woolly = nearestReachable(rancher, world,
 					unserved(survey.shearCandidates()), ANIMAL_PATH_DISTANCE);
 
 			if (woolly != null) {
@@ -817,7 +817,7 @@ public class RancherBrain {
 		// barrel with room in it. Asked here rather than on arrival so that the rancher spends the
 		// phase on something useful instead of walking out to a cow it will have to turn down.
 		if (config.enableMilking && station.milkBarrel() != null) {
-			AnimalEntity cow = nearestReachable(rancher, world,
+			Animal cow = nearestReachable(rancher, world,
 					unserved(survey.milkCandidates()), ANIMAL_PATH_DISTANCE);
 
 			if (cow != null) {
@@ -828,7 +828,7 @@ public class RancherBrain {
 		return false;
 	}
 
-	private HerdSurvey survey(ServerWorld world, WorkArea area) {
+	private HerdSurvey survey(ServerLevel world, WorkArea area) {
 		if (scanSurvey == null) {
 			scanSurvey = HerdSurvey.of(world, area);
 		}
@@ -878,9 +878,9 @@ public class RancherBrain {
 	 * all, so a station down to its last wheat starts nothing rather than half a pairing.
 	 */
 	@Nullable
-	private HerdSurvey.FeedPlan nearestPlan(RancherEntity rancher, ServerWorld world,
-			List<HerdSurvey.FeedPlan> plans, List<Inventory> stores) {
-		List<AnimalEntity> heads = new ArrayList<>(plans.size());
+	private HerdSurvey.FeedPlan nearestPlan(RancherEntity rancher, ServerLevel world,
+			List<HerdSurvey.FeedPlan> plans, List<Container> stores) {
+		List<Animal> heads = new ArrayList<>(plans.size());
 
 		for (HerdSurvey.FeedPlan plan : plans) {
 			if (affordable(plan, stores)) {
@@ -888,7 +888,7 @@ public class RancherBrain {
 			}
 		}
 
-		AnimalEntity head = nearestReachable(rancher, world, heads, ANIMAL_PATH_DISTANCE);
+		Animal head = nearestReachable(rancher, world, heads, ANIMAL_PATH_DISTANCE);
 
 		if (head == null) {
 			return null;
@@ -904,16 +904,16 @@ public class RancherBrain {
 	}
 
 	/** Whether the stores hold a portion for every animal in the plan. */
-	private static boolean affordable(HerdSurvey.FeedPlan plan, List<Inventory> stores) {
+	private static boolean affordable(HerdSurvey.FeedPlan plan, List<Container> stores) {
 		return !ModConfig.get().requireFeedItems
 				|| Stock.count(stores, stack -> feeds(stack, plan.first())) >= plan.portions();
 	}
 
 	/** Closest candidate the rancher can actually walk up to, nearest tried first. */
 	@Nullable
-	private <T extends Entity> T nearestReachable(RancherEntity rancher, ServerWorld world, List<T> candidates,
+	private <T extends Entity> T nearestReachable(RancherEntity rancher, ServerLevel world, List<T> candidates,
 			int pathDistance) {
-		long now = world.getTime();
+		long now = world.getGameTime();
 		List<T> queue = new ArrayList<>(candidates.size());
 
 		for (T candidate : candidates) {
@@ -926,7 +926,7 @@ public class RancherBrain {
 			return null;
 		}
 
-		queue.sort(Comparator.comparingDouble(rancher::squaredDistanceTo));
+		queue.sort(Comparator.comparingDouble(rancher::distanceToSqr));
 
 		// Each miss costs a pathfind, so a scan only probes the few nearest and leaves the rest for
 		// later. Anything ruled out goes on the blocked list, so the next scan starts further down.
@@ -937,11 +937,11 @@ public class RancherBrain {
 			// there is nothing worth asking. Such a candidate is accepted and walked at in stages;
 			// if it does turn out to be unreachable, the stall detector writes it off once the
 			// rancher is near enough for a refusal to actually mean something.
-			if (WorkerMovement.isFarOff(rancher, candidate.getPos())) {
+			if (WorkerMovement.isFarOff(rancher, candidate.position())) {
 				return candidate;
 			}
 
-			Path path = rancher.getNavigation().findPathTo(candidate, pathDistance);
+			Path path = rancher.getNavigation().createPath(candidate, pathDistance);
 
 			if (path == null) {
 				// Pathfinding declines to answer at all while the rancher is off the ground, which
@@ -954,7 +954,7 @@ public class RancherBrain {
 				return null;
 			}
 
-			if (path.reachesTarget()) {
+			if (path.canReach()) {
 				return candidate;
 			}
 
@@ -965,12 +965,12 @@ public class RancherBrain {
 		return null;
 	}
 
-	private void block(ServerWorld world, Entity blockedTarget) {
-		blocked.put(blockedTarget.getId(), world.getTime() + BLOCKED_COOLDOWN);
+	private void block(ServerLevel world, Entity blockedTarget) {
+		blocked.put(blockedTarget.getId(), world.getGameTime() + BLOCKED_COOLDOWN);
 	}
 
 	private boolean feed(RancherEntity rancher, RanchBlockEntity station, boolean growUp) {
-		if (!(target instanceof AnimalEntity animal)) {
+		if (!(target instanceof Animal animal)) {
 			return true;
 		}
 
@@ -985,20 +985,20 @@ public class RancherBrain {
 			}
 
 			ItemStack eaten = helping.take(1);
-			Item remainder = eaten.getItem().getRecipeRemainder();
+			ItemStack remainder = eaten.getItem().getCraftingRemainder().create();
 
-			if (remainder != null) {
+			if (!remainder.isEmpty()) {
 				// Buckets and bottles come back rather than vanishing into the animal.
-				keepOrDrop(rancher, new ItemStack(remainder));
+				keepOrDrop(rancher, remainder);
 			}
 		}
 
-		rancher.swingHand(Hand.MAIN_HAND);
+		rancher.swing(InteractionHand.MAIN_HAND);
 
 		if (growUp) {
-			animal.growUp(PassiveEntity.toGrowUpAge(-animal.getBreedingAge()), true);
+			animal.ageUp(AgeableMob.getSpeedUpSecondsWhenFeeding(-animal.getAge()), true);
 		} else {
-			animal.lovePlayer(null);
+			animal.setInLove(null);
 		}
 
 		// Its turn is used up. For babies that is what makes a round finite, and it also stops a
@@ -1012,7 +1012,7 @@ public class RancherBrain {
 		// by the time the scan came round the two could be past the eight block mate search range,
 		// and a herd with nobody in range yields no candidates at all.
 		if (pairPartner != null) {
-			AnimalEntity partner = pairPartner;
+			Animal partner = pairPartner;
 			pairPartner = null;
 
 			if (stillReady(partner)) {
@@ -1034,25 +1034,25 @@ public class RancherBrain {
 		return true;
 	}
 
-	private static boolean stillReady(AnimalEntity animal) {
-		return animal.isAlive() && !animal.isRemoved() && animal.getBreedingAge() == 0 && animal.canEat();
+	private static boolean stillReady(Animal animal) {
+		return animal.isAlive() && !animal.isRemoved() && animal.getAge() == 0 && animal.canFallInLove();
 	}
 
 	private boolean cull(RancherEntity rancher) {
-		if (!(target instanceof AnimalEntity animal)) {
+		if (!(target instanceof Animal animal) || !(rancher.level() instanceof ServerLevel world)) {
 			return true;
 		}
 
-		rancher.swingHand(Hand.MAIN_HAND);
+		rancher.swing(InteractionHand.MAIN_HAND);
 
 		if (rancher.getSettings().instantKill) {
 			// Still dealt as damage rather than by emptying the health bar, so the loot table, the
 			// looting on the rancher's sword and the death animation all behave as they always do.
 			// The headroom over max health is for anything wearing armour or under resistance.
-			animal.damage(rancher.getDamageSources().mobAttack(rancher),
+			animal.hurt(rancher.damageSources().mobAttack(rancher),
 					animal.getMaxHealth() * 10.0F + animal.getAbsorptionAmount() + 10.0F);
 		} else {
-			rancher.tryAttack(animal);
+			rancher.doHurtTarget(world, animal);
 		}
 
 		actionCooldown = ATTACK_INTERVAL;
@@ -1077,7 +1077,7 @@ public class RancherBrain {
 	 * ranch stop working for a reason nothing on the screen explains.
 	 */
 	private boolean shear(RancherEntity rancher) {
-		if (!(target instanceof AnimalEntity animal)) {
+		if (!(target instanceof Animal animal)) {
 			return true;
 		}
 
@@ -1085,14 +1085,16 @@ public class RancherBrain {
 		// all cannot be picked again and stall the round.
 		served.add(animal.getId());
 
-		if (!(animal instanceof Shearable shearable) || !shearable.isShearable()) {
+		if (!(animal instanceof Shearable shearable) || !shearable.readyForShearing()) {
 			return true;
 		}
 
-		rancher.swingHand(Hand.MAIN_HAND);
+		rancher.swing(InteractionHand.MAIN_HAND);
 		// Vanilla's own routine, so the sound, the drop count and a mooshroom turning into a cow
 		// all behave exactly as they do for a player holding shears.
-		shearable.sheared(SoundCategory.NEUTRAL);
+		if (rancher.level() instanceof ServerLevel world) {
+			shearable.shear(world, SoundSource.NEUTRAL, new ItemStack(Items.SHEARS));
+		}
 		actionCooldown = ATTACK_INTERVAL;
 		phaseWorked = true;
 		return true;
@@ -1112,13 +1114,13 @@ public class RancherBrain {
 	 * milk needs somewhere to go.
 	 */
 	private boolean milk(RancherEntity rancher, RanchBlockEntity station) {
-		if (!(target instanceof AnimalEntity animal)) {
+		if (!(target instanceof Animal animal)) {
 			return true;
 		}
 
 		served.add(animal.getId());
 
-		if (!(animal instanceof CowEntity) || animal.isBaby()) {
+		if (!(animal instanceof Cow) || animal.isBaby()) {
 			return true;
 		}
 
@@ -1129,39 +1131,39 @@ public class RancherBrain {
 			return true;
 		}
 
-		rancher.swingHand(Hand.MAIN_HAND);
-		animal.playSound(SoundEvents.ENTITY_COW_MILK, 1.0F, 1.0F);
+		rancher.swing(InteractionHand.MAIN_HAND);
+		animal.playSound(SoundEvents.COW_MILK, 1.0F, 1.0F);
 		actionCooldown = ATTACK_INTERVAL;
 		phaseWorked = true;
 		return true;
 	}
 
 	private boolean collect(RancherEntity rancher) {
-		if (!(target instanceof ItemEntity item) || item.cannotPickup()) {
+		if (!(target instanceof ItemEntity item) || item.hasPickUpDelay()) {
 			return true;
 		}
 
-		ItemStack remainder = rancher.getCarried().addStack(item.getStack().copy());
+		ItemStack remainder = rancher.getCarried().addItem(item.getItem().copy());
 
 		if (remainder.isEmpty()) {
 			item.discard();
 		} else {
-			item.setStack(remainder);
+			item.setItem(remainder);
 		}
 
-		rancher.getWorld().playSound(null, rancher.getBlockPos(), SoundEvents.ENTITY_ITEM_PICKUP,
-				SoundCategory.NEUTRAL, 0.15F,
+		rancher.level().playSound(null, rancher.blockPosition(), SoundEvents.ITEM_PICKUP,
+				SoundSource.NEUTRAL, 0.15F,
 				(rancher.getRandom().nextFloat() - rancher.getRandom().nextFloat()) * 1.4F + 2.0F);
 		phaseWorked = true;
 		return true;
 	}
 
 	private boolean deposit(RancherEntity rancher, RanchBlockEntity station) {
-		SimpleInventory carried = rancher.getCarried();
+		SimpleContainer carried = rancher.getCarried();
 		boolean moved = false;
 
-		for (int slot = 0; slot < carried.size(); slot++) {
-			ItemStack stack = carried.getStack(slot);
+		for (int slot = 0; slot < carried.getContainerSize(); slot++) {
+			ItemStack stack = carried.getItem(slot);
 
 			if (stack.isEmpty()) {
 				continue;
@@ -1169,7 +1171,7 @@ public class RancherBrain {
 
 			int before = stack.getCount();
 			ItemStack left = store(station, stack);
-			carried.setStack(slot, left.isEmpty() ? ItemStack.EMPTY : left);
+			carried.setItem(slot, left.isEmpty() ? ItemStack.EMPTY : left);
 
 			if (left.getCount() != before) {
 				moved = true;
@@ -1177,7 +1179,7 @@ public class RancherBrain {
 		}
 
 		if (moved) {
-			rancher.swingHand(Hand.MAIN_HAND);
+			rancher.swing(InteractionHand.MAIN_HAND);
 		} else if (!carried.isEmpty()) {
 			note = "station full";
 			// Remembered for the rest of the phase, or a sweep that has cleared the ground would
@@ -1192,14 +1194,14 @@ public class RancherBrain {
 	private boolean withinReach(RancherEntity rancher) {
 		if (job == Job.DEPOSIT) {
 			return targetPos != null
-					&& rancher.squaredDistanceTo(Vec3d.ofCenter(targetPos)) <= STATION_REACH_SQUARED;
+					&& rancher.distanceToSqr(Vec3.atCenterOf(targetPos)) <= STATION_REACH_SQUARED;
 		}
 
 		if (target == null) {
 			return false;
 		}
 
-		return rancher.squaredDistanceTo(target)
+		return rancher.distanceToSqr(target)
 				<= (job == Job.COLLECT ? COLLECT_REACH_SQUARED : REACH_SQUARED);
 	}
 
@@ -1209,17 +1211,17 @@ public class RancherBrain {
 				return;
 			}
 
-			if (!WorkerMovement.approach(rancher, Vec3d.ofCenter(targetPos), WALK_SPEED)) {
+			if (!WorkerMovement.approach(rancher, Vec3.atCenterOf(targetPos), WALK_SPEED)) {
 				// This overload already settles for a block next to the target, which it has to:
 				// the station itself is solid and can only ever be walked up to.
-				rancher.getNavigation().startMovingTo(targetPos.getX() + 0.5, targetPos.getY(),
+				rancher.getNavigation().moveTo(targetPos.getX() + 0.5, targetPos.getY(),
 						targetPos.getZ() + 0.5, WALK_SPEED);
 			}
 
 			return;
 		}
 
-		if (target == null || WorkerMovement.approach(rancher, target.getPos(), WALK_SPEED)) {
+		if (target == null || WorkerMovement.approach(rancher, target.position(), WALK_SPEED)) {
 			return;
 		}
 
@@ -1230,7 +1232,7 @@ public class RancherBrain {
 		Path path = pathTo(rancher, target);
 
 		if (path != null) {
-			rancher.getNavigation().startMovingAlong(path, WALK_SPEED);
+			rancher.getNavigation().moveTo(path, WALK_SPEED);
 		}
 	}
 
@@ -1247,51 +1249,51 @@ public class RancherBrain {
 	 */
 	@Nullable
 	private Path pathTo(RancherEntity rancher, Entity destination) {
-		Path direct = rancher.getNavigation().findPathTo(destination, 0);
+		Path direct = rancher.getNavigation().createPath(destination, 0);
 
 		// A null path is pathfinding declining to answer rather than saying no, and a second ask
 		// gets the same non answer. Animals stand on ground the rancher can stand on, so for them
 		// the first ask is the only one that makes sense anyway.
-		if (job != Job.COLLECT || direct == null || direct.reachesTarget()) {
+		if (job != Job.COLLECT || direct == null || direct.canReach()) {
 			return direct;
 		}
 
-		return rancher.getNavigation().findPathTo(destination, COLLECT_PATH_DISTANCE);
+		return rancher.getNavigation().createPath(destination, COLLECT_PATH_DISTANCE);
 	}
 
 	private double distanceToTarget(RancherEntity rancher) {
 		if (target != null) {
-			return Math.sqrt(rancher.squaredDistanceTo(target));
+			return Math.sqrt(rancher.distanceToSqr(target));
 		}
 
-		return targetPos == null ? 0.0 : Math.sqrt(rancher.squaredDistanceTo(Vec3d.ofCenter(targetPos)));
+		return targetPos == null ? 0.0 : Math.sqrt(rancher.distanceToSqr(Vec3.atCenterOf(targetPos)));
 	}
 
 	/** Drops the rancher cannot pocket land at its feet rather than disappearing. */
 	private static void keepOrDrop(RancherEntity rancher, ItemStack stack) {
-		ItemStack remainder = rancher.getCarried().addStack(stack);
+		ItemStack remainder = rancher.getCarried().addItem(stack);
 
 		if (!remainder.isEmpty()) {
-			rancher.getWorld().spawnEntity(new ItemEntity(rancher.getWorld(), rancher.getX(),
+			rancher.level().addFreshEntity(new ItemEntity(rancher.level(), rancher.getX(),
 					rancher.getY() + 0.5, rancher.getZ(), remainder));
 		}
 	}
 
-	private static void celebrate(RancherEntity rancher, AnimalEntity animal) {
-		if (!(rancher.getWorld() instanceof ServerWorld world)) {
+	private static void celebrate(RancherEntity rancher, Animal animal) {
+		if (!(rancher.level() instanceof ServerLevel world)) {
 			return;
 		}
 
 		if (rancher.getSettings().playFeedSound) {
-			world.playSound(null, animal.getBlockPos(), SoundEvents.ENTITY_GENERIC_EAT, SoundCategory.NEUTRAL, 0.5F,
-					world.random.nextFloat() * 0.2F + 0.9F);
+			world.playSound(null, animal.blockPosition(), SoundEvents.GENERIC_EAT.value(), SoundSource.NEUTRAL, 0.5F,
+					world.getRandom().nextFloat() * 0.2F + 0.9F);
 		}
 
-		Vec3d center = animal.getPos().add(0.0, animal.getHeight() * 0.5, 0.0);
-		world.spawnParticles(ParticleTypes.HAPPY_VILLAGER, center.x, center.y, center.z, 4, 0.3, 0.3, 0.3, 0.0);
+		Vec3 center = animal.position().add(0.0, animal.getBbHeight() * 0.5, 0.0);
+		world.sendParticles(ParticleTypes.HAPPY_VILLAGER, center.x, center.y, center.z, 4, 0.3, 0.3, 0.3, 0.0);
 	}
 
-	private static List<AnimalEntity> filterFeedable(List<AnimalEntity> animals, List<Inventory> stores) {
+	private static List<Animal> filterFeedable(List<Animal> animals, List<Container> stores) {
 		if (!ModConfig.get().requireFeedItems) {
 			return animals;
 		}
@@ -1310,14 +1312,14 @@ public class RancherBrain {
 	 * <p>Boxes are searched before the station, matching {@link RanchBlockEntity#feedStores()}.
 	 */
 	@Nullable
-	private static Stock.Held findFeed(List<Inventory> stores, AnimalEntity animal) {
-		Stock.Held liked = Stock.find(stores, animal::isBreedingItem);
-		return liked != null ? liked : Stock.find(stores, stack -> stack.isOf(WorkstationsMod.UNIVERSAL_FEED));
+	private static Stock.Held findFeed(List<Container> stores, Animal animal) {
+		Stock.Held liked = Stock.find(stores, animal::isFood);
+		return liked != null ? liked : Stock.find(stores, stack -> stack.is(WorkstationsMod.UNIVERSAL_FEED));
 	}
 
 	/** Whether one of these is a helping this animal will accept. */
-	private static boolean feeds(ItemStack stack, AnimalEntity animal) {
-		return !stack.isEmpty() && (animal.isBreedingItem(stack) || stack.isOf(WorkstationsMod.UNIVERSAL_FEED));
+	private static boolean feeds(ItemStack stack, Animal animal) {
+		return !stack.isEmpty() && (animal.isFood(stack) || stack.is(WorkstationsMod.UNIVERSAL_FEED));
 	}
 
 	/**

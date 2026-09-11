@@ -1,10 +1,10 @@
 package dev.keyboard.workstations.work;
 
-import net.minecraft.entity.Entity;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Box;
-import net.minecraft.util.math.Direction;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
 
 /**
  * The box a worker works inside: a rectangle on the ground around the station, reaching a
@@ -23,7 +23,7 @@ public final class WorkArea {
 	private final int below;
 
 	public WorkArea(BlockPos center, int xRadius, int zRadius, int above, int below) {
-		this.center = center.toImmutable();
+		this.center = center.immutable();
 		this.xRadius = xRadius;
 		this.zRadius = zRadius;
 		this.above = above;
@@ -60,14 +60,14 @@ public final class WorkArea {
 	}
 
 	/** Block aligned, so the box covers the whole column of every block within the reaches. */
-	public Box getBox() {
-		return new Box(
+	public AABB getBox() {
+		return new AABB(
 				center.getX() - xRadius, center.getY() - below, center.getZ() - zRadius,
 				center.getX() + xRadius + 1.0, center.getY() + above + 1.0, center.getZ() + zRadius + 1.0);
 	}
 
 	public boolean contains(Entity entity) {
-		return contains(entity.getPos());
+		return contains(entity.position());
 	}
 
 	/**
@@ -82,7 +82,7 @@ public final class WorkArea {
 				&& dy <= above && dy >= -below;
 	}
 
-	public boolean contains(Vec3d pos) {
+	public boolean contains(Vec3 pos) {
 		return getBox().contains(pos);
 	}
 }

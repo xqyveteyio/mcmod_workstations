@@ -6,10 +6,10 @@
 		"BDB"
 	],
 	"key": {
-		"A": { "item": "minecraft:hay_block" },
-		"B": { "tag": "minecraft:wooden_fences" },
-		"C": { "item": "minecraft:emerald_block" },
-		"D": { "item": "minecraft:chest" }
+		"A": "minecraft:hay_block",
+		"B": "#minecraft:wooden_fences",
+		"C": "minecraft:emerald_block",
+		"D": "minecraft:chest"
 	},
 	"result": {
 		"id": "keyboard_workstations:ranch_station",

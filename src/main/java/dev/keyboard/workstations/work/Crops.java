@@ -1,18 +1,5 @@
 package dev.keyboard.workstations.work;
 
-import net.minecraft.block.AttachedStemBlock;
-import net.minecraft.block.Block;
-import net.minecraft.block.BlockState;
-import net.minecraft.block.Blocks;
-import net.minecraft.block.CropBlock;
-import net.minecraft.component.DataComponentTypes;
-import net.minecraft.inventory.Inventory;
-import net.minecraft.item.BlockItem;
-import net.minecraft.item.Item;
-import net.minecraft.item.ItemStack;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Direction;
-import net.minecraft.world.BlockView;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
@@ -20,6 +7,19 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.core.component.DataComponents;
+import net.minecraft.world.Container;
+import net.minecraft.world.item.BlockItem;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.BlockGetter;
+import net.minecraft.world.level.block.AttachedStemBlock;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.CropBlock;
+import net.minecraft.world.level.block.state.BlockState;
 
 /**
  * What the farmer knows about seeds and soil, kept apart from the AI so "is this a plot, and is
@@ -66,7 +66,7 @@ public final class Crops {
 	 * is treated the same way.
 	 */
 	public static boolean isEdibleSeed(ItemStack stack) {
-		return isSeed(stack) && stack.contains(DataComponentTypes.FOOD);
+		return isSeed(stack) && stack.has(DataComponents.FOOD);
 	}
 
 	/** The crop a seed grows into, or null when the item is not a seed at all. */
@@ -85,12 +85,12 @@ public final class Crops {
 	 * shelves. Which store a seed is then taken out of is a separate question, settled where it is
 	 * spent.
 	 */
-	public static List<Item> palette(List<Inventory> stores) {
+	public static List<Item> palette(List<Container> stores) {
 		Set<Item> seeds = new LinkedHashSet<>();
 
-		for (Inventory store : stores) {
-			for (int slot = 0; slot < store.size(); slot++) {
-				ItemStack stack = store.getStack(slot);
+		for (Container store : stores) {
+			for (int slot = 0; slot < store.getContainerSize(); slot++) {
+				ItemStack stack = store.getItem(slot);
 
 				if (isSeed(stack)) {
 					seeds.add(stack.getItem());
@@ -102,7 +102,7 @@ public final class Crops {
 	}
 
 	public static boolean isFarmland(BlockState state) {
-		return state.isOf(Blocks.FARMLAND);
+		return state.is(Blocks.FARMLAND);
 	}
 
 	public static boolean isTillable(BlockState state) {
@@ -119,21 +119,21 @@ public final class Crops {
 	}
 
 	/** Whether there is room above a plot to plant in, or to turn the plot into farmland at all. */
-	public static boolean isClearAbove(BlockView world, BlockPos plot) {
-		return world.getBlockState(plot.up()).isAir();
+	public static boolean isClearAbove(BlockGetter world, BlockPos plot) {
+		return world.getBlockState(plot.above()).isAir();
 	}
 
 	/** Whatever is growing on a plot, or null when nothing is. */
 	@Nullable
-	public static CropBlock growingOn(BlockView world, BlockPos plot) {
-		return world.getBlockState(plot.up()).getBlock() instanceof CropBlock crop ? crop : null;
+	public static CropBlock growingOn(BlockGetter world, BlockPos plot) {
+		return world.getBlockState(plot.above()).getBlock() instanceof CropBlock crop ? crop : null;
 	}
 
 	/** Whether what is growing on a plot has finished and is worth breaking. */
-	public static boolean isRipe(BlockView world, BlockPos plot) {
-		BlockPos above = plot.up();
+	public static boolean isRipe(BlockGetter world, BlockPos plot) {
+		BlockPos above = plot.above();
 		BlockState state = world.getBlockState(above);
-		return state.getBlock() instanceof CropBlock crop && crop.isMature(state);
+		return state.getBlock() instanceof CropBlock crop && crop.isMaxAge(state);
 	}
 
 	public static boolean isMushroom(BlockState state) {
@@ -152,19 +152,19 @@ public final class Crops {
 	 * Taking every one inside the work area would have the farmer quietly dismantle a wall or a
 	 * lantern somebody put up, and an attached stem is the one thing that says this one was grown.
 	 */
-	public static boolean isGrownGourd(BlockView world, BlockPos pos) {
+	public static boolean isGrownGourd(BlockGetter world, BlockPos pos) {
 		Block stem = GOURD_STEMS.get(world.getBlockState(pos).getBlock());
 
 		if (stem == null) {
 			return false;
 		}
 
-		for (Direction side : Direction.Type.HORIZONTAL) {
-			BlockState neighbour = world.getBlockState(pos.offset(side));
+		for (Direction side : Direction.Plane.HORIZONTAL) {
+			BlockState neighbour = world.getBlockState(pos.relative(side));
 
 			// Pointing back at this fruit. A stem facing elsewhere grew the one next door, and
 			// taking its neighbour on the strength of it would be reaching.
-			if (neighbour.isOf(stem) && neighbour.get(AttachedStemBlock.FACING) == side.getOpposite()) {
+			if (neighbour.is(stem) && neighbour.getValue(AttachedStemBlock.FACING) == side.getOpposite()) {
 				return true;
 			}
 		}
@@ -173,7 +173,7 @@ public final class Crops {
 	}
 
 	/** Whether a block is one of the loose pickings a station has been set to take. */
-	public static boolean isPickable(BlockView world, BlockPos pos, boolean gourds, boolean mushrooms) {
+	public static boolean isPickable(BlockGetter world, BlockPos pos, boolean gourds, boolean mushrooms) {
 		return (mushrooms && isMushroom(world.getBlockState(pos))) || (gourds && isGrownGourd(world, pos));
 	}
 }

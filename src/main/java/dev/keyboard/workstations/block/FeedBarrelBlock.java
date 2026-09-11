@@ -2,33 +2,33 @@ package dev.keyboard.workstations.block;
 
 import com.mojang.serialization.MapCodec;
 import dev.keyboard.workstations.WorkstationsMod;
-import net.minecraft.block.Block;
-import net.minecraft.block.BlockRenderType;
-import net.minecraft.block.BlockState;
-import net.minecraft.block.BlockWithEntity;
-import net.minecraft.block.ShapeContext;
-import net.minecraft.block.entity.BlockEntity;
-import net.minecraft.block.entity.BlockEntityTicker;
-import net.minecraft.block.entity.BlockEntityType;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.item.ItemPlacementContext;
-import net.minecraft.screen.NamedScreenHandlerFactory;
-import net.minecraft.screen.ScreenHandler;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.state.StateManager;
-import net.minecraft.state.property.DirectionProperty;
-import net.minecraft.state.property.Properties;
-import net.minecraft.util.ActionResult;
-import net.minecraft.util.BlockMirror;
-import net.minecraft.util.BlockRotation;
-import net.minecraft.util.ItemScatterer;
-import net.minecraft.util.hit.BlockHitResult;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Direction;
-import net.minecraft.util.math.random.Random;
-import net.minecraft.util.shape.VoxelShape;
-import net.minecraft.world.BlockView;
-import net.minecraft.world.World;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.util.RandomSource;
+import net.minecraft.world.Containers;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.MenuProvider;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.inventory.AbstractContainerMenu;
+import net.minecraft.world.item.context.BlockPlaceContext;
+import net.minecraft.world.level.BlockGetter;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.BaseEntityBlock;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.Mirror;
+import net.minecraft.world.level.block.RenderShape;
+import net.minecraft.world.level.block.Rotation;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.entity.BlockEntityTicker;
+import net.minecraft.world.level.block.entity.BlockEntityType;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.StateDefinition;
+import net.minecraft.world.level.block.state.properties.BlockStateProperties;
+import net.minecraft.world.level.block.state.properties.EnumProperty;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.shapes.CollisionContext;
+import net.minecraft.world.phys.shapes.VoxelShape;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -41,46 +41,46 @@ import org.jetbrains.annotations.Nullable;
  * container spread across two positions would turn up twice in that sweep, so the joining is the
  * part deliberately left out.
  */
-public class FeedBarrelBlock extends BlockWithEntity {
-	public static final MapCodec<FeedBarrelBlock> CODEC = createCodec(FeedBarrelBlock::new);
-	public static final DirectionProperty FACING = Properties.HORIZONTAL_FACING;
+public class FeedBarrelBlock extends BaseEntityBlock {
+	public static final MapCodec<FeedBarrelBlock> CODEC = simpleCodec(FeedBarrelBlock::new);
+	public static final EnumProperty<Direction> FACING = BlockStateProperties.HORIZONTAL_FACING;
 
 	/** A chest's own outline: a hair inside the block on every side but the bottom. */
-	private static final VoxelShape SHAPE = Block.createCuboidShape(1.0, 0.0, 1.0, 15.0, 14.0, 15.0);
+	private static final VoxelShape SHAPE = Block.box(1.0, 0.0, 1.0, 15.0, 14.0, 15.0);
 
-	public FeedBarrelBlock(Settings settings) {
+	public FeedBarrelBlock(Properties settings) {
 		super(settings);
-		setDefaultState(getStateManager().getDefaultState().with(FACING, Direction.NORTH));
+		registerDefaultState(getStateDefinition().any().setValue(FACING, Direction.NORTH));
 	}
 
 	@Override
-	protected MapCodec<? extends FeedBarrelBlock> getCodec() {
+	protected MapCodec<? extends FeedBarrelBlock> codec() {
 		return CODEC;
 	}
 
 	@Override
-	protected void appendProperties(StateManager.Builder<Block, BlockState> builder) {
+	protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
 		builder.add(FACING);
 	}
 
 	@Nullable
 	@Override
-	public BlockState getPlacementState(ItemPlacementContext ctx) {
-		return getDefaultState().with(FACING, ctx.getHorizontalPlayerFacing().getOpposite());
+	public BlockState getStateForPlacement(BlockPlaceContext ctx) {
+		return defaultBlockState().setValue(FACING, ctx.getHorizontalDirection().getOpposite());
 	}
 
 	@Override
-	public BlockState rotate(BlockState state, BlockRotation rotation) {
-		return state.with(FACING, rotation.rotate(state.get(FACING)));
+	public BlockState rotate(BlockState state, Rotation rotation) {
+		return state.setValue(FACING, rotation.rotate(state.getValue(FACING)));
 	}
 
 	@Override
-	public BlockState mirror(BlockState state, BlockMirror mirror) {
-		return state.rotate(mirror.getRotation(state.get(FACING)));
+	public BlockState mirror(BlockState state, Mirror mirror) {
+		return state.rotate(mirror.getRotation(state.getValue(FACING)));
 	}
 
 	@Override
-	public VoxelShape getOutlineShape(BlockState state, BlockView world, BlockPos pos, ShapeContext context) {
+	public VoxelShape getShape(BlockState state, BlockGetter world, BlockPos pos, CollisionContext context) {
 		return SHAPE;
 	}
 
@@ -90,67 +90,62 @@ public class FeedBarrelBlock extends BlockWithEntity {
 	 * particles.
 	 */
 	@Override
-	public BlockRenderType getRenderType(BlockState state) {
-		return BlockRenderType.ENTITYBLOCK_ANIMATED;
+	public RenderShape getRenderShape(BlockState state) {
+		return RenderShape.INVISIBLE;
 	}
 
 	@Nullable
 	@Override
-	public BlockEntity createBlockEntity(BlockPos pos, BlockState state) {
+	public BlockEntity newBlockEntity(BlockPos pos, BlockState state) {
 		return new FeedBarrelBlockEntity(pos, state);
 	}
 
 	/** Client side only: the lid's angle is the one thing that has to be kept moving every tick. */
 	@Nullable
 	@Override
-	public <T extends BlockEntity> BlockEntityTicker<T> getTicker(World world, BlockState state, BlockEntityType<T> type) {
-		if (!world.isClient) {
+	public <T extends BlockEntity> BlockEntityTicker<T> getTicker(Level world, BlockState state, BlockEntityType<T> type) {
+		if (!world.isClientSide()) {
 			return null;
 		}
 
-		return validateTicker(type, WorkstationsMod.FEED_BARREL_BLOCK_ENTITY, FeedBarrelBlockEntity::clientTick);
+		return createTickerHelper(type, WorkstationsMod.FEED_BARREL_BLOCK_ENTITY, FeedBarrelBlockEntity::clientTick);
 	}
 
 	@Override
-	protected ActionResult onUse(BlockState state, World world, BlockPos pos, PlayerEntity player, BlockHitResult hit) {
-		if (world.isClient) {
-			return ActionResult.SUCCESS;
+	protected InteractionResult useWithoutItem(BlockState state, Level world, BlockPos pos, Player player, BlockHitResult hit) {
+		if (world.isClientSide()) {
+			return InteractionResult.SUCCESS;
 		}
 
-		NamedScreenHandlerFactory factory = state.createScreenHandlerFactory(world, pos);
+		MenuProvider factory = state.getMenuProvider(world, pos);
 
 		if (factory != null) {
-			player.openHandledScreen(factory);
+			player.openMenu(factory);
 		}
 
-		return ActionResult.CONSUME;
+		return InteractionResult.CONSUME;
 	}
 
 	/** Recounts who has the box open, so a lid left up by a player who logged out comes back down. */
 	@Override
-	public void scheduledTick(BlockState state, ServerWorld world, BlockPos pos, Random random) {
+	public void tick(BlockState state, ServerLevel world, BlockPos pos, RandomSource random) {
 		if (world.getBlockEntity(pos) instanceof FeedBarrelBlockEntity box) {
 			box.recountViewers();
 		}
 	}
 
 	@Override
-	public void onStateReplaced(BlockState state, World world, BlockPos pos, BlockState newState, boolean moved) {
-		if (!state.isOf(newState.getBlock()) && world.getBlockEntity(pos) instanceof FeedBarrelBlockEntity box) {
-			ItemScatterer.spawn(world, pos, box);
-			world.updateComparators(pos, this);
-		}
-
-		super.onStateReplaced(state, world, pos, newState, moved);
+	protected void affectNeighborsAfterRemoval(BlockState state, ServerLevel world, BlockPos pos, boolean moved) {
+		Containers.updateNeighboursAfterDestroy(state, world, pos);
 	}
 
 	@Override
-	public boolean hasComparatorOutput(BlockState state) {
+	public boolean hasAnalogOutputSignal(BlockState state) {
 		return true;
 	}
 
 	@Override
-	public int getComparatorOutput(BlockState state, World world, BlockPos pos) {
-		return ScreenHandler.calculateComparatorOutput(world.getBlockEntity(pos));
+	public int getAnalogOutputSignal(BlockState state, Level world, BlockPos pos, Direction direction) {
+		return AbstractContainerMenu.getRedstoneSignalFromBlockEntity(world.getBlockEntity(pos));
 	}
 }

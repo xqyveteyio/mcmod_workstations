@@ -1,9 +1,9 @@
 package dev.keyboard.workstations.entity.ai;
 
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.mob.MobEntity;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.Mob;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.phys.Vec3;
 
 /**
  * Getting a worker's body where the work is: walking to somewhere too far to path to in one go, and
@@ -48,8 +48,8 @@ public final class WorkerMovement {
 	}
 
 	/** Whether a destination is beyond what pathfinding can answer for and needs walking in hops. */
-	public static boolean isFarOff(MobEntity worker, Vec3d destination) {
-		return worker.squaredDistanceTo(destination) > PATH_RADIUS * PATH_RADIUS;
+	public static boolean isFarOff(Mob worker, Vec3 destination) {
+		return worker.distanceToSqr(destination) > PATH_RADIUS * PATH_RADIUS;
 	}
 
 	/**
@@ -59,14 +59,14 @@ public final class WorkerMovement {
 	 *
 	 * @return whether the destination was far enough to need this, and a hop was therefore started
 	 */
-	public static boolean approach(MobEntity worker, Vec3d destination, double speed) {
+	public static boolean approach(Mob worker, Vec3 destination, double speed) {
 		if (!isFarOff(worker, destination)) {
 			return false;
 		}
 
-		Vec3d hop = worker.getPos()
-				.add(destination.subtract(worker.getPos()).normalize().multiply(APPROACH_STEP));
-		worker.getNavigation().startMovingTo(hop.x, hop.y, hop.z, speed);
+		Vec3 hop = worker.position()
+				.add(destination.subtract(worker.position()).normalize().scale(APPROACH_STEP));
+		worker.getNavigation().moveTo(hop.x, hop.y, hop.z, speed);
 		return true;
 	}
 
@@ -83,16 +83,16 @@ public final class WorkerMovement {
 	 * animal means out of the pen. Sideways clears the corridor without ever pushing anything
 	 * through the gap the worker is heading for.
 	 */
-	public static void shoveBlockers(MobEntity worker) {
-		if (worker.getNavigation().isIdle()) {
+	public static void shoveBlockers(Mob worker) {
+		if (worker.getNavigation().isDone()) {
 			return;
 		}
 
-		Vec3d forward = Vec3d.fromPolar(0.0F, worker.bodyYaw);
+		Vec3 forward = Vec3.directionFromRotation(0.0F, worker.yBodyRot);
 
-		for (Entity other : worker.getWorld().getOtherEntities(worker,
-				worker.getBoundingBox().expand(SHOVE_RANGE, 0.5, SHOVE_RANGE),
-				candidate -> candidate.isPushable() && !(candidate instanceof PlayerEntity))) {
+		for (Entity other : worker.level().getEntities(worker,
+				worker.getBoundingBox().inflate(SHOVE_RANGE, 0.5, SHOVE_RANGE),
+				candidate -> candidate.isPushable() && !(candidate instanceof Player))) {
 			double dx = other.getX() - worker.getX();
 			double dz = other.getZ() - worker.getZ();
 			double distance = Math.sqrt(dx * dx + dz * dz);
@@ -118,8 +118,8 @@ public final class WorkerMovement {
 			}
 
 			double push = SHOVE_STRENGTH * (1.0 - distance / SHOVE_RANGE);
-			other.addVelocity(sideX * push, 0.0, sideZ * push);
-			other.velocityModified = true;
+			other.push(sideX * push, 0.0, sideZ * push);
+			other.hurtMarked = true;
 		}
 	}
 }

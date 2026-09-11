@@ -1,7 +1,10 @@
-accessWidener	v2	named
+accessWidener	v2	official
 
 # The grower a sapling was given, which is the only record of whether one of them can become a
 # tree on its own. Dark oak's small-tree feature is empty; a mod that copies that pattern is the
 # same kind of wood.
-accessible	field	net/minecraft/block/SaplingBlock	generator	Lnet/minecraft/block/SaplingGenerator;
-accessible	method	net/minecraft/block/SaplingGenerator	getSmallTreeFeature	(Lnet/minecraft/util/math/random/Random;Z)Lnet/minecraft/registry/RegistryKey;
+accessible	field	net/minecraft/world/level/block/SaplingBlock	treeGrower	Lnet/minecraft/world/level/block/grower/TreeGrower;
+accessible	method	net/minecraft/world/level/block/grower/TreeGrower	getConfiguredFeature	(Lnet/minecraft/util/RandomSource;Z)Lnet/minecraft/resources/ResourceKey;
+
+# Item models look up special renderers from this map when the JSON is read.
+accessible	field	net/minecraft/client/renderer/special/SpecialModelRenderers	ID_MAPPER	Lnet/minecraft/util/ExtraCodecs$LateBoundIdMapper;

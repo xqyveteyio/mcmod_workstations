@@ -3,11 +3,10 @@ package dev.keyboard.workstations.client.screen;
 import dev.keyboard.workstations.WorkstationsMod;
 import dev.keyboard.workstations.client.network.StationNetworkingClient;
 import dev.keyboard.workstations.work.LumberSettings;
-import net.minecraft.item.Item;
-import net.minecraft.util.math.BlockPos;
-
 import java.util.List;
 import java.util.function.Consumer;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.item.Item;
 
 /**
  * The lumber station's settings. Everything the farm screen does for its mix tab, pointed at

@@ -6,8 +6,8 @@
 		"AAA"
 	],
 	"key": {
-		"A": { "tag": "minecraft:planks" },
-		"B": { "item": "minecraft:bucket" }
+		"A": "#minecraft:planks",
+		"B": "minecraft:bucket"
 	},
 	"result": {
 		"id": "keyboard_workstations:milk_barrel",

@@ -1,68 +1,42 @@
 package dev.keyboard.workstations.client;
 
-import net.minecraft.block.BlockState;
-import net.minecraft.client.model.ModelPart;
-import net.minecraft.client.render.RenderLayer;
-import net.minecraft.client.render.VertexConsumer;
-import net.minecraft.client.render.VertexConsumerProvider;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.state.property.Properties;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.math.Direction;
-import net.minecraft.util.math.RotationAxis;
+import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.math.Axis;
+import net.minecraft.client.model.geom.ModelPart;
+import net.minecraft.client.model.object.chest.ChestModel;
+import net.minecraft.client.renderer.SubmitNodeCollector;
+import net.minecraft.client.renderer.feature.ModelFeatureRenderer;
+import net.minecraft.core.Direction;
+import net.minecraft.resources.Identifier;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 
 /**
  * A chest, drawn in a workstation box's colours out of vanilla's own chest model.
- *
- * <p>The three parts are borrowed rather than built. Vanilla already loads a single chest's base,
- * lid and latch under {@link net.minecraft.client.render.entity.model.EntityModelLayers#CHEST},
- * laid out against a 64 by 64 sheet, so the box's texture only has to follow that same layout to
- * sit on them correctly. Nothing here models anything.
- *
- * <p>Vanilla's chest renderer cannot simply be reused, close as this is to it: which texture it
- * draws with is decided inside it, from whether the block entity is an ender or a trapped chest, so
- * a fourth kind of chest has no way to answer. This exists to supply the texture, and is shared by
- * the placed block and the item in hand, and by the seed box and the feed box.
  */
 class SeedBoxModel {
 	private final Identifier texture;
-	private final ModelPart base;
-	private final ModelPart lid;
-	private final ModelPart latch;
+	private final ChestModel model;
 
 	SeedBoxModel(ModelPart chest, Identifier texture) {
 		this.texture = texture;
-		base = chest.getChild("bottom");
-		lid = chest.getChild("lid");
-		latch = chest.getChild("lock");
+		this.model = new ChestModel(chest);
 	}
 
-	/**
-	 * @param openness how far the lid has swung, 0 shut and 1 wide open. The item in hand is always
-	 *     given 0, having no block entity to have been opened.
-	 */
-	void render(BlockState state, float openness, MatrixStack matrices,
-			VertexConsumerProvider vertexConsumers, int light, int overlay) {
-		matrices.push();
+	void submit(BlockState state, float openness, PoseStack matrices, SubmitNodeCollector collector,
+			int light, int overlay, ModelFeatureRenderer.CrumblingOverlay breakProgress) {
+		matrices.pushPose();
 
-		// Turned about its own middle, so the latch ends up on the face the chest was put down
-		// looking out of rather than swinging the whole body off the block.
-		Direction facing = state.contains(Properties.HORIZONTAL_FACING)
-				? state.get(Properties.HORIZONTAL_FACING) : Direction.NORTH;
+		Direction facing = state.hasProperty(BlockStateProperties.HORIZONTAL_FACING)
+				? state.getValue(BlockStateProperties.HORIZONTAL_FACING) : Direction.NORTH;
 		matrices.translate(0.5F, 0.5F, 0.5F);
-		matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(-facing.asRotation()));
+		matrices.mulPose(Axis.YP.rotationDegrees(-facing.toYRot()));
 		matrices.translate(-0.5F, -0.5F, -0.5F);
 
-		// Vanilla's easing, which sets the lid moving quickly and lets it settle shut.
 		float eased = 1.0F - openness;
 		eased = 1.0F - eased * eased * eased;
-
-		VertexConsumer vertices = vertexConsumers.getBuffer(RenderLayer.getEntityCutout(texture));
-		lid.pitch = -(eased * ((float) Math.PI / 2.0F));
-		latch.pitch = lid.pitch;
-		lid.render(matrices, vertices, light, overlay);
-		latch.render(matrices, vertices, light, overlay);
-		base.render(matrices, vertices, light, overlay);
-		matrices.pop();
+		model.setupAnim(eased);
+		collector.submitModel(model, eased, matrices, texture, light, overlay, 0, breakProgress);
+		matrices.popPose();
 	}
 }

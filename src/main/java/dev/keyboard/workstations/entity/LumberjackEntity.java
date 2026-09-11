@@ -11,32 +11,33 @@ import dev.keyboard.workstations.entity.ai.WorkerNavigation;
 import dev.keyboard.workstations.work.LumberSettings;
 import dev.keyboard.workstations.work.WorkArea;
 import dev.keyboard.workstations.work.WorkerSkin;
-import net.minecraft.block.BlockState;
-import net.minecraft.entity.EntityType;
-import net.minecraft.entity.ai.goal.LookAroundGoal;
-import net.minecraft.entity.ai.goal.LookAtEntityGoal;
-import net.minecraft.entity.ai.goal.SwimGoal;
-import net.minecraft.entity.ai.pathing.EntityNavigation;
-import net.minecraft.entity.attribute.DefaultAttributeContainer;
-import net.minecraft.entity.attribute.EntityAttributes;
-import net.minecraft.entity.damage.DamageSource;
-import net.minecraft.entity.data.DataTracker;
-import net.minecraft.entity.data.TrackedData;
-import net.minecraft.entity.data.TrackedDataHandlerRegistry;
-import net.minecraft.entity.mob.MobEntity;
-import net.minecraft.entity.mob.PathAwareEntity;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.inventory.SimpleInventory;
-import net.minecraft.nbt.NbtCompound;
-import net.minecraft.nbt.NbtElement;
-import net.minecraft.nbt.NbtHelper;
-import net.minecraft.registry.tag.DamageTypeTags;
-import net.minecraft.sound.SoundEvent;
-import net.minecraft.sound.SoundEvents;
-import net.minecraft.text.Text;
-import net.minecraft.util.ItemScatterer;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.world.World;
+import net.minecraft.core.BlockPos;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.syncher.EntityDataAccessor;
+import net.minecraft.network.syncher.EntityDataSerializers;
+import net.minecraft.network.syncher.SynchedEntityData;
+import net.minecraft.sounds.SoundEvent;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.tags.DamageTypeTags;
+import net.minecraft.world.Containers;
+import net.minecraft.world.SimpleContainer;
+import net.minecraft.world.damagesource.DamageSource;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.Mob;
+import net.minecraft.world.entity.PathfinderMob;
+import net.minecraft.world.entity.ai.attributes.AttributeSupplier;
+import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.entity.ai.goal.FloatGoal;
+import net.minecraft.world.entity.ai.goal.LookAtPlayerGoal;
+import net.minecraft.world.entity.ai.goal.RandomLookAroundGoal;
+import net.minecraft.world.entity.ai.navigation.PathNavigation;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.storage.ValueInput;
+import net.minecraft.world.level.storage.ValueOutput;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -48,7 +49,7 @@ import org.jetbrains.annotations.Nullable;
  * the brain and task system and would fight this AI for control of its own pathfinding. Only the
  * appearance is borrowed, by pointing the renderer at the vanilla villager model.
  */
-public class LumberjackEntity extends PathAwareEntity implements StationWorker, WorkerMob {
+public class LumberjackEntity extends PathfinderMob implements StationWorker, WorkerMob {
 	public static final int CARRY_SLOTS = 8;
 
 	/**
@@ -56,16 +57,16 @@ public class LumberjackEntity extends PathAwareEntity implements StationWorker, 
 	 * every other setting is, because the station a lumberjack belongs to is server side knowledge: the
 	 * renderer has no way to ask which block hired the lumberjack standing in front of it.
 	 */
-	private static final TrackedData<Integer> SKIN =
-			DataTracker.registerData(LumberjackEntity.class, TrackedDataHandlerRegistry.INTEGER);
+	private static final EntityDataAccessor<Integer> SKIN =
+			SynchedEntityData.defineId(LumberjackEntity.class, EntityDataSerializers.INT);
 
 	/**
 	 * Ticks of digging a lumberjack still owes before it is above ground, or zero. Tracked rather than
 	 * announced, because the client has to know how deep to draw it from the very first frame: a
 	 * message sent after the lumberjack would leave it standing in the open until that message landed.
 	 */
-	private static final TrackedData<Integer> BURIED =
-			DataTracker.registerData(LumberjackEntity.class, TrackedDataHandlerRegistry.INTEGER);
+	private static final EntityDataAccessor<Integer> BURIED =
+			SynchedEntityData.defineId(LumberjackEntity.class, EntityDataSerializers.INT);
 
 	private static final String STATION_KEY = "Station";
 	private static final String CARRIED_KEY = "Carried";
@@ -74,11 +75,11 @@ public class LumberjackEntity extends PathAwareEntity implements StationWorker, 
 	/** How often the state label may be rewritten, in ticks. Four times a second reads fine. */
 	private static final int LABEL_INTERVAL = 5;
 
-	private final SimpleInventory carried = new SimpleInventory(CARRY_SLOTS);
+	private final SimpleContainer carried = new SimpleContainer(CARRY_SLOTS);
 	private final LumberjackBrain brain = new LumberjackBrain();
 	private final GateOperator gates = new GateOperator();
 	private final WorkerEntrance entrance =
-			new WorkerEntrance(() -> dataTracker.get(BURIED), ticks -> dataTracker.set(BURIED, ticks));
+			new WorkerEntrance(() -> entityData.get(BURIED), ticks -> entityData.set(BURIED, ticks));
 	@Nullable
 	private BlockPos stationPos;
 	/** Last label pushed to the name tag, so an unchanged state is not resent every tick. */
@@ -91,23 +92,23 @@ public class LumberjackEntity extends PathAwareEntity implements StationWorker, 
 	@Nullable
 	private LumberSettings orphanedSettings;
 
-	public LumberjackEntity(EntityType<? extends LumberjackEntity> type, World world) {
+	public LumberjackEntity(EntityType<? extends LumberjackEntity> type, Level world) {
 		super(type, world);
-		setPersistent();
+		setPersistenceRequired();
 	}
 
 	@Override
-	protected void initDataTracker(DataTracker.Builder builder) {
-		super.initDataTracker(builder);
-		builder.add(SKIN, 0);
-		builder.add(BURIED, 0);
+	protected void defineSynchedData(SynchedEntityData.Builder builder) {
+		super.defineSynchedData(builder);
+		builder.define(SKIN, 0);
+		builder.define(BURIED, 0);
 	}
 
-	public static DefaultAttributeContainer.Builder createLumberjackAttributes() {
-		return MobEntity.createMobAttributes()
-				.add(EntityAttributes.GENERIC_MAX_HEALTH, 20.0)
-				.add(EntityAttributes.GENERIC_MOVEMENT_SPEED, 0.5)
-				.add(EntityAttributes.GENERIC_FOLLOW_RANGE, 32.0);
+	public static AttributeSupplier.Builder createLumberjackAttributes() {
+		return Mob.createMobAttributes()
+				.add(Attributes.MAX_HEALTH, 20.0)
+				.add(Attributes.MOVEMENT_SPEED, 0.5)
+				.add(Attributes.FOLLOW_RANGE, 32.0);
 	}
 
 	/**
@@ -117,12 +118,12 @@ public class LumberjackEntity extends PathAwareEntity implements StationWorker, 
 	 * <p>Damage types that bypass invulnerability still land, which keeps {@code /kill} working.
 	 */
 	@Override
-	public boolean isInvulnerableTo(DamageSource source) {
-		if (super.isInvulnerableTo(source)) {
+	public boolean isInvulnerableTo(ServerLevel world, DamageSource source) {
+		if (super.isInvulnerableTo(world, source)) {
 			return true;
 		}
 
-		return ModConfig.get().invulnerable && !source.isIn(DamageTypeTags.BYPASSES_INVULNERABILITY);
+		return ModConfig.get().invulnerable && !source.is(DamageTypeTags.BYPASSES_INVULNERABILITY);
 	}
 
 	/**
@@ -144,7 +145,7 @@ public class LumberjackEntity extends PathAwareEntity implements StationWorker, 
 
 	/** Gates are only worth opening if paths are allowed to run through them in the first place. */
 	@Override
-	protected EntityNavigation createNavigation(World world) {
+	protected PathNavigation createNavigation(Level world) {
 		return new WorkerNavigation(this, world);
 	}
 
@@ -155,23 +156,23 @@ public class LumberjackEntity extends PathAwareEntity implements StationWorker, 
 
 	/**
 	 * Only the reflexes live here. Deciding what to do is {@link LumberjackBrain}'s job, driven from
-	 * {@link #mobTick} so it is polled every tick and never has to win back movement control from
+	 * {@link #customServerAiStep} so it is polled every tick and never has to win back movement control from
 	 * an idle wander goal before it is allowed to notice there is work to do.
 	 */
 	@Override
-	protected void initGoals() {
-		goalSelector.add(0, new SwimGoal(this));
-		goalSelector.add(3, new LookAtEntityGoal(this, PlayerEntity.class, 8.0F));
-		goalSelector.add(4, new LookAroundGoal(this));
+	protected void registerGoals() {
+		goalSelector.addGoal(0, new FloatGoal(this));
+		goalSelector.addGoal(3, new LookAtPlayerGoal(this, Player.class, 8.0F));
+		goalSelector.addGoal(4, new RandomLookAroundGoal(this));
 	}
 
 	@Override
-	protected void mobTick() {
-		super.mobTick();
+	protected void customServerAiStep(ServerLevel world) {
+		super.customServerAiStep(world);
 
 		// Setting tracked data it already holds costs nothing, so this needs no change detection.
 		// Kept up before the entrance is checked, so the lumberjack is dressed on the way down.
-		dataTracker.set(SKIN, getSettings().workerSkin);
+		entityData.set(SKIN, getSettings().workerSkin);
 
 		// Still dropping out of the sky or clawing its way up through the ground. The field will
 		// keep until it has both feet on the floor.
@@ -190,7 +191,7 @@ public class LumberjackEntity extends PathAwareEntity implements StationWorker, 
 			if (++homelessTicks > HOMELESS_LIMIT) {
 				WorkerEntrance.leave(this);
 			}
-		} else if (station.hasAdoptedOtherThan(getUuid())) {
+		} else if (station.hasAdoptedOtherThan(getUUID())) {
 			// The station has taken someone else on. Staying would leave two lumberjacks working the
 			// same field, and only the one on the books is meant to be.
 			WorkerEntrance.leave(this);
@@ -229,9 +230,9 @@ public class LumberjackEntity extends PathAwareEntity implements StationWorker, 
 	 * lumberjack hoes, sows and harvests its way across the field without ever moving.
 	 */
 	@Override
-	public void tickMovement() {
-		tickHandSwing();
-		super.tickMovement();
+	public void aiStep() {
+		updateSwingTime();
+		super.aiStep();
 	}
 
 	@Override
@@ -240,9 +241,9 @@ public class LumberjackEntity extends PathAwareEntity implements StationWorker, 
 	}
 
 	@Override
-	public void handleStatus(byte status) {
+	public void handleEntityEvent(byte status) {
 		if (!entrance.handleStatus(this, status)) {
-			super.handleStatus(status);
+			super.handleEntityEvent(status);
 		}
 	}
 
@@ -253,7 +254,7 @@ public class LumberjackEntity extends PathAwareEntity implements StationWorker, 
 
 	/** Which of {@link WorkerSkin#LUMBERJACK} this lumberjack wears, readable on either side. */
 	public int getSkin() {
-		return dataTracker.get(SKIN);
+		return entityData.get(SKIN);
 	}
 
 	/**
@@ -267,15 +268,15 @@ public class LumberjackEntity extends PathAwareEntity implements StationWorker, 
 	 * landing is never reported to the block at all.
 	 */
 	@Override
-	protected void fall(double heightDifference, boolean onGround, BlockState state, BlockPos landedPosition) {
+	protected void checkFallDamage(double heightDifference, boolean onGround, BlockState state, BlockPos landedPosition) {
 		fallDistance = 0.0F;
-		super.fall(heightDifference, onGround, state, landedPosition);
+		super.checkFallDamage(heightDifference, onGround, state, landedPosition);
 	}
 
 	/** A lumberjack that dies in a gateway must not leave the field standing open behind it. */
 	@Override
 	public void remove(RemovalReason reason) {
-		if (!getWorld().isClient() && reason.shouldDestroy()) {
+		if (!level().isClientSide() && reason.shouldDestroy()) {
 			gates.shut(this);
 		}
 
@@ -309,7 +310,7 @@ public class LumberjackEntity extends PathAwareEntity implements StationWorker, 
 
 		if (!label.equals(stateLabel)) {
 			stateLabel = label;
-			setCustomName(Text.literal(label));
+			setCustomName(Component.literal(label));
 			setCustomNameVisible(true);
 		}
 	}
@@ -321,7 +322,7 @@ public class LumberjackEntity extends PathAwareEntity implements StationWorker, 
 
 	@Override
 	public void setStation(BlockPos pos) {
-		stationPos = pos.toImmutable();
+		stationPos = pos.immutable();
 		homelessTicks = 0;
 	}
 
@@ -334,11 +335,11 @@ public class LumberjackEntity extends PathAwareEntity implements StationWorker, 
 	/** {@code null} when the station was broken, replaced, or its chunk is not loaded right now. */
 	@Nullable
 	public LumberBlockEntity getStation() {
-		if (stationPos == null || !getWorld().isChunkLoaded(stationPos.getX() >> 4, stationPos.getZ() >> 4)) {
+		if (stationPos == null || !level().hasChunk(stationPos.getX() >> 4, stationPos.getZ() >> 4)) {
 			return null;
 		}
 
-		return getWorld().getBlockEntity(stationPos) instanceof LumberBlockEntity station ? station : null;
+		return level().getBlockEntity(stationPos) instanceof LumberBlockEntity station ? station : null;
 	}
 
 	@Nullable
@@ -368,7 +369,7 @@ public class LumberjackEntity extends PathAwareEntity implements StationWorker, 
 		return orphanedSettings;
 	}
 
-	public SimpleInventory getCarried() {
+	public SimpleContainer getCarried() {
 		return carried;
 	}
 
@@ -386,14 +387,14 @@ public class LumberjackEntity extends PathAwareEntity implements StationWorker, 
 
 	/** The station is responsible for summoning replacements, so natural despawning must not apply. */
 	@Override
-	public boolean canImmediatelyDespawn(double distanceSquared) {
+	public boolean removeWhenFarAway(double distanceSquared) {
 		return false;
 	}
 
 	@Override
-	protected void dropInventory() {
-		super.dropInventory();
-		ItemScatterer.spawn(getWorld(), this, carried);
+	protected void dropEquipment(ServerLevel world) {
+		super.dropEquipment(world);
+		Containers.dropContents(level(), this, carried);
 	}
 
 	@Nullable
@@ -404,38 +405,29 @@ public class LumberjackEntity extends PathAwareEntity implements StationWorker, 
 
 	@Override
 	protected SoundEvent getHurtSound(DamageSource source) {
-		return SoundEvents.ENTITY_VILLAGER_HURT;
+		return SoundEvents.VILLAGER_HURT;
 	}
 
 	@Override
 	protected SoundEvent getDeathSound() {
-		return SoundEvents.ENTITY_VILLAGER_DEATH;
+		return SoundEvents.VILLAGER_DEATH;
 	}
 
 	@Override
-	public void writeCustomDataToNbt(NbtCompound nbt) {
-		super.writeCustomDataToNbt(nbt);
+	protected void addAdditionalSaveData(ValueOutput output) {
+		super.addAdditionalSaveData(output);
 
 		if (stationPos != null) {
-			nbt.put(STATION_KEY, NbtHelper.fromBlockPos(stationPos));
+			output.store(STATION_KEY, BlockPos.CODEC, stationPos);
 		}
 
-		nbt.put(CARRIED_KEY, carried.toNbtList(getRegistryManager()));
+		carried.storeAsItemList(output.list(CARRIED_KEY, ItemStack.CODEC));
 	}
 
 	@Override
-	public void readCustomDataFromNbt(NbtCompound nbt) {
-		super.readCustomDataFromNbt(nbt);
-
-		stationPos = NbtHelper.toBlockPos(nbt, STATION_KEY).orElseGet(() -> {
-			if (!nbt.contains(STATION_KEY, NbtElement.COMPOUND_TYPE)) {
-				return null;
-			}
-
-			NbtCompound pos = nbt.getCompound(STATION_KEY);
-			return new BlockPos(pos.getInt("X"), pos.getInt("Y"), pos.getInt("Z"));
-		});
-
-		carried.readNbtList(nbt.getList(CARRIED_KEY, NbtElement.COMPOUND_TYPE), getRegistryManager());
+	protected void readAdditionalSaveData(ValueInput input) {
+		super.readAdditionalSaveData(input);
+		stationPos = input.read(STATION_KEY, BlockPos.CODEC).orElse(null);
+		carried.fromItemList(input.listOrEmpty(CARRIED_KEY, ItemStack.CODEC));
 	}
 }

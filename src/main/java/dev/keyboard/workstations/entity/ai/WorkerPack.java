@@ -1,15 +1,14 @@
 package dev.keyboard.workstations.entity.ai;
 
 import dev.keyboard.workstations.work.WorkArea;
-import net.minecraft.entity.ItemEntity;
-import net.minecraft.entity.mob.MobEntity;
-import net.minecraft.inventory.SimpleInventory;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.util.math.Box;
-
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.SimpleContainer;
+import net.minecraft.world.entity.Mob;
+import net.minecraft.world.entity.item.ItemEntity;
+import net.minecraft.world.phys.AABB;
 
 /**
  * What every worker carries, and when it is time to do something about it. How full the pack is,
@@ -66,16 +65,16 @@ public final class WorkerPack {
 	 * The work area widened by {@link #DROP_MARGIN}: where a worker's drops are, as opposed to
 	 * where its work is.
 	 */
-	public static Box dropBox(WorkArea area) {
-		return area.getBox().expand(DROP_MARGIN);
+	public static AABB dropBox(WorkArea area) {
+		return area.getBox().inflate(DROP_MARGIN);
 	}
 
 	/** How many slots of {@code pack} hold anything, which is what "full" actually means here. */
-	public static int count(SimpleInventory pack) {
+	public static int count(SimpleContainer pack) {
 		int used = 0;
 
-		for (int slot = 0; slot < pack.size(); slot++) {
-			if (!pack.getStack(slot).isEmpty()) {
+		for (int slot = 0; slot < pack.getContainerSize(); slot++) {
+			if (!pack.getItem(slot).isEmpty()) {
 				used++;
 			}
 		}
@@ -84,15 +83,15 @@ public final class WorkerPack {
 	}
 
 	/** Whether every slot is occupied, so nothing more can be picked up that needs a new slot. */
-	public static boolean isFull(SimpleInventory pack) {
-		return count(pack) == pack.size();
+	public static boolean isFull(SimpleContainer pack) {
+		return count(pack) == pack.getContainerSize();
 	}
 
 	/**
 	 * Whether the pack has built up enough to be worth walking back. A completely full pack is
 	 * included, but the point is to go earlier than that: see {@link #DEPOSIT_SLOTS}.
 	 */
-	public static boolean shouldDeposit(SimpleInventory pack) {
+	public static boolean shouldDeposit(SimpleContainer pack) {
 		return count(pack) >= DEPOSIT_SLOTS;
 	}
 
@@ -103,13 +102,13 @@ public final class WorkerPack {
 	 *
 	 * <p>Reach, not the plot: see {@link #DROP_MARGIN}.
 	 */
-	public static List<ItemEntity> looseIn(ServerWorld world, WorkArea area, SimpleInventory pack) {
+	public static List<ItemEntity> looseIn(ServerLevel world, WorkArea area, SimpleContainer pack) {
 		return looseIn(world, dropBox(area), pack);
 	}
 
-	private static List<ItemEntity> looseIn(ServerWorld world, Box box, SimpleInventory pack) {
-		return world.getEntitiesByClass(ItemEntity.class, box,
-				item -> item.isAlive() && !item.cannotPickup() && pack.canInsert(item.getStack()));
+	private static List<ItemEntity> looseIn(ServerLevel world, AABB box, SimpleContainer pack) {
+		return world.getEntitiesOfClass(ItemEntity.class, box,
+				item -> item.isAlive() && !item.hasPickUpDelay() && pack.canAddItem(item.getItem()));
 	}
 
 	/**
@@ -119,17 +118,17 @@ public final class WorkerPack {
 	 * likely to have just produced, so a phase can pocket it and carry on rather than leaving a
 	 * pile until the rotation comes around to collecting.
 	 */
-	public static List<ItemEntity> underfoot(MobEntity worker, ServerWorld world, WorkArea area, SimpleInventory pack) {
+	public static List<ItemEntity> underfoot(Mob worker, ServerLevel world, WorkArea area, SimpleContainer pack) {
 		List<ItemEntity> nearby = new ArrayList<>();
-		Box reach = dropBox(area);
+		AABB reach = dropBox(area);
 
-		for (ItemEntity drop : looseIn(world, worker.getBoundingBox().expand(UNDERFOOT_RADIUS), pack)) {
-			if (worker.squaredDistanceTo(drop) <= UNDERFOOT_RADIUS_SQUARED && reach.contains(drop.getPos())) {
+		for (ItemEntity drop : looseIn(world, worker.getBoundingBox().inflate(UNDERFOOT_RADIUS), pack)) {
+			if (worker.distanceToSqr(drop) <= UNDERFOOT_RADIUS_SQUARED && reach.contains(drop.position())) {
 				nearby.add(drop);
 			}
 		}
 
-		nearby.sort(Comparator.comparingDouble(worker::squaredDistanceTo));
+		nearby.sort(Comparator.comparingDouble(worker::distanceToSqr));
 		return nearby;
 	}
 }

@@ -1,7 +1,7 @@
 package dev.keyboard.workstations.block;
 
 import dev.keyboard.workstations.entity.WorkerEntrance;
-import net.minecraft.util.math.BlockPos;
+import net.minecraft.core.BlockPos;
 import org.jetbrains.annotations.Nullable;
 
 /**

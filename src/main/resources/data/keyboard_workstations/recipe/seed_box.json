@@ -6,8 +6,8 @@
 		"PPP"
 	],
 	"key": {
-		"P": { "tag": "minecraft:planks" },
-		"S": { "item": "minecraft:wheat_seeds" }
+		"P": "#minecraft:planks",
+		"S": "minecraft:wheat_seeds"
 	},
 	"result": {
 		"id": "keyboard_workstations:seed_box",

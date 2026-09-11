@@ -1,10 +1,9 @@
 package dev.keyboard.workstations.work;
 
 import dev.keyboard.workstations.WorkstationsMod;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.math.MathHelper;
-
 import java.util.List;
+import net.minecraft.resources.Identifier;
+import net.minecraft.util.Mth;
 
 /**
  * A look a worker can be given: the base skin, and the overlay carrying its hat. Both are laid out
@@ -48,7 +47,7 @@ public record WorkerSkin(String id, Identifier texture, Identifier hatTexture) {
 
 	/** Clamped rather than checked, so a save naming a look this build dropped still draws. */
 	public static WorkerSkin get(List<WorkerSkin> skins, int index) {
-		return skins.get(MathHelper.clamp(index, 0, skins.size() - 1));
+		return skins.get(Mth.clamp(index, 0, skins.size() - 1));
 	}
 
 	/** The names the setting cycles through, which are also what its translations are keyed on. */

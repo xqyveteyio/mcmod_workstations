@@ -1,26 +1,27 @@
 package dev.keyboard.workstations.block;
 
 import dev.keyboard.workstations.WorkstationsMod;
-import net.minecraft.block.BlockState;
-import net.minecraft.block.entity.ChestLidAnimator;
-import net.minecraft.block.entity.LidOpenable;
-import net.minecraft.block.entity.LootableContainerBlockEntity;
-import net.minecraft.block.entity.ViewerCountManager;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.entity.player.PlayerInventory;
-import net.minecraft.inventory.Inventories;
-import net.minecraft.item.ItemStack;
-import net.minecraft.nbt.NbtCompound;
-import net.minecraft.registry.RegistryWrapper;
-import net.minecraft.screen.GenericContainerScreenHandler;
-import net.minecraft.screen.ScreenHandler;
-import net.minecraft.sound.SoundCategory;
-import net.minecraft.sound.SoundEvent;
-import net.minecraft.sound.SoundEvents;
-import net.minecraft.text.Text;
-import net.minecraft.util.collection.DefaultedList;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.world.World;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.NonNullList;
+import net.minecraft.network.chat.Component;
+import net.minecraft.sounds.SoundEvent;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.sounds.SoundSource;
+import net.minecraft.world.ContainerHelper;
+import net.minecraft.world.entity.ContainerUser;
+import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.inventory.AbstractContainerMenu;
+import net.minecraft.world.inventory.ChestMenu;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.entity.ChestLidController;
+import net.minecraft.world.level.block.entity.ContainerOpenersCounter;
+import net.minecraft.world.level.block.entity.LidBlockEntity;
+import net.minecraft.world.level.block.entity.RandomizableContainerBlockEntity;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.storage.ValueInput;
+import net.minecraft.world.level.storage.ValueOutput;
 
 /**
  * Somewhere for a farm station's seed to live that is not the same shelves its produce lands on.
@@ -34,36 +35,36 @@ import net.minecraft.world.World;
  * the viewer counting below is worth its length. Nothing but the count crosses to the client: the
  * lid's actual angle is worked out there from how long it has been open.
  */
-public class SeedBoxBlockEntity extends LootableContainerBlockEntity implements LidOpenable {
+public class SeedBoxBlockEntity extends RandomizableContainerBlockEntity implements LidBlockEntity {
 	/** Slots. Two chests' worth, which is about what a field's seed and its returns come to. */
 	public static final int INVENTORY_SIZE = 54;
 
 	/** The block event that carries a changed viewer count out to everyone watching. */
 	private static final int VIEWER_COUNT_EVENT = 1;
 
-	private DefaultedList<ItemStack> inventory = DefaultedList.ofSize(INVENTORY_SIZE, ItemStack.EMPTY);
-	private final ChestLidAnimator lid = new ChestLidAnimator();
+	private NonNullList<ItemStack> inventory = NonNullList.withSize(INVENTORY_SIZE, ItemStack.EMPTY);
+	private final ChestLidController lid = new ChestLidController();
 
-	private final ViewerCountManager viewers = new ViewerCountManager() {
+	private final ContainerOpenersCounter viewers = new ContainerOpenersCounter() {
 		@Override
-		protected void onContainerOpen(World world, BlockPos pos, BlockState state) {
-			creak(world, pos, SoundEvents.BLOCK_CHEST_OPEN);
+		protected void onOpen(Level world, BlockPos pos, BlockState state) {
+			creak(world, pos, SoundEvents.CHEST_OPEN);
 		}
 
 		@Override
-		protected void onContainerClose(World world, BlockPos pos, BlockState state) {
-			creak(world, pos, SoundEvents.BLOCK_CHEST_CLOSE);
+		protected void onClose(Level world, BlockPos pos, BlockState state) {
+			creak(world, pos, SoundEvents.CHEST_CLOSE);
 		}
 
 		@Override
-		protected void onViewerCountUpdate(World world, BlockPos pos, BlockState state, int from, int to) {
-			world.addSyncedBlockEvent(pos, state.getBlock(), VIEWER_COUNT_EVENT, to);
+		protected void openerCountChanged(Level world, BlockPos pos, BlockState state, int from, int to) {
+			world.blockEvent(pos, state.getBlock(), VIEWER_COUNT_EVENT, to);
 		}
 
 		@Override
-		protected boolean isPlayerViewing(PlayerEntity player) {
-			return player.currentScreenHandler instanceof GenericContainerScreenHandler open
-					&& open.getInventory() == SeedBoxBlockEntity.this;
+		public boolean isOwnContainer(Player player) {
+			return player.containerMenu instanceof ChestMenu open
+					&& open.getContainer() == SeedBoxBlockEntity.this;
 		}
 	};
 
@@ -72,36 +73,39 @@ public class SeedBoxBlockEntity extends LootableContainerBlockEntity implements 
 	}
 
 	/** Runs on the client alone, because the lid's angle is the one thing only the client draws. */
-	public static void clientTick(World world, BlockPos pos, BlockState state, SeedBoxBlockEntity box) {
-		box.lid.step();
+	public static void clientTick(Level world, BlockPos pos, BlockState state, SeedBoxBlockEntity box) {
+		box.lid.tickLid();
 	}
 
 	@Override
-	public float getAnimationProgress(float tickDelta) {
-		return lid.getProgress(tickDelta);
+	public float getOpenNess(float tickDelta) {
+		return lid.getOpenness(tickDelta);
 	}
 
 	@Override
-	public boolean onSyncedBlockEvent(int type, int data) {
+	public boolean triggerEvent(int type, int data) {
 		if (type != VIEWER_COUNT_EVENT) {
-			return super.onSyncedBlockEvent(type, data);
+			return super.triggerEvent(type, data);
 		}
 
-		lid.setOpen(data > 0);
+		lid.shouldBeOpen(data > 0);
 		return true;
 	}
 
 	@Override
-	public void onOpen(PlayerEntity player) {
-		if (world != null && !removed && !player.isSpectator()) {
-			viewers.openContainer(player, world, pos, getCachedState());
+	public void startOpen(ContainerUser user) {
+		if (level != null && !remove && user.getLivingEntity() instanceof Player player
+				&& !player.isSpectator()) {
+			viewers.incrementOpeners(player, level, worldPosition, getBlockState(),
+					user.getContainerInteractionRange());
 		}
 	}
 
 	@Override
-	public void onClose(PlayerEntity player) {
-		if (world != null && !removed && !player.isSpectator()) {
-			viewers.closeContainer(player, world, pos, getCachedState());
+	public void stopOpen(ContainerUser user) {
+		if (level != null && !remove && user.getLivingEntity() instanceof Player player
+				&& !player.isSpectator()) {
+			viewers.decrementOpeners(player, level, worldPosition, getBlockState());
 		}
 	}
 
@@ -113,57 +117,57 @@ public class SeedBoxBlockEntity extends LootableContainerBlockEntity implements 
 	 * hold the lid up forever.
 	 */
 	public void recountViewers() {
-		if (world != null && !removed) {
-			viewers.updateViewerCount(world, pos, getCachedState());
+		if (level != null && !remove) {
+			viewers.recheckOpeners(level, worldPosition, getBlockState());
 		}
 	}
 
-	private void creak(World world, BlockPos pos, SoundEvent sound) {
+	private void creak(Level world, BlockPos pos, SoundEvent sound) {
 		world.playSound(null, pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5, sound,
-				SoundCategory.BLOCKS, 0.5F, world.random.nextFloat() * 0.1F + 0.9F);
+				SoundSource.BLOCKS, 0.5F, world.getRandom().nextFloat() * 0.1F + 0.9F);
 	}
 
 	@Override
-	public int size() {
+	public int getContainerSize() {
 		return INVENTORY_SIZE;
 	}
 
 	@Override
-	protected Text getContainerName() {
-		return Text.translatable("container.keyboard_workstations.seed_box");
+	protected Component getDefaultName() {
+		return Component.translatable("container.keyboard_workstations.seed_box");
 	}
 
 	@Override
-	protected DefaultedList<ItemStack> getHeldStacks() {
+	protected NonNullList<ItemStack> getItems() {
 		return inventory;
 	}
 
 	@Override
-	protected void setHeldStacks(DefaultedList<ItemStack> list) {
+	protected void setItems(NonNullList<ItemStack> list) {
 		inventory = list;
 	}
 
 	@Override
-	protected ScreenHandler createScreenHandler(int syncId, PlayerInventory playerInventory) {
-		return GenericContainerScreenHandler.createGeneric9x6(syncId, playerInventory, this);
+	protected AbstractContainerMenu createMenu(int syncId, Inventory playerInventory) {
+		return ChestMenu.sixRows(syncId, playerInventory, this);
 	}
 
 	@Override
-	protected void writeNbt(NbtCompound nbt, RegistryWrapper.WrapperLookup registryLookup) {
-		super.writeNbt(nbt, registryLookup);
+	protected void saveAdditional(ValueOutput output) {
+		super.saveAdditional(output);
 
-		if (!writeLootTable(nbt)) {
-			Inventories.writeNbt(nbt, inventory, registryLookup);
+		if (!trySaveLootTable(output)) {
+			ContainerHelper.saveAllItems(output, inventory);
 		}
 	}
 
 	@Override
-	protected void readNbt(NbtCompound nbt, RegistryWrapper.WrapperLookup registryLookup) {
-		super.readNbt(nbt, registryLookup);
-		inventory = DefaultedList.ofSize(INVENTORY_SIZE, ItemStack.EMPTY);
+	protected void loadAdditional(ValueInput input) {
+		super.loadAdditional(input);
+		inventory = NonNullList.withSize(INVENTORY_SIZE, ItemStack.EMPTY);
 
-		if (!readLootTable(nbt)) {
-			Inventories.readNbt(nbt, inventory, registryLookup);
+		if (!tryLoadLootTable(input)) {
+			ContainerHelper.loadAllItems(input, inventory);
 		}
 	}
 }

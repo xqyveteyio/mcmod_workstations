@@ -1,18 +1,17 @@
 package dev.keyboard.workstations.work;
 
-import net.minecraft.item.Item;
-import net.minecraft.nbt.NbtCompound;
-import net.minecraft.nbt.NbtElement;
-import net.minecraft.nbt.NbtList;
-import net.minecraft.registry.Registries;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.math.MathHelper;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.ListTag;
+import net.minecraft.resources.Identifier;
+import net.minecraft.util.Mth;
+import net.minecraft.world.item.Item;
 
 /**
  * How a farm's plots are divided between the seeds it has been given: one weight per kind of seed,
@@ -48,7 +47,7 @@ public final class SeedMix {
 	}
 
 	public void setWeight(Item seed, int weight) {
-		weights.put(seed, MathHelper.clamp(weight, MIN_WEIGHT, MAX_WEIGHT));
+		weights.put(seed, Mth.clamp(weight, MIN_WEIGHT, MAX_WEIGHT));
 	}
 
 	/** Seeds this mix has an opinion about, whether or not any are in the container right now. */
@@ -134,12 +133,12 @@ public final class SeedMix {
 		return best;
 	}
 
-	public void writeNbt(NbtCompound nbt) {
-		NbtList list = new NbtList();
+	public void writeNbt(CompoundTag nbt) {
+		ListTag list = new ListTag();
 
 		for (Map.Entry<Item, Integer> entry : weights.entrySet()) {
-			NbtCompound row = new NbtCompound();
-			row.putString(SEED_KEY, Registries.ITEM.getId(entry.getKey()).toString());
+			CompoundTag row = new CompoundTag();
+			row.putString(SEED_KEY, BuiltInRegistries.ITEM.getKey(entry.getKey()).toString());
 			row.putInt(WEIGHT_KEY, entry.getValue());
 			list.add(row);
 		}
@@ -148,22 +147,22 @@ public final class SeedMix {
 	}
 
 	/** An absent list leaves the mix alone, so a save from before ratios existed loses nothing. */
-	public void readNbt(NbtCompound nbt) {
-		if (!nbt.contains(WEIGHTS_KEY, NbtElement.LIST_TYPE)) {
+	public void readNbt(CompoundTag nbt) {
+		if (!nbt.contains(WEIGHTS_KEY)) {
 			return;
 		}
 
 		weights.clear();
-		NbtList list = nbt.getList(WEIGHTS_KEY, NbtElement.COMPOUND_TYPE);
+		ListTag list = nbt.getListOrEmpty(WEIGHTS_KEY);
 
 		for (int index = 0; index < list.size(); index++) {
-			NbtCompound row = list.getCompound(index);
-			Identifier id = Identifier.tryParse(row.getString(SEED_KEY));
+			CompoundTag row = list.getCompoundOrEmpty(index);
+			Identifier id = Identifier.tryParse(row.getStringOr(SEED_KEY, ""));
 
 			// A seed from a mod that is no longer installed is dropped rather than crashing the
 			// load; its weight is simply forgotten.
-			if (id != null && Registries.ITEM.containsId(id)) {
-				setWeight(Registries.ITEM.get(id), row.getInt(WEIGHT_KEY));
+			if (id != null && BuiltInRegistries.ITEM.containsKey(id)) {
+				setWeight(BuiltInRegistries.ITEM.getValue(id), row.getIntOr(WEIGHT_KEY, MIN_WEIGHT));
 			}
 		}
 	}

@@ -1,65 +1,56 @@
 package dev.keyboard.workstations.client;
 
+import com.mojang.blaze3d.vertex.PoseStack;
 import dev.keyboard.workstations.entity.RancherEntity;
 import dev.keyboard.workstations.work.WorkerSkin;
-import net.minecraft.client.render.entity.EntityRendererFactory;
-import net.minecraft.client.render.entity.MobEntityRenderer;
-import net.minecraft.client.render.entity.model.EntityModelLayers;
-import net.minecraft.client.render.entity.model.VillagerResemblingModel;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.client.model.geom.ModelLayers;
+import net.minecraft.client.model.npc.VillagerModel;
+import net.minecraft.client.renderer.entity.EntityRendererProvider;
+import net.minecraft.client.renderer.entity.MobRenderer;
+import net.minecraft.resources.Identifier;
+import net.minecraft.world.phys.Vec3;
 
 /**
- * Draws the rancher on the vanilla villager model, wearing the mod's own skin. The model layer is
- * the one vanilla already bakes for its own villagers, so nothing extra is registered; swapping in
- * a custom model later means changing only this class.
- *
- * <p>The hat rides on a separate overlay texture, following vanilla, which keeps a villager's base
- * skin apart from its biome and profession clothing. Both files use the same villager UV layout, so
- * the hat lives in the model's hat and hat rim boxes, which the base skin must leave blank.
- *
- * <p>Which pair of files that is comes from the rancher itself, since its station picks its look
- * out of {@link WorkerSkin#RANCHER}.
+ * Draws the rancher on the vanilla villager model, wearing the mod's own skin.
  */
-public class RancherEntityRenderer extends MobEntityRenderer<RancherEntity, VillagerResemblingModel<RancherEntity>> {
-	/** The same shrink vanilla applies, without which the villager model looks oversized. */
+public class RancherEntityRenderer extends MobRenderer<RancherEntity, WorkerRenderState, VillagerModel> {
 	private static final float MODEL_SCALE = 0.9375F;
 
-	public RancherEntityRenderer(EntityRendererFactory.Context context) {
-		super(context, new VillagerResemblingModel<>(context.getPart(EntityModelLayers.VILLAGER)), 0.5F);
-		this.addFeature(new WorkerOverlayFeatureRenderer<>(this, entity -> skin(entity).hatTexture()));
+	public RancherEntityRenderer(EntityRendererProvider.Context context) {
+		super(context, new VillagerModel(context.bakeLayer(ModelLayers.VILLAGER)), 0.5F);
+		this.addLayer(new WorkerOverlayFeatureRenderer(this, state -> state.skin.hatTexture()));
 	}
 
 	@Override
-	public Identifier getTexture(RancherEntity entity) {
-		return skin(entity).texture();
-	}
-
-	private static WorkerSkin skin(RancherEntity entity) {
-		return WorkerSkin.get(WorkerSkin.RANCHER, entity.getSkin());
+	public Identifier getTextureLocation(WorkerRenderState state) {
+		return state.skin.texture();
 	}
 
 	@Override
-	protected void scale(RancherEntity entity, MatrixStack matrices, float amount) {
+	public WorkerRenderState createRenderState() {
+		return new WorkerRenderState();
+	}
+
+	@Override
+	public void extractRenderState(RancherEntity entity, WorkerRenderState state, float tickDelta) {
+		super.extractRenderState(entity, state, tickDelta);
+		state.skin = WorkerSkin.get(WorkerSkin.RANCHER, entity.getSkin());
+		state.sink = entity.getEntrance().sink(tickDelta);
+		state.buried = entity.getEntrance().isBuried();
+	}
+
+	@Override
+	protected void scale(WorkerRenderState state, PoseStack matrices) {
 		matrices.scale(MODEL_SCALE, MODEL_SCALE, MODEL_SCALE);
 	}
 
-	/**
-	 * Buries a rancher that is digging its way in, letting the ground itself hide everything that
-	 * has not surfaced yet. This is vanilla's own offset hook rather than a shift of the matrix
-	 * inside the render, so only the drawing moves: the rancher stands where it always stood, and
-	 * the shadow stays on the floor to mark the spot it is coming up through.
-	 */
 	@Override
-	public Vec3d getPositionOffset(RancherEntity entity, float tickDelta) {
-		double sink = entity.getEntrance().sink(tickDelta);
-		return sink <= 0.0 ? super.getPositionOffset(entity, tickDelta) : new Vec3d(0.0, -sink, 0.0);
+	public Vec3 getRenderOffset(WorkerRenderState state) {
+		return state.sink <= 0.0 ? super.getRenderOffset(state) : new Vec3(0.0, -state.sink, 0.0);
 	}
 
-	/** A name tag on a rancher still underground is a label lying face up on the floor. */
 	@Override
-	protected boolean hasLabel(RancherEntity entity) {
-		return !entity.getEntrance().isBuried() && super.hasLabel(entity);
+	protected boolean shouldShowName(RancherEntity entity, double distance) {
+		return !entity.getEntrance().isBuried() && super.shouldShowName(entity, distance);
 	}
 }

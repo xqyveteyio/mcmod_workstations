@@ -7,16 +7,6 @@ import dev.keyboard.workstations.work.FarmSettings;
 import dev.keyboard.workstations.work.PlotSurvey;
 import dev.keyboard.workstations.work.SeedStock;
 import dev.keyboard.workstations.work.WorkArea;
-import net.minecraft.block.Block;
-import net.minecraft.block.BlockState;
-import net.minecraft.entity.EntityType;
-import net.minecraft.item.Item;
-import net.minecraft.nbt.NbtCompound;
-import net.minecraft.registry.RegistryWrapper;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.text.Text;
-import net.minecraft.util.math.BlockPos;
-
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -24,6 +14,17 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.HolderLookup;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.network.chat.Component;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.storage.ValueInput;
+import net.minecraft.world.level.storage.ValueOutput;
 
 /**
  * The farm station: storage for seeds going in and produce coming out, the owner of one farmer, and
@@ -69,7 +70,7 @@ public class FarmBlockEntity extends WorkStationBlockEntity<FarmerEntity, FarmSe
 
 	@Override
 	public WorkArea getWorkArea() {
-		return WorkArea.of(pos, getCachedState().get(FarmBlock.FACING),
+		return WorkArea.of(worldPosition, getBlockState().getValue(FarmBlock.FACING),
 				settings.workAlong, settings.workAcross, settings.workAbove, settings.workBelow);
 	}
 
@@ -89,8 +90,8 @@ public class FarmBlockEntity extends WorkStationBlockEntity<FarmerEntity, FarmSe
 	}
 
 	@Override
-	protected Text getContainerName() {
-		return Text.translatable("container.keyboard_workstations.farm");
+	protected Component getDefaultName() {
+		return Component.translatable("container.keyboard_workstations.farm");
 	}
 
 	/**
@@ -112,7 +113,7 @@ public class FarmBlockEntity extends WorkStationBlockEntity<FarmerEntity, FarmSe
 
 	/** The survey is taken on the first tick rather than on placement, when there is no world yet. */
 	@Override
-	protected void tickAlways(ServerWorld world) {
+	protected void tickAlways(ServerLevel world) {
 		if (!surveyed) {
 			registerPlots(world);
 		}
@@ -128,7 +129,7 @@ public class FarmBlockEntity extends WorkStationBlockEntity<FarmerEntity, FarmSe
 	 *
 	 * @return how many plots the farm now has on its books
 	 */
-	public int registerPlots(ServerWorld world) {
+	public int registerPlots(ServerLevel world) {
 		WorkArea area = getWorkArea();
 		BlockPos center = area.getCenter();
 		int xRadius = area.getXRadius();
@@ -136,11 +137,11 @@ public class FarmBlockEntity extends WorkStationBlockEntity<FarmerEntity, FarmSe
 		int above = area.getAbove();
 		int below = area.getBelow();
 		List<BlockPos> found = new ArrayList<>();
-		BlockPos.Mutable cursor = new BlockPos.Mutable();
+		BlockPos.MutableBlockPos cursor = new BlockPos.MutableBlockPos();
 
 		for (int dx = -xRadius; dx <= xRadius; dx++) {
 			for (int dz = -zRadius; dz <= zRadius; dz++) {
-				if (!world.isChunkLoaded((center.getX() + dx) >> 4, (center.getZ() + dz) >> 4)) {
+				if (!world.hasChunk((center.getX() + dx) >> 4, (center.getZ() + dz) >> 4)) {
 					continue;
 				}
 
@@ -148,7 +149,7 @@ public class FarmBlockEntity extends WorkStationBlockEntity<FarmerEntity, FarmSe
 					cursor.set(center.getX() + dx, center.getY() + dy, center.getZ() + dz);
 
 					if (Crops.isFarmland(world.getBlockState(cursor))) {
-						found.add(cursor.toImmutable());
+						found.add(cursor.immutable());
 					}
 				}
 			}
@@ -156,7 +157,7 @@ public class FarmBlockEntity extends WorkStationBlockEntity<FarmerEntity, FarmSe
 
 		// Nearest first, so a field larger than the cap keeps the part around the station rather
 		// than an arbitrary corner of itself.
-		found.sort(Comparator.comparingDouble(plot -> plot.getSquaredDistance(center)));
+		found.sort(Comparator.comparingDouble(plot -> plot.distSqr(center)));
 
 		plots.clear();
 		plots.addAll(found.subList(0, Math.min(found.size(), MAX_PLOTS)));
@@ -170,10 +171,10 @@ public class FarmBlockEntity extends WorkStationBlockEntity<FarmerEntity, FarmSe
 	 * and a field that changed without telling the client would be shown marking the wrong ground.
 	 */
 	private void syncPlots() {
-		markDirty();
+		setChanged();
 
-		if (world != null) {
-			world.updateListeners(pos, getCachedState(), getCachedState(), Block.NOTIFY_LISTENERS);
+		if (level != null) {
+			level.sendBlockUpdated(worldPosition, getBlockState(), getBlockState(), Block.UPDATE_CLIENTS);
 		}
 	}
 
@@ -183,7 +184,7 @@ public class FarmBlockEntity extends WorkStationBlockEntity<FarmerEntity, FarmSe
 	 * <p>Pruning here rather than on a timer means it happens exactly as often as it matters: the
 	 * farmer only cares whether a plot is still there when it is about to be given work.
 	 */
-	public PlotSurvey surveyPlots(ServerWorld world) {
+	public PlotSurvey surveyPlots(ServerLevel world) {
 		PlotSurvey survey = PlotSurvey.of(world, plots);
 
 		if (!survey.lost().isEmpty()) {
@@ -209,7 +210,7 @@ public class FarmBlockEntity extends WorkStationBlockEntity<FarmerEntity, FarmSe
 
 	public void notePlanted(Item seed) {
 		stock.note(seed);
-		markDirty();
+		setChanged();
 	}
 
 	/**
@@ -218,47 +219,32 @@ public class FarmBlockEntity extends WorkStationBlockEntity<FarmerEntity, FarmSe
 	 */
 	public void clearPlantedTally() {
 		if (stock.clear()) {
-			markDirty();
+			setChanged();
 		}
 	}
 
 	/** The register rides along to the client, which needs it to mark the plots in the highlight. */
 	@Override
-	public NbtCompound toInitialChunkDataNbt(RegistryWrapper.WrapperLookup registryLookup) {
-		NbtCompound nbt = super.toInitialChunkDataNbt(registryLookup);
-		nbt.putLongArray(PLOTS_KEY, packedPlots());
+	public CompoundTag getUpdateTag(HolderLookup.Provider registryLookup) {
+		CompoundTag nbt = super.getUpdateTag(registryLookup);
+		nbt.store(PLOTS_KEY, BlockPos.CODEC.listOf(), List.copyOf(plots));
 		return nbt;
 	}
 
-	private long[] packedPlots() {
-		long[] packed = new long[plots.size()];
-		int index = 0;
-
-		for (BlockPos plot : plots) {
-			packed[index++] = plot.asLong();
-		}
-
-		return packed;
+	@Override
+	protected void saveAdditional(ValueOutput output) {
+		super.saveAdditional(output);
+		output.store(PLOTS_KEY, BlockPos.CODEC.listOf(), List.copyOf(plots));
+		output.putBoolean(SURVEYED_KEY, surveyed);
+		stock.save(output);
 	}
 
 	@Override
-	protected void writeNbt(NbtCompound nbt, RegistryWrapper.WrapperLookup registryLookup) {
-		super.writeNbt(nbt, registryLookup);
-		nbt.putLongArray(PLOTS_KEY, packedPlots());
-		nbt.putBoolean(SURVEYED_KEY, surveyed);
-		stock.writeNbt(nbt);
-	}
-
-	@Override
-	protected void readNbt(NbtCompound nbt, RegistryWrapper.WrapperLookup registryLookup) {
-		super.readNbt(nbt, registryLookup);
+	protected void loadAdditional(ValueInput input) {
+		super.loadAdditional(input);
 		plots.clear();
-
-		for (long packed : nbt.getLongArray(PLOTS_KEY)) {
-			plots.add(BlockPos.fromLong(packed));
-		}
-
-		surveyed = nbt.getBoolean(SURVEYED_KEY);
-		stock.readNbt(nbt);
+		input.read(PLOTS_KEY, BlockPos.CODEC.listOf()).ifPresent(plots::addAll);
+		surveyed = input.getBooleanOr(SURVEYED_KEY, false);
+		stock.load(input);
 	}
 }

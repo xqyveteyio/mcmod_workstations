@@ -6,24 +6,24 @@ import dev.keyboard.workstations.client.network.StationNetworkingClient;
 import dev.keyboard.workstations.work.SeedMix;
 import dev.keyboard.workstations.work.SettingOption;
 import dev.keyboard.workstations.work.WorkerSettings;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.Element;
-import net.minecraft.client.gui.Selectable;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.gui.tooltip.Tooltip;
-import net.minecraft.client.gui.widget.ButtonWidget;
-import net.minecraft.client.gui.widget.ClickableWidget;
-import net.minecraft.client.gui.widget.ElementListWidget;
-import net.minecraft.client.gui.widget.SliderWidget;
-import net.minecraft.item.Item;
-import net.minecraft.screen.ScreenTexts;
-import net.minecraft.text.Text;
-import net.minecraft.util.Formatting;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.MathHelper;
-
 import java.util.List;
 import java.util.function.Consumer;
+import net.minecraft.ChatFormatting;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.components.AbstractSliderButton;
+import net.minecraft.client.gui.components.AbstractWidget;
+import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.components.ContainerObjectSelectionList;
+import net.minecraft.client.gui.components.Tooltip;
+import net.minecraft.client.gui.components.events.GuiEventListener;
+import net.minecraft.client.gui.narration.NarratableEntry;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.input.MouseButtonEvent;
+import net.minecraft.core.BlockPos;
+import net.minecraft.network.chat.CommonComponents;
+import net.minecraft.network.chat.Component;
+import net.minecraft.util.Mth;
+import net.minecraft.world.item.Item;
 
 /**
  * The settings screen for one station, opened by sneaking and using the block.
@@ -59,7 +59,7 @@ public abstract class WorkerSettingsScreen<S extends WorkerSettings<S>> extends 
 	private String activeCategory;
 
 	/** Titled with the station's own block name, so the two can never drift apart. */
-	protected WorkerSettingsScreen(Text title, BlockPos pos, S settings) {
+	protected WorkerSettingsScreen(Component title, BlockPos pos, S settings) {
 		super(title);
 		this.pos = pos;
 		this.settings = settings;
@@ -88,13 +88,13 @@ public abstract class WorkerSettingsScreen<S extends WorkerSettings<S>> extends 
 	protected void addMixRows(SeedMix mix, List<Item> palette, String emptyKey, String tooltipKey,
 			Consumer<Row> add) {
 		if (palette.isEmpty()) {
-			add.accept(new Row(Text.translatable(emptyKey)));
+			add.accept(new Row(Component.translatable(emptyKey)));
 			return;
 		}
 
 		for (Item item : palette) {
-			add.accept(new Row(item.getName().copy(), new MixSlider(mix, item, palette),
-					Text.translatable(tooltipKey)));
+			add.accept(new Row(item.getName(item.getDefaultInstance()).copy(), new MixSlider(mix, item, palette),
+					Component.translatable(tooltipKey)));
 		}
 	}
 
@@ -105,34 +105,34 @@ public abstract class WorkerSettingsScreen<S extends WorkerSettings<S>> extends 
 
 		for (String category : categories) {
 			boolean selected = category.equals(activeCategory);
-			Text label = Text.translatable("config.keyboard_workstations." + category);
+			Component label = Component.translatable("config.keyboard_workstations." + category);
 
-			addDrawableChild(ButtonWidget.builder(selected ? label.copy().formatted(Formatting.YELLOW) : label,
+			addRenderableWidget(Button.builder(selected ? label.copy().withStyle(ChatFormatting.YELLOW) : label,
 							button -> showCategory(category))
-					.dimensions(x, TABS_TOP, tabWidth, CONTROL_HEIGHT)
+					.bounds(x, TABS_TOP, tabWidth, CONTROL_HEIGHT)
 					.build());
 
 			x += tabWidth + BUTTON_GAP;
 		}
 
-		addDrawableChild(new OptionList(activeCategory, listTop(), height - FOOTER_HEIGHT));
+		addRenderableWidget(new OptionList(activeCategory, listTop(), height - FOOTER_HEIGHT));
 
 		int footerWidth = (BUTTON_ROW_WIDTH - BUTTON_GAP * 2) / 3;
 		int footerX = width / 2 - BUTTON_ROW_WIDTH / 2;
 		int footerY = height - FOOTER_HEIGHT + 10;
 
-		addDrawableChild(ButtonWidget.builder(Text.translatable("config.keyboard_workstations.worker_recall"),
+		addRenderableWidget(Button.builder(Component.translatable("config.keyboard_workstations.worker_recall"),
 						button -> StationNetworkingClient.recallWorker(pos))
-				.dimensions(footerX, footerY, footerWidth, CONTROL_HEIGHT)
+				.bounds(footerX, footerY, footerWidth, CONTROL_HEIGHT)
 				.build());
 
-		addDrawableChild(ButtonWidget.builder(Text.translatable("config.keyboard_workstations.reset"),
+		addRenderableWidget(Button.builder(Component.translatable("config.keyboard_workstations.reset"),
 						button -> resetToDefaults())
-				.dimensions(footerX + footerWidth + BUTTON_GAP, footerY, footerWidth, CONTROL_HEIGHT)
+				.bounds(footerX + footerWidth + BUTTON_GAP, footerY, footerWidth, CONTROL_HEIGHT)
 				.build());
 
-		addDrawableChild(ButtonWidget.builder(ScreenTexts.DONE, button -> close())
-				.dimensions(footerX + (footerWidth + BUTTON_GAP) * 2, footerY, footerWidth, CONTROL_HEIGHT)
+		addRenderableWidget(Button.builder(CommonComponents.GUI_DONE, button -> onClose())
+				.bounds(footerX + (footerWidth + BUTTON_GAP) * 2, footerY, footerWidth, CONTROL_HEIGHT)
 				.build());
 	}
 
@@ -144,26 +144,26 @@ public abstract class WorkerSettingsScreen<S extends WorkerSettings<S>> extends 
 		// Rebuilding the same tab would only throw away the scroll position for nothing.
 		if (!category.equals(activeCategory)) {
 			activeCategory = category;
-			clearAndInit();
+			rebuildWidgets();
 		}
 	}
 
 	/** Restores this station to the values in the config file. */
 	private void resetToDefaults() {
 		settings.copyFrom(settings.shippedDefaults());
-		clearAndInit();
+		rebuildWidgets();
 	}
 
 	/** Rebuilds the current tab, for a control whose row set depends on what it just changed. */
 	protected void refresh() {
-		clearAndInit();
+		rebuildWidgets();
 	}
 
 	/** Closing saves, so leaving by Escape keeps the changes rather than quietly binning them. */
 	@Override
-	public void close() {
+	public void onClose() {
 		save();
-		super.close();
+		super.onClose();
 	}
 
 	/**
@@ -171,29 +171,29 @@ public abstract class WorkerSettingsScreen<S extends WorkerSettings<S>> extends 
 	 * would otherwise send the same settings twice.
 	 */
 	protected void dismiss() {
-		super.close();
+		super.onClose();
 	}
 
-	protected static Text onOff(boolean value) {
-		return value ? ScreenTexts.ON : ScreenTexts.OFF;
+	protected static Component onOff(boolean value) {
+		return value ? CommonComponents.OPTION_ON : CommonComponents.OPTION_OFF;
 	}
 
-	private ClickableWidget controlFor(SettingOption<S> option) {
+	private AbstractWidget controlFor(SettingOption<S> option) {
 		if (option instanceof SettingOption.Flag<S> flag) {
-			return ButtonWidget.builder(onOff(flag.get(settings)), button -> {
+			return Button.builder(onOff(flag.get(settings)), button -> {
 						flag.set(settings, !flag.get(settings));
 						button.setMessage(onOff(flag.get(settings)));
 					})
-					.dimensions(0, 0, CONTROL_WIDTH, CONTROL_HEIGHT)
+					.bounds(0, 0, CONTROL_WIDTH, CONTROL_HEIGHT)
 					.build();
 		}
 
 		if (option instanceof SettingOption.Choice<S> choice) {
-			return ButtonWidget.builder(Text.translatable(choice.valueLabelKey(settings)), button -> {
+			return Button.builder(Component.translatable(choice.valueLabelKey(settings)), button -> {
 						choice.next(settings);
-						button.setMessage(Text.translatable(choice.valueLabelKey(settings)));
+						button.setMessage(Component.translatable(choice.valueLabelKey(settings)));
 					})
-					.dimensions(0, 0, CONTROL_WIDTH, CONTROL_HEIGHT)
+					.bounds(0, 0, CONTROL_WIDTH, CONTROL_HEIGHT)
 					.build();
 		}
 
@@ -204,78 +204,77 @@ public abstract class WorkerSettingsScreen<S extends WorkerSettings<S>> extends 
 	 * Writes to the local config rather than to the station, because whether the box is drawn is a
 	 * question about this client and nothing to do with how the station is run.
 	 */
-	private ClickableWidget highlightControl() {
+	private AbstractWidget highlightControl() {
 		ModConfig config = ModConfig.get();
 
-		return ButtonWidget.builder(onOff(config.highlightAlwaysOn), button -> {
+		return Button.builder(onOff(config.highlightAlwaysOn), button -> {
 					config.highlightAlwaysOn = !config.highlightAlwaysOn;
 					config.save();
 					HighlightState.applyConfig();
 					button.setMessage(onOff(config.highlightAlwaysOn));
 				})
-				.dimensions(0, 0, CONTROL_WIDTH, CONTROL_HEIGHT)
+				.bounds(0, 0, CONTROL_WIDTH, CONTROL_HEIGHT)
 				.build();
 	}
 
 	/** A label on the left with its control on the right, the way vanilla's options screens read. */
-	protected class Row extends ElementListWidget.Entry<Row> {
-		private final Text label;
-		private final ClickableWidget control;
+	protected class Row extends ContainerObjectSelectionList.Entry<Row> {
+		private final Component label;
+		private final AbstractWidget control;
 
-		public Row(Text label, ClickableWidget control, Text tooltip) {
+		public Row(Component label, AbstractWidget control, Component tooltip) {
 			this.label = label;
 			this.control = control;
-			control.setTooltip(Tooltip.of(tooltip));
+			control.setTooltip(Tooltip.create(tooltip));
 		}
 
 		/** A row that is only text, for saying why a tab is empty. */
-		public Row(Text label) {
+		public Row(Component label) {
 			this.label = label;
 			this.control = null;
 		}
 
 		@Override
-		public List<? extends Element> children() {
+		public List<? extends GuiEventListener> children() {
 			return control == null ? List.of() : List.of(control);
 		}
 
 		@Override
-		public List<? extends Selectable> selectableChildren() {
+		public List<? extends NarratableEntry> narratables() {
 			return control == null ? List.of() : List.of(control);
 		}
 
 		@Override
-		public void render(DrawContext context, int index, int y, int x, int entryWidth, int entryHeight,
-				int mouseX, int mouseY, boolean hovered, float tickDelta) {
-			context.drawTextWithShadow(textRenderer, label, x, y + (entryHeight - textRenderer.fontHeight) / 2,
-					0xFFFFFF);
+		public void extractContent(GuiGraphicsExtractor context, int mouseX, int mouseY, boolean hovered,
+				float tickDelta) {
+			context.text(font, label, getContentX(), getY() + (getHeight() - font.lineHeight) / 2, 0xFFFFFF);
 
 			if (control != null) {
-				control.setX(x + entryWidth - CONTROL_WIDTH);
-				control.setY(y);
-				control.render(context, mouseX, mouseY, tickDelta);
+				control.setX(getContentX() + getContentWidth() - CONTROL_WIDTH);
+				control.setY(getY());
+				control.extractRenderState(context, mouseX, mouseY, tickDelta);
 			}
 		}
 	}
 
-	private class OptionList extends ElementListWidget<Row> {
+	private class OptionList extends ContainerObjectSelectionList<Row> {
 		OptionList(String category, int top, int bottom) {
-			super(WorkerSettingsScreen.this.client, WorkerSettingsScreen.this.width,
+			super(WorkerSettingsScreen.this.minecraft, WorkerSettingsScreen.this.width,
 					bottom - top, top, CONTROL_HEIGHT + 5);
 
 			for (SettingOption<S> option : settings.options()) {
 				if (option.category().equals(category)) {
-					addEntry(new Row(Text.translatable(option.labelKey()), controlFor(option),
-							Text.translatable(option.tooltipKey())));
+					addEntry(new Row(Component.translatable(option.labelKey()), controlFor(option),
+							Component.translatable(option.tooltipKey())));
 				}
 			}
 
 			addExtraRows(category, this::addEntry);
 
 			if (WorkerSettings.DISPLAY.equals(category)) {
-				addEntry(new Row(Text.translatable("config.keyboard_workstations.highlight_always_on"),
+				addEntry(new Row(Component.translatable("config.keyboard_workstations.highlight_always_on"),
 						highlightControl(),
-						Text.translatable("config.keyboard_workstations.highlight_always_on.tooltip")));
+						Component.translatable("config.keyboard_workstations.highlight_always_on.tooltip")));
 			}
 		}
 
@@ -285,7 +284,7 @@ public abstract class WorkerSettingsScreen<S extends WorkerSettings<S>> extends 
 		}
 
 		@Override
-		protected int getScrollbarX() {
+		protected int scrollBarX() {
 			return WorkerSettingsScreen.this.width / 2 + ROW_WIDTH / 2 + 8;
 		}
 	}
@@ -295,13 +294,13 @@ public abstract class WorkerSettingsScreen<S extends WorkerSettings<S>> extends 
 	 * reports the percentage that weight currently works out to beside it: the percentages depend
 	 * on every other kind, so they all move when any one of them does.
 	 */
-	private class MixSlider extends SliderWidget {
+	private class MixSlider extends AbstractSliderButton {
 		private final SeedMix mix;
 		private final Item item;
 		private final List<Item> palette;
 
 		MixSlider(SeedMix mix, Item item, List<Item> palette) {
-			super(0, 0, CONTROL_WIDTH, CONTROL_HEIGHT, Text.empty(), fraction(mix.weight(item)));
+			super(0, 0, CONTROL_WIDTH, CONTROL_HEIGHT, Component.empty(), fraction(mix.weight(item)));
 			this.mix = mix;
 			this.item = item;
 			this.palette = palette;
@@ -314,31 +313,31 @@ public abstract class WorkerSettingsScreen<S extends WorkerSettings<S>> extends 
 
 		@Override
 		protected void updateMessage() {
-			setMessage(Text.translatable("config.keyboard_workstations.seed_weight",
+			setMessage(Component.translatable("config.keyboard_workstations.seed_weight",
 					mix.weight(item), mix.share(item, palette)));
 		}
 
 		@Override
 		protected void applyValue() {
 			mix.setWeight(item, (int) Math.round(
-					MathHelper.lerp(value, SeedMix.MIN_WEIGHT, SeedMix.MAX_WEIGHT)));
+					Mth.lerp(value, SeedMix.MIN_WEIGHT, SeedMix.MAX_WEIGHT)));
 		}
 
 		/** Letting go rebuilds the tab, which is what brings the other kinds' shares up to date. */
 		@Override
-		public void onRelease(double mouseX, double mouseY) {
-			super.onRelease(mouseX, mouseY);
+		public void onRelease(MouseButtonEvent event) {
+			super.onRelease(event);
 			refresh();
 		}
 	}
 
 	/** A whole number slider that reports the value itself rather than a percentage. */
-	private static class OptionSlider<S extends WorkerSettings<S>> extends SliderWidget {
+	private static class OptionSlider<S extends WorkerSettings<S>> extends AbstractSliderButton {
 		private final SettingOption.Range<S> option;
 		private final S settings;
 
 		OptionSlider(SettingOption.Range<S> option, S settings) {
-			super(0, 0, CONTROL_WIDTH, CONTROL_HEIGHT, Text.empty(), fraction(option, settings));
+			super(0, 0, CONTROL_WIDTH, CONTROL_HEIGHT, Component.empty(), fraction(option, settings));
 			this.option = option;
 			this.settings = settings;
 			updateMessage();
@@ -350,12 +349,12 @@ public abstract class WorkerSettingsScreen<S extends WorkerSettings<S>> extends 
 
 		@Override
 		protected void updateMessage() {
-			setMessage(Text.literal(String.valueOf(option.get(settings))));
+			setMessage(Component.literal(String.valueOf(option.get(settings))));
 		}
 
 		@Override
 		protected void applyValue() {
-			option.set(settings, (int) Math.round(MathHelper.lerp(value, option.min(), option.max())));
+			option.set(settings, (int) Math.round(Mth.lerp(value, option.min(), option.max())));
 		}
 	}
 }

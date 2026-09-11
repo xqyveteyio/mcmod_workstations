@@ -14,14 +14,13 @@ import dev.keyboard.workstations.work.FarmSettings;
 import dev.keyboard.workstations.work.LumberSettings;
 import dev.keyboard.workstations.work.StationSettings;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.item.Item;
-import net.minecraft.nbt.NbtCompound;
-import net.minecraft.registry.Registries;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.world.World;
-
+import net.minecraft.client.Minecraft;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.resources.Identifier;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.level.Level;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -40,8 +39,8 @@ public final class StationNetworkingClient {
 	 * entity already, and reading the settings off it means the screen opens on the real values
 	 * without a round trip.
 	 */
-	private static void openScreen(MinecraftClient client, BlockPos pos, List<Identifier> palette) {
-		World world = client.world;
+	private static void openScreen(Minecraft client, BlockPos pos, List<Identifier> palette) {
+		Level world = client.level;
 
 		if (world == null) {
 			return;
@@ -61,8 +60,8 @@ public final class StationNetworkingClient {
 		List<Item> seeds = new ArrayList<>(ids.size());
 
 		for (Identifier id : ids) {
-			if (Registries.ITEM.containsId(id)) {
-				seeds.add(Registries.ITEM.get(id));
+			if (BuiltInRegistries.ITEM.containsKey(id)) {
+				seeds.add(BuiltInRegistries.ITEM.getValue(id));
 			}
 		}
 
@@ -70,19 +69,19 @@ public final class StationNetworkingClient {
 	}
 
 	public static void saveRanchSettings(BlockPos pos, StationSettings settings) {
-		NbtCompound nbt = new NbtCompound();
+		CompoundTag nbt = new CompoundTag();
 		settings.writeNbt(nbt);
 		ClientPlayNetworking.send(new SaveSettingsPayload(pos, nbt));
 	}
 
 	public static void saveFarmSettings(BlockPos pos, FarmSettings settings) {
-		NbtCompound nbt = new NbtCompound();
+		CompoundTag nbt = new CompoundTag();
 		settings.writeNbt(nbt);
 		ClientPlayNetworking.send(new SaveSettingsPayload(pos, nbt));
 	}
 
 	public static void saveLumberSettings(BlockPos pos, LumberSettings settings) {
-		NbtCompound nbt = new NbtCompound();
+		CompoundTag nbt = new CompoundTag();
 		settings.writeNbt(nbt);
 		ClientPlayNetworking.send(new SaveSettingsPayload(pos, nbt));
 	}

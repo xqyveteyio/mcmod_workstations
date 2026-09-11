@@ -1,12 +1,11 @@
 package dev.keyboard.workstations.work;
 
-import net.minecraft.block.BlockState;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.util.math.BlockPos;
-
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import net.minecraft.core.BlockPos;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.level.block.state.BlockState;
 
 /**
  * One look at every plot a farm station has on its books, sorted into what needs doing to it.
@@ -24,13 +23,13 @@ public final class PlotSurvey {
 	private PlotSurvey() {
 	}
 
-	public static PlotSurvey of(ServerWorld world, Collection<BlockPos> plots) {
+	public static PlotSurvey of(ServerLevel world, Collection<BlockPos> plots) {
 		PlotSurvey survey = new PlotSurvey();
 
 		for (BlockPos plot : plots) {
 			// An unloaded plot is not judged either way: reading it would load the chunk, and
 			// striking it off because it happens to be out of sight would lose the field.
-			if (!world.isChunkLoaded(plot.getX() >> 4, plot.getZ() >> 4)) {
+			if (!world.hasChunk(plot.getX() >> 4, plot.getZ() >> 4)) {
 				continue;
 			}
 

@@ -6,8 +6,8 @@
 		"PPP"
 	],
 	"key": {
-		"P": { "tag": "minecraft:planks" },
-		"W": { "item": "minecraft:wheat" }
+		"P": "#minecraft:planks",
+		"W": "minecraft:wheat"
 	},
 	"result": {
 		"id": "keyboard_workstations:feed_barrel",

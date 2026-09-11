@@ -4,36 +4,38 @@ import dev.keyboard.workstations.entity.WorkerEntrance;
 import dev.keyboard.workstations.work.AreaContainers;
 import dev.keyboard.workstations.work.WorkArea;
 import dev.keyboard.workstations.work.WorkerSettings;
-import net.minecraft.block.Block;
-import net.minecraft.block.BlockState;
-import net.minecraft.block.entity.BlockEntity;
-import net.minecraft.block.entity.BlockEntityType;
-import net.minecraft.block.entity.LootableContainerBlockEntity;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.EntityType;
-import net.minecraft.entity.mob.MobEntity;
-import net.minecraft.entity.player.PlayerInventory;
-import net.minecraft.inventory.Inventories;
-import net.minecraft.inventory.Inventory;
-import net.minecraft.item.ItemStack;
-import net.minecraft.nbt.NbtCompound;
-import net.minecraft.nbt.NbtElement;
-import net.minecraft.network.listener.ClientPlayPacketListener;
-import net.minecraft.network.packet.Packet;
-import net.minecraft.network.packet.s2c.play.BlockEntityUpdateS2CPacket;
-import net.minecraft.registry.RegistryWrapper;
-import net.minecraft.screen.GenericContainerScreenHandler;
-import net.minecraft.screen.ScreenHandler;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.util.collection.DefaultedList;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Direction;
-import net.minecraft.world.World;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.core.HolderLookup;
+import net.minecraft.core.NonNullList;
+import net.minecraft.core.UUIDUtil;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.network.protocol.Packet;
+import net.minecraft.network.protocol.game.ClientGamePacketListener;
+import net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.Container;
+import net.minecraft.world.ContainerHelper;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EntitySpawnReason;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.Mob;
+import net.minecraft.world.level.storage.ValueInput;
+import net.minecraft.world.level.storage.ValueOutput;
+import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.inventory.AbstractContainerMenu;
+import net.minecraft.world.inventory.ChestMenu;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.entity.BlockEntityType;
+import net.minecraft.world.level.block.entity.RandomizableContainerBlockEntity;
+import net.minecraft.world.level.block.state.BlockState;
 
 /**
  * Everything a station does regardless of what it is a station for: hold a double chest of supplies
@@ -45,8 +47,8 @@ import java.util.UUID;
  * @param <W> the worker this kind of station employs
  * @param <S> the orders this kind of station keeps
  */
-public abstract class WorkStationBlockEntity<W extends MobEntity & StationWorker, S extends WorkerSettings<S>>
-		extends LootableContainerBlockEntity {
+public abstract class WorkStationBlockEntity<W extends Mob & StationWorker, S extends WorkerSettings<S>>
+		extends RandomizableContainerBlockEntity {
 	/** Slots. A double chest's worth, same as the seed box and the feed box. */
 	public static final int INVENTORY_SIZE = 54;
 
@@ -54,7 +56,7 @@ public abstract class WorkStationBlockEntity<W extends MobEntity & StationWorker
 	private static final String WORKER_KEY = "Worker";
 	private static final String RESPAWN_KEY = "Respawn";
 
-	private DefaultedList<ItemStack> inventory = DefaultedList.ofSize(INVENTORY_SIZE, ItemStack.EMPTY);
+	private NonNullList<ItemStack> inventory = NonNullList.withSize(INVENTORY_SIZE, ItemStack.EMPTY);
 	/** Seed boxes standing anywhere in the work area, looked up afresh now and then. */
 	private final AreaContainers<SeedBoxBlockEntity> seedBoxes =
 			new AreaContainers<>(SeedBoxBlockEntity.class);
@@ -78,8 +80,8 @@ public abstract class WorkStationBlockEntity<W extends MobEntity & StationWorker
 	 * and the station is only what catches the overflow, a distinction that matters when deciding
 	 * how much of something belongs in a box in the first place.
 	 */
-	public List<Inventory> seedBoxes() {
-		return List.copyOf(seedBoxes.in(world, getWorkArea()));
+	public List<Container> seedBoxes() {
+		return List.copyOf(seedBoxes.in(level, getWorkArea()));
 	}
 
 	/**
@@ -92,8 +94,8 @@ public abstract class WorkStationBlockEntity<W extends MobEntity & StationWorker
 	 * used, and with no box in the area the station is the only store there is and everything works
 	 * as it did before boxes existed.
 	 */
-	public List<Inventory> seedStores() {
-		List<Inventory> stores = new ArrayList<>(seedBoxes());
+	public List<Container> seedStores() {
+		List<Container> stores = new ArrayList<>(seedBoxes());
 		stores.add(this);
 		return stores;
 	}
@@ -115,16 +117,16 @@ public abstract class WorkStationBlockEntity<W extends MobEntity & StationWorker
 	protected abstract int respawnTicks();
 
 	/** Called every tick a worker is on duty, for whatever the subclass wants to keep in step. */
-	protected void tickWithWorker(ServerWorld world, W worker) {
+	protected void tickWithWorker(ServerLevel world, W worker) {
 	}
 
 	/** Called every tick, worker or no worker, before the worker is looked for. */
-	protected void tickAlways(ServerWorld world) {
+	protected void tickAlways(ServerLevel world) {
 	}
 
-	public static <W extends MobEntity & StationWorker, S extends WorkerSettings<S>> void serverTick(
-			World world, BlockPos pos, BlockState state, WorkStationBlockEntity<W, S> station) {
-		if (!(world instanceof ServerWorld serverWorld)) {
+	public static <W extends Mob & StationWorker, S extends WorkerSettings<S>> void serverTick(
+			Level world, BlockPos pos, BlockState state, WorkStationBlockEntity<W, S> station) {
+		if (!(world instanceof ServerLevel serverWorld)) {
 			return;
 		}
 
@@ -152,10 +154,10 @@ public abstract class WorkStationBlockEntity<W extends MobEntity & StationWorker
 	 */
 	public void applySettings(S incoming) {
 		getSettings().copyFrom(incoming);
-		markDirty();
+		setChanged();
 
-		if (world != null) {
-			world.updateListeners(pos, getCachedState(), getCachedState(), Block.NOTIFY_LISTENERS);
+		if (level != null) {
+			level.sendBlockUpdated(worldPosition, getBlockState(), getBlockState(), Block.UPDATE_CLIENTS);
 		}
 	}
 
@@ -170,7 +172,7 @@ public abstract class WorkStationBlockEntity<W extends MobEntity & StationWorker
 	 * {@link #adopt}.
 	 */
 	@Nullable
-	public W getWorker(ServerWorld world) {
+	public W getWorker(ServerLevel world) {
 		if (workerUuid != null) {
 			Entity entity = world.getEntity(workerUuid);
 
@@ -186,8 +188,8 @@ public abstract class WorkStationBlockEntity<W extends MobEntity & StationWorker
 
 		// No one is on the books, so take on a worker already standing in the area before
 		// summoning a new one.
-		List<W> strays = world.getEntitiesByClass(workerClass(), getWorkArea().getBox().expand(4.0),
-				worker -> worker.isAlive() && pos.equals(worker.getStationPos()));
+		List<W> strays = world.getEntitiesOfClass(workerClass(), getWorkArea().getBox().inflate(4.0),
+				worker -> worker.isAlive() && worldPosition.equals(worker.getStationPos()));
 
 		if (!strays.isEmpty()) {
 			adopt(strays.get(0));
@@ -205,14 +207,14 @@ public abstract class WorkStationBlockEntity<W extends MobEntity & StationWorker
 		return workerUuid != null && !workerUuid.equals(worker);
 	}
 
-	public void summonWorker(ServerWorld world) {
+	public void summonWorker(ServerLevel world) {
 		BlockPos spawnPos = findSpawnPos(world);
 
 		if (spawnPos == null) {
 			return;
 		}
 
-		W worker = workerType().create(world);
+		W worker = workerType().create(world, EntitySpawnReason.MOB_SUMMONED);
 
 		if (worker == null) {
 			return;
@@ -223,12 +225,12 @@ public abstract class WorkStationBlockEntity<W extends MobEntity & StationWorker
 		WorkerEntrance.Style style = WorkerEntrance.styleFor(world, spawnPos);
 		double startY = spawnPos.getY() + (style == WorkerEntrance.Style.FALL ? WorkerEntrance.FALL_HEIGHT : 0);
 
-		worker.refreshPositionAndAngles(spawnPos.getX() + 0.5, startY, spawnPos.getZ() + 0.5,
-				world.random.nextFloat() * 360.0F, 0.0F);
-		worker.setStation(pos);
+		worker.snapTo(spawnPos.getX() + 0.5, startY, spawnPos.getZ() + 0.5,
+				world.getRandom().nextFloat() * 360.0F, 0.0F);
+		worker.setStation(worldPosition);
 		worker.arriveBy(style);
 
-		if (world.spawnEntity(worker)) {
+		if (world.addFreshEntity(worker)) {
 			adopt(worker);
 		}
 	}
@@ -245,7 +247,7 @@ public abstract class WorkStationBlockEntity<W extends MobEntity & StationWorker
 	 * a worker that wandered off after a stray animal or walled itself in: rather than digging it
 	 * out, you call it home and it picks its work up from there.
 	 */
-	public Recall recallWorker(ServerWorld world) {
+	public Recall recallWorker(ServerLevel world) {
 		W worker = getWorker(world);
 
 		if (worker == null) {
@@ -261,12 +263,12 @@ public abstract class WorkStationBlockEntity<W extends MobEntity & StationWorker
 
 		// The path it was walking leads from where it used to be, so it has to be thrown away.
 		worker.getNavigation().stop();
-		worker.requestTeleport(spawnPos.getX() + 0.5, spawnPos.getY(), spawnPos.getZ() + 0.5);
+		worker.teleportTo(spawnPos.getX() + 0.5, spawnPos.getY(), spawnPos.getZ() + 0.5);
 		return Recall.MOVED;
 	}
 
 	/** Sends the worker away with the station, so a broken block does not leave one behind. */
-	public void dismissWorker(ServerWorld world) {
+	public void dismissWorker(ServerLevel world) {
 		W worker = getWorker(world);
 
 		if (worker != null) {
@@ -281,88 +283,94 @@ public abstract class WorkStationBlockEntity<W extends MobEntity & StationWorker
 	 * a station that has just filled the post has no reason to keep counting down to a replacement.
 	 */
 	private void adopt(W worker) {
-		workerUuid = worker.getUuid();
+		workerUuid = worker.getUUID();
 		respawnTimer = respawnTicks();
-		markDirty();
+		setChanged();
 	}
 
 	/** A spot beside the station with room to stand, preferring ground level over the block itself. */
 	@Nullable
-	private BlockPos findSpawnPos(ServerWorld world) {
-		for (Direction direction : Direction.Type.HORIZONTAL) {
-			BlockPos candidate = pos.offset(direction);
+	private BlockPos findSpawnPos(ServerLevel world) {
+		for (Direction direction : Direction.Plane.HORIZONTAL) {
+			BlockPos candidate = worldPosition.relative(direction);
 
 			if (hasHeadroom(world, candidate)) {
 				return candidate;
 			}
 		}
 
-		for (Direction direction : Direction.Type.HORIZONTAL) {
-			BlockPos candidate = pos.offset(direction).up();
+		for (Direction direction : Direction.Plane.HORIZONTAL) {
+			BlockPos candidate = worldPosition.relative(direction).above();
 
 			if (hasHeadroom(world, candidate)) {
 				return candidate;
 			}
 		}
 
-		return hasHeadroom(world, pos.up()) ? pos.up() : null;
+		return hasHeadroom(world, worldPosition.above()) ? worldPosition.above() : null;
 	}
 
-	private static boolean hasHeadroom(ServerWorld world, BlockPos pos) {
+	private static boolean hasHeadroom(ServerLevel world, BlockPos pos) {
 		return world.getBlockState(pos).getCollisionShape(world, pos).isEmpty()
-				&& world.getBlockState(pos.up()).getCollisionShape(world, pos.up()).isEmpty();
+				&& world.getBlockState(pos.above()).getCollisionShape(world, pos.above()).isEmpty();
 	}
 
 	@Override
-	public int size() {
+	public int getContainerSize() {
 		return INVENTORY_SIZE;
 	}
 
 	@Override
-	protected DefaultedList<ItemStack> getHeldStacks() {
+	protected NonNullList<ItemStack> getItems() {
 		return inventory;
 	}
 
 	@Override
-	protected void setHeldStacks(DefaultedList<ItemStack> list) {
+	protected void setItems(NonNullList<ItemStack> list) {
 		inventory = list;
 	}
 
 	@Override
-	protected ScreenHandler createScreenHandler(int syncId, PlayerInventory playerInventory) {
-		return GenericContainerScreenHandler.createGeneric9x6(syncId, playerInventory, this);
+	protected AbstractContainerMenu createMenu(int syncId, Inventory playerInventory) {
+		return ChestMenu.sixRows(syncId, playerInventory, this);
 	}
 
 	@Override
-	protected void writeNbt(NbtCompound nbt, RegistryWrapper.WrapperLookup registryLookup) {
-		super.writeNbt(nbt, registryLookup);
+	public void preRemoveSideEffects(BlockPos pos, BlockState state) {
+		if (level instanceof ServerLevel serverLevel) {
+			dismissWorker(serverLevel);
+		}
 
-		if (!writeLootTable(nbt)) {
-			Inventories.writeNbt(nbt, inventory, registryLookup);
+		super.preRemoveSideEffects(pos, state);
+	}
+
+	@Override
+	protected void saveAdditional(ValueOutput output) {
+		super.saveAdditional(output);
+
+		if (!trySaveLootTable(output)) {
+			ContainerHelper.saveAllItems(output, inventory);
 		}
 
 		if (workerUuid != null) {
-			nbt.putUuid(WORKER_KEY, workerUuid);
+			output.store(WORKER_KEY, UUIDUtil.CODEC, workerUuid);
 		}
 
-		nbt.putInt(RESPAWN_KEY, respawnTimer);
-		nbt.put(SETTINGS_KEY, settingsNbt());
+		output.putInt(RESPAWN_KEY, respawnTimer);
+		output.store(SETTINGS_KEY, CompoundTag.CODEC, settingsNbt());
 	}
 
 	@Override
-	protected void readNbt(NbtCompound nbt, RegistryWrapper.WrapperLookup registryLookup) {
-		super.readNbt(nbt, registryLookup);
-		inventory = DefaultedList.ofSize(INVENTORY_SIZE, ItemStack.EMPTY);
+	protected void loadAdditional(ValueInput input) {
+		super.loadAdditional(input);
+		inventory = NonNullList.withSize(INVENTORY_SIZE, ItemStack.EMPTY);
 
-		if (!readLootTable(nbt)) {
-			Inventories.readNbt(nbt, inventory, registryLookup);
+		if (!tryLoadLootTable(input)) {
+			ContainerHelper.loadAllItems(input, inventory);
 		}
 
-		workerUuid = nbt.containsUuid(WORKER_KEY) ? nbt.getUuid(WORKER_KEY) : null;
-
-		if (nbt.contains(SETTINGS_KEY, NbtElement.COMPOUND_TYPE)) {
-			getSettings().readNbt(nbt.getCompound(SETTINGS_KEY));
-		}
+		workerUuid = input.read(WORKER_KEY, UUIDUtil.CODEC).orElse(null);
+		input.read(SETTINGS_KEY, CompoundTag.CODEC).ifPresent(tag -> getSettings().readNbt(tag));
 
 		// The worker lives in the entity region, not with this block, and the two are loaded on
 		// their own clocks. A station that has just come back must wait the full hire delay
@@ -371,30 +379,26 @@ public abstract class WorkStationBlockEntity<W extends MobEntity & StationWorker
 		// not start over; a station that has none is given a full delay, because the field would
 		// otherwise be zero and the wait would be over on the first tick. respawnTicks() is asked
 		// after the settings have been read, which is where that delay is kept.
-		if (nbt.contains(RESPAWN_KEY, NbtElement.INT_TYPE)) {
-			respawnTimer = nbt.getInt(RESPAWN_KEY);
-		} else {
-			respawnTimer = respawnTicks();
-		}
+		respawnTimer = input.getInt(RESPAWN_KEY).orElseGet(this::respawnTicks);
 	}
 
-	protected NbtCompound settingsNbt() {
-		NbtCompound nbt = new NbtCompound();
+	protected CompoundTag settingsNbt() {
+		CompoundTag nbt = new CompoundTag();
 		getSettings().writeNbt(nbt);
 		return nbt;
 	}
 
 	/** Clients get the settings, which the highlight and the settings screen read, but no contents. */
 	@Override
-	public NbtCompound toInitialChunkDataNbt(RegistryWrapper.WrapperLookup registryLookup) {
-		NbtCompound nbt = new NbtCompound();
+	public CompoundTag getUpdateTag(HolderLookup.Provider registryLookup) {
+		CompoundTag nbt = new CompoundTag();
 		nbt.put(SETTINGS_KEY, settingsNbt());
 		return nbt;
 	}
 
 	@Nullable
 	@Override
-	public Packet<ClientPlayPacketListener> toUpdatePacket() {
-		return BlockEntityUpdateS2CPacket.create(this);
+	public Packet<ClientGamePacketListener> getUpdatePacket() {
+		return ClientboundBlockEntityDataPacket.create(this);
 	}
 }

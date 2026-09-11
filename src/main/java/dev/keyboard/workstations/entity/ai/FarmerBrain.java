@@ -15,23 +15,6 @@ import it.unimi.dsi.fastutil.longs.Long2LongMap;
 import it.unimi.dsi.fastutil.longs.Long2LongOpenHashMap;
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 import it.unimi.dsi.fastutil.longs.LongSet;
-import net.minecraft.block.BlockState;
-import net.minecraft.block.Blocks;
-import net.minecraft.block.CropBlock;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.ItemEntity;
-import net.minecraft.entity.ai.pathing.Path;
-import net.minecraft.inventory.Inventory;
-import net.minecraft.inventory.SimpleInventory;
-import net.minecraft.item.Item;
-import net.minecraft.item.ItemStack;
-import net.minecraft.registry.Registries;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.sound.SoundCategory;
-import net.minecraft.sound.SoundEvents;
-import net.minecraft.util.Hand;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Vec3d;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
@@ -39,6 +22,22 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.util.function.UnaryOperator;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.sounds.SoundSource;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.SimpleContainer;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.item.ItemEntity;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.CropBlock;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.pathfinder.Path;
+import net.minecraft.world.phys.Vec3;
 
 /**
  * The farmer's whole decision loop, as one explicit state machine driven from {@code mobTick()}
@@ -182,7 +181,7 @@ public class FarmerBrain {
 	private double closest = Double.MAX_VALUE;
 
 	public void tick(FarmerEntity farmer) {
-		if (!(farmer.getWorld() instanceof ServerWorld world)) {
+		if (!(farmer.level() instanceof ServerLevel world)) {
 			return;
 		}
 
@@ -199,19 +198,19 @@ public class FarmerBrain {
 			return;
 		}
 
-		long now = world.getTime();
+		long now = world.getGameTime();
 		blockedPlots.long2LongEntrySet().removeIf(entry -> entry.getLongValue() <= now);
 		blockedDrops.int2LongEntrySet().removeIf(entry -> entry.getLongValue() <= now);
 
 		// The state machine has to keep running in water. SwimGoal takes the JUMP control alone and
 		// never steers, so handing movement over to it leaves nothing at all moving the farmer.
-		swimming = farmer.isTouchingWater() ? swimming + 1 : 0;
+		swimming = farmer.isInWater() ? swimming + 1 : 0;
 
 		// Out of its depth there may be no node for pathfinding to offer. Steering by hand needs no
 		// path and only has to reach a bank the navigation can work from again.
-		if (swimming > SWIM_PATIENCE && farmer.getNavigation().isIdle()) {
+		if (swimming > SWIM_PATIENCE && farmer.getNavigation().isDone()) {
 			BlockPos post = area.getCenter();
-			farmer.getMoveControl().moveTo(post.getX() + 0.5, post.getY(), post.getZ() + 0.5, RETURN_SPEED);
+			farmer.getMoveControl().setWantedPosition(post.getX() + 0.5, post.getY(), post.getZ() + 0.5, RETURN_SPEED);
 		}
 
 		if (job != null) {
@@ -268,7 +267,7 @@ public class FarmerBrain {
 		}
 
 		if (job == Job.SOW && sowing != null) {
-			text.append(' ').append(Registries.ITEM.getId(sowing).getPath());
+			text.append(' ').append(BuiltInRegistries.ITEM.getKey(sowing).getPath());
 		}
 
 		if (state == State.WALKING) {
@@ -276,10 +275,10 @@ public class FarmerBrain {
 
 			// Which node of the path it is on: a target accepted as reachable but a walk that never
 			// starts looks identical to plain sluggishness without this.
-			Path path = farmer.getNavigation().getCurrentPath();
+			Path path = farmer.getNavigation().getPath();
 			text.append(path == null
 					? " nopath"
-					: String.format(Locale.ROOT, " n%d/%d", path.getCurrentNodeIndex(), path.getLength()));
+					: String.format(Locale.ROOT, " n%d/%d", path.getNextNodeIndex(), path.getNodeCount()));
 		}
 
 		if (swimming > 0) {
@@ -313,7 +312,7 @@ public class FarmerBrain {
 		return text.toString();
 	}
 
-	private void runJob(FarmerEntity farmer, ServerWorld world, FarmBlockEntity station) {
+	private void runJob(FarmerEntity farmer, ServerLevel world, FarmBlockEntity station) {
 		if (!jobValid(world, station.getSettings())) {
 			note = "target gone";
 			clearJob(farmer);
@@ -321,9 +320,9 @@ public class FarmerBrain {
 		}
 
 		if (target != null) {
-			farmer.getLookControl().lookAt(target, 30.0F, 30.0F);
+			farmer.getLookControl().setLookAt(target, 30.0F, 30.0F);
 		} else if (targetPos != null) {
-			farmer.getLookControl().lookAt(Vec3d.ofCenter(targetPos));
+			farmer.getLookControl().setLookAt(Vec3.atCenterOf(targetPos));
 		}
 
 		if (actionCooldown > 0) {
@@ -394,7 +393,7 @@ public class FarmerBrain {
 	 * against the plot still existing, because somebody may have hoed, sown or harvested it in the
 	 * time the farmer spent walking over.
 	 */
-	private boolean jobValid(ServerWorld world, FarmSettings config) {
+	private boolean jobValid(ServerLevel world, FarmSettings config) {
 		if (job == Job.COLLECT) {
 			return target != null && target.isAlive() && !target.isRemoved();
 		}
@@ -413,7 +412,7 @@ public class FarmerBrain {
 		};
 	}
 
-	private void perform(FarmerEntity farmer, ServerWorld world, FarmBlockEntity station) {
+	private void perform(FarmerEntity farmer, ServerLevel world, FarmBlockEntity station) {
 		Job current = job;
 
 		if (current == null) {
@@ -472,11 +471,11 @@ public class FarmerBrain {
 		settling++;
 		BlockPos post = area.getCenter();
 
-		if (farmer.squaredDistanceTo(Vec3d.ofCenter(post)) <= POST_REACH_SQUARED) {
+		if (farmer.distanceToSqr(Vec3.atCenterOf(post)) <= POST_REACH_SQUARED) {
 			state = State.IDLE;
 
 			// Stopped explicitly, or the walk home would carry on pushing it past the station.
-			if (!farmer.getNavigation().isIdle()) {
+			if (!farmer.getNavigation().isDone()) {
 				farmer.getNavigation().stop();
 			}
 
@@ -488,7 +487,7 @@ public class FarmerBrain {
 		if (settling < settleTicks(config)) {
 			state = State.WAITING;
 
-			if (!farmer.getNavigation().isIdle()) {
+			if (!farmer.getNavigation().isDone()) {
 				farmer.getNavigation().stop();
 			}
 
@@ -499,9 +498,9 @@ public class FarmerBrain {
 
 		// Only issued once: reissuing every tick restarts the path and the farmer never sets off.
 		// A finished hop leaves navigation idle again, which is what advances a staged walk home.
-		if (farmer.getNavigation().isIdle()
-				&& !WorkerMovement.approach(farmer, Vec3d.ofCenter(post), RETURN_SPEED)) {
-			farmer.getNavigation().startMovingTo(post.getX() + 0.5, post.getY(), post.getZ() + 0.5, RETURN_SPEED);
+		if (farmer.getNavigation().isDone()
+				&& !WorkerMovement.approach(farmer, Vec3.atCenterOf(post), RETURN_SPEED)) {
+			farmer.getNavigation().moveTo(post.getX() + 0.5, post.getY(), post.getZ() + 0.5, RETURN_SPEED);
 		}
 	}
 
@@ -513,7 +512,7 @@ public class FarmerBrain {
 		return Math.max(SETTLE_TICKS, config.workIntervalTicks * 2);
 	}
 
-	private boolean chooseJob(FarmerEntity farmer, ServerWorld world, WorkArea area, FarmBlockEntity station) {
+	private boolean chooseJob(FarmerEntity farmer, ServerLevel world, WorkArea area, FarmBlockEntity station) {
 		FarmSettings config = station.getSettings();
 		note = "";
 		scanSurvey = null;
@@ -630,7 +629,7 @@ public class FarmerBrain {
 	}
 
 	/** The next errand within the current phase, or false when the phase has nothing left. */
-	private boolean takeJobIn(FarmerEntity farmer, ServerWorld world, WorkArea area,
+	private boolean takeJobIn(FarmerEntity farmer, ServerLevel world, WorkArea area,
 			FarmBlockEntity station, FarmSettings config) {
 		pathPending = false;
 
@@ -646,7 +645,7 @@ public class FarmerBrain {
 		};
 	}
 
-	private boolean takePlotJob(FarmerEntity farmer, ServerWorld world, Job newJob, List<BlockPos> plots) {
+	private boolean takePlotJob(FarmerEntity farmer, ServerLevel world, Job newJob, List<BlockPos> plots) {
 		BlockPos plot = nearestReachablePlot(farmer, world, plots);
 
 		if (plot == null) {
@@ -667,7 +666,7 @@ public class FarmerBrain {
 	 * grouping them means the sweep that follows the phase clears up after every one of them at
 	 * once rather than being owed a separate trip for each.
 	 */
-	private boolean takeHarvest(FarmerEntity farmer, ServerWorld world, WorkArea area,
+	private boolean takeHarvest(FarmerEntity farmer, ServerLevel world, WorkArea area,
 			FarmBlockEntity station, FarmSettings config) {
 		if (config.enableHarvesting && takePlotJob(farmer, world, Job.HARVEST, survey(world, station).ripe())) {
 			return true;
@@ -696,7 +695,7 @@ public class FarmerBrain {
 	 * Sowing needs a seed as well as a plot, and the seed is decided here rather than on arrival so
 	 * the walk over cannot be wasted on a plot the mix turns out to have nothing for.
 	 */
-	private boolean takeSow(FarmerEntity farmer, ServerWorld world, FarmBlockEntity station, FarmSettings config) {
+	private boolean takeSow(FarmerEntity farmer, ServerLevel world, FarmBlockEntity station, FarmSettings config) {
 		List<Item> palette = Crops.palette(station.seedStores());
 
 		if (palette.isEmpty()) {
@@ -733,7 +732,7 @@ public class FarmerBrain {
 	 * stride, and must not pause the phase. An unreachable drop is written off as usual so the
 	 * same one cannot stall every scan from here on.
 	 */
-	private boolean takeUnderfoot(FarmerEntity farmer, ServerWorld world, WorkArea area) {
+	private boolean takeUnderfoot(FarmerEntity farmer, ServerLevel world, WorkArea area) {
 		List<ItemEntity> nearby = WorkerPack.underfoot(farmer, world, area, farmer.getCarried());
 
 		if (nearby.isEmpty()) {
@@ -754,7 +753,7 @@ public class FarmerBrain {
 		return true;
 	}
 
-	private boolean takeCollect(FarmerEntity farmer, ServerWorld world, WorkArea area) {
+	private boolean takeCollect(FarmerEntity farmer, ServerLevel world, WorkArea area) {
 		ItemEntity drop = nearestReachableDrop(farmer, world, area);
 
 		if (drop != null) {
@@ -782,7 +781,7 @@ public class FarmerBrain {
 		return true;
 	}
 
-	private PlotSurvey survey(ServerWorld world, FarmBlockEntity station) {
+	private PlotSurvey survey(ServerLevel world, FarmBlockEntity station) {
 		if (scanSurvey == null) {
 			scanSurvey = station.surveyPlots(world);
 		}
@@ -790,7 +789,7 @@ public class FarmerBrain {
 		return scanSurvey;
 	}
 
-	private List<BlockPos> pickings(ServerWorld world, WorkArea area, FarmSettings config) {
+	private List<BlockPos> pickings(ServerLevel world, WorkArea area, FarmSettings config) {
 		if (scanPickings == null) {
 			scanPickings = Pickings.find(world, area, config.harvestGourds, config.harvestMushrooms);
 		}
@@ -806,8 +805,8 @@ public class FarmerBrain {
 	 * asking for a path into it is the same trap that used to write off drops resting in fences.
 	 */
 	@Nullable
-	private BlockPos nearestReachablePlot(FarmerEntity farmer, ServerWorld world, List<BlockPos> plots) {
-		return nearestReachable(farmer, world, plots, BlockPos::up, 0);
+	private BlockPos nearestReachablePlot(FarmerEntity farmer, ServerLevel world, List<BlockPos> plots) {
+		return nearestReachable(farmer, world, plots, BlockPos::above, 0);
 	}
 
 	/**
@@ -818,7 +817,7 @@ public class FarmerBrain {
 	 * of the block instead of at one particular square.
 	 */
 	@Nullable
-	private BlockPos nearestReachablePick(FarmerEntity farmer, ServerWorld world, List<BlockPos> picks) {
+	private BlockPos nearestReachablePick(FarmerEntity farmer, ServerLevel world, List<BlockPos> picks) {
 		return nearestReachable(farmer, world, picks, pos -> pos, 1);
 	}
 
@@ -829,9 +828,9 @@ public class FarmerBrain {
 	 * @param slack how far short of that the path may stop and still count as having got there
 	 */
 	@Nullable
-	private BlockPos nearestReachable(FarmerEntity farmer, ServerWorld world, List<BlockPos> spots,
+	private BlockPos nearestReachable(FarmerEntity farmer, ServerLevel world, List<BlockPos> spots,
 			UnaryOperator<BlockPos> stand, int slack) {
-		long now = world.getTime();
+		long now = world.getGameTime();
 		List<BlockPos> queue = new ArrayList<>(spots.size());
 
 		for (BlockPos spot : spots) {
@@ -844,7 +843,7 @@ public class FarmerBrain {
 			return null;
 		}
 
-		queue.sort(Comparator.comparingDouble(spot -> farmer.squaredDistanceTo(Vec3d.ofCenter(spot))));
+		queue.sort(Comparator.comparingDouble(spot -> farmer.distanceToSqr(Vec3.atCenterOf(spot))));
 
 		// Each miss costs a pathfind, so a scan only probes the few nearest and leaves the rest for
 		// later. Anything ruled out goes on the blocked list, so the next scan starts further down.
@@ -855,11 +854,11 @@ public class FarmerBrain {
 			// there is nothing worth asking. Such a spot is accepted and walked at in stages; if it
 			// does turn out to be unreachable, the stall detector writes it off once the farmer is
 			// near enough for a refusal to actually mean something.
-			if (WorkerMovement.isFarOff(farmer, Vec3d.ofCenter(spot))) {
+			if (WorkerMovement.isFarOff(farmer, Vec3.atCenterOf(spot))) {
 				return spot;
 			}
 
-			Path path = farmer.getNavigation().findPathTo(stand.apply(spot), slack);
+			Path path = farmer.getNavigation().createPath(stand.apply(spot), slack);
 
 			if (path == null) {
 				// Pathfinding declines to answer at all while the farmer is off the ground, which
@@ -870,11 +869,11 @@ public class FarmerBrain {
 				return null;
 			}
 
-			if (path.reachesTarget()) {
+			if (path.canReach()) {
 				return spot;
 			}
 
-			blockedPlots.put(spot.asLong(), world.getTime() + BLOCKED_COOLDOWN);
+			blockedPlots.put(spot.asLong(), world.getGameTime() + BLOCKED_COOLDOWN);
 			note = "unreachable";
 		}
 
@@ -882,13 +881,13 @@ public class FarmerBrain {
 	}
 
 	@Nullable
-	private ItemEntity nearestReachableDrop(FarmerEntity farmer, ServerWorld world, WorkArea area) {
+	private ItemEntity nearestReachableDrop(FarmerEntity farmer, ServerLevel world, WorkArea area) {
 		return nearestReachableDrop(farmer, world, WorkerPack.looseIn(world, area, farmer.getCarried()));
 	}
 
 	@Nullable
-	private ItemEntity nearestReachableDrop(FarmerEntity farmer, ServerWorld world, List<ItemEntity> candidates) {
-		long now = world.getTime();
+	private ItemEntity nearestReachableDrop(FarmerEntity farmer, ServerLevel world, List<ItemEntity> candidates) {
+		long now = world.getGameTime();
 		List<ItemEntity> queue = new ArrayList<>();
 
 		for (ItemEntity drop : candidates) {
@@ -901,19 +900,19 @@ public class FarmerBrain {
 			return null;
 		}
 
-		queue.sort(Comparator.comparingDouble(farmer::squaredDistanceTo));
+		queue.sort(Comparator.comparingDouble(farmer::distanceToSqr));
 
 		for (int index = 0; index < Math.min(queue.size(), MAX_PATH_CHECKS); index++) {
 			ItemEntity drop = queue.get(index);
 
-			if (WorkerMovement.isFarOff(farmer, drop.getPos())) {
+			if (WorkerMovement.isFarOff(farmer, drop.position())) {
 				return drop;
 			}
 
 			// The exact block first and a block nearby only if that fails, because the slack a drop
 			// resting inside a fence needs would otherwise be taken on open ground too, parking the
 			// farmer several blocks from something it could have walked right up to.
-			Path path = farmer.getNavigation().findPathTo(drop, 0);
+			Path path = farmer.getNavigation().createPath(drop, 0);
 
 			if (path == null) {
 				note = "no path yet";
@@ -921,28 +920,28 @@ public class FarmerBrain {
 				return null;
 			}
 
-			if (path.reachesTarget()) {
+			if (path.canReach()) {
 				return drop;
 			}
 
-			Path nearby = farmer.getNavigation().findPathTo(drop, COLLECT_PATH_DISTANCE);
+			Path nearby = farmer.getNavigation().createPath(drop, COLLECT_PATH_DISTANCE);
 
-			if (nearby != null && nearby.reachesTarget()) {
+			if (nearby != null && nearby.canReach()) {
 				return drop;
 			}
 
-			blockedDrops.put(drop.getId(), world.getTime() + BLOCKED_COOLDOWN);
+			blockedDrops.put(drop.getId(), world.getGameTime() + BLOCKED_COOLDOWN);
 			note = "unreachable";
 		}
 
 		return null;
 	}
 
-	private void blockCurrentTarget(ServerWorld world) {
+	private void blockCurrentTarget(ServerLevel world) {
 		if (target != null) {
-			blockedDrops.put(target.getId(), world.getTime() + BLOCKED_COOLDOWN);
+			blockedDrops.put(target.getId(), world.getGameTime() + BLOCKED_COOLDOWN);
 		} else if (targetPos != null && job != Job.DEPOSIT) {
-			blockedPlots.put(targetPos.asLong(), world.getTime() + BLOCKED_COOLDOWN);
+			blockedPlots.put(targetPos.asLong(), world.getGameTime() + BLOCKED_COOLDOWN);
 		}
 	}
 
@@ -951,7 +950,7 @@ public class FarmerBrain {
 	 * equipment the station summons, and asking players to keep it stocked with tools would make a
 	 * farm stop working for a reason nothing on the screen explains.
 	 */
-	private boolean till(FarmerEntity farmer, ServerWorld world) {
+	private boolean till(FarmerEntity farmer, ServerLevel world) {
 		BlockPos plot = targetPos;
 
 		if (plot == null) {
@@ -959,16 +958,16 @@ public class FarmerBrain {
 		}
 
 		served.add(plot.asLong());
-		farmer.swingHand(Hand.MAIN_HAND);
-		world.setBlockState(plot, Blocks.FARMLAND.getDefaultState());
-		world.playSound(null, plot, SoundEvents.ITEM_HOE_TILL, SoundCategory.BLOCKS, 1.0F, 1.0F);
+		farmer.swing(InteractionHand.MAIN_HAND);
+		world.setBlockAndUpdate(plot, Blocks.FARMLAND.defaultBlockState());
+		world.playSound(null, plot, SoundEvents.HOE_TILL, SoundSource.BLOCKS, 1.0F, 1.0F);
 		farmer.startWorkCooldown();
 		actionCooldown = SWING_INTERVAL;
 		phaseWorked = true;
 		return true;
 	}
 
-	private boolean sow(FarmerEntity farmer, ServerWorld world, FarmBlockEntity station) {
+	private boolean sow(FarmerEntity farmer, ServerLevel world, FarmBlockEntity station) {
 		BlockPos plot = targetPos;
 		Item seed = sowing;
 
@@ -983,11 +982,11 @@ public class FarmerBrain {
 			return true;
 		}
 
-		BlockPos above = plot.up();
-		BlockState planted = crop.getDefaultState();
+		BlockPos above = plot.above();
+		BlockState planted = crop.defaultBlockState();
 
 		// Vanilla's own check, so a crop that would not survive here is never put in the ground.
-		if (!planted.canPlaceAt(world, above)) {
+		if (!planted.canSurvive(world, above)) {
 			note = "cannot plant";
 			return true;
 		}
@@ -997,9 +996,9 @@ public class FarmerBrain {
 			return true;
 		}
 
-		farmer.swingHand(Hand.MAIN_HAND);
-		world.setBlockState(above, planted);
-		world.playSound(null, above, SoundEvents.ITEM_CROP_PLANT, SoundCategory.BLOCKS, 1.0F, 1.0F);
+		farmer.swing(InteractionHand.MAIN_HAND);
+		world.setBlockAndUpdate(above, planted);
+		world.playSound(null, above, SoundEvents.CROP_PLANTED, SoundSource.BLOCKS, 1.0F, 1.0F);
 		// Recorded whether or not the seed was paid for, because the tally is what turns the mix's
 		// weights into real ratios and that has nothing to do with who owns the seed.
 		station.notePlanted(seed);
@@ -1014,7 +1013,7 @@ public class FarmerBrain {
 	 * feet is pocketed before the next plot, and a sweep still follows the phase for anything
 	 * that scattered further out.
 	 */
-	private boolean harvest(FarmerEntity farmer, ServerWorld world) {
+	private boolean harvest(FarmerEntity farmer, ServerLevel world) {
 		BlockPos plot = targetPos;
 
 		if (plot == null) {
@@ -1022,10 +1021,10 @@ public class FarmerBrain {
 		}
 
 		served.add(plot.asLong());
-		farmer.swingHand(Hand.MAIN_HAND);
+		farmer.swing(InteractionHand.MAIN_HAND);
 		// Broken the vanilla way, so the crop's loot table decides what comes out of it and the
 		// break particles and sound behave as they do for a player.
-		world.breakBlock(plot.up(), true, farmer);
+		world.destroyBlock(plot.above(), true, farmer);
 		farmer.startWorkCooldown();
 		actionCooldown = SWING_INTERVAL;
 		phaseWorked = true;
@@ -1038,7 +1037,7 @@ public class FarmerBrain {
 	 * place. Otherwise it is harvesting like any other: whatever lands underfoot is pocketed
 	 * before the next one, and a sweep still follows the phase for the rest.
 	 */
-	private boolean gather(FarmerEntity farmer, ServerWorld world) {
+	private boolean gather(FarmerEntity farmer, ServerLevel world) {
 		BlockPos pick = targetPos;
 
 		if (pick == null) {
@@ -1046,8 +1045,8 @@ public class FarmerBrain {
 		}
 
 		served.add(pick.asLong());
-		farmer.swingHand(Hand.MAIN_HAND);
-		world.breakBlock(pick, true, farmer);
+		farmer.swing(InteractionHand.MAIN_HAND);
+		world.destroyBlock(pick, true, farmer);
 		farmer.startWorkCooldown();
 		actionCooldown = SWING_INTERVAL;
 		phaseWorked = true;
@@ -1055,31 +1054,31 @@ public class FarmerBrain {
 	}
 
 	private boolean collect(FarmerEntity farmer) {
-		if (!(target instanceof ItemEntity item) || item.cannotPickup()) {
+		if (!(target instanceof ItemEntity item) || item.hasPickUpDelay()) {
 			return true;
 		}
 
-		ItemStack remainder = farmer.getCarried().addStack(item.getStack().copy());
+		ItemStack remainder = farmer.getCarried().addItem(item.getItem().copy());
 
 		if (remainder.isEmpty()) {
 			item.discard();
 		} else {
-			item.setStack(remainder);
+			item.setItem(remainder);
 		}
 
-		farmer.getWorld().playSound(null, farmer.getBlockPos(), SoundEvents.ENTITY_ITEM_PICKUP,
-				SoundCategory.NEUTRAL, 0.15F,
+		farmer.level().playSound(null, farmer.blockPosition(), SoundEvents.ITEM_PICKUP,
+				SoundSource.NEUTRAL, 0.15F,
 				(farmer.getRandom().nextFloat() - farmer.getRandom().nextFloat()) * 1.4F + 2.0F);
 		phaseWorked = true;
 		return true;
 	}
 
 	private boolean deposit(FarmerEntity farmer, FarmBlockEntity station) {
-		SimpleInventory carried = farmer.getCarried();
+		SimpleContainer carried = farmer.getCarried();
 		boolean moved = false;
 
-		for (int slot = 0; slot < carried.size(); slot++) {
-			ItemStack stack = carried.getStack(slot);
+		for (int slot = 0; slot < carried.getContainerSize(); slot++) {
+			ItemStack stack = carried.getItem(slot);
 
 			if (stack.isEmpty()) {
 				continue;
@@ -1087,7 +1086,7 @@ public class FarmerBrain {
 
 			int before = stack.getCount();
 			ItemStack left = store(station, stack);
-			carried.setStack(slot, left.isEmpty() ? ItemStack.EMPTY : left);
+			carried.setItem(slot, left.isEmpty() ? ItemStack.EMPTY : left);
 
 			if (left.getCount() != before) {
 				moved = true;
@@ -1095,7 +1094,7 @@ public class FarmerBrain {
 		}
 
 		if (moved) {
-			farmer.swingHand(Hand.MAIN_HAND);
+			farmer.swing(InteractionHand.MAIN_HAND);
 		} else if (!carried.isEmpty()) {
 			note = "station full";
 			// Remembered for the rest of the phase, or a sweep that has cleared the ground would
@@ -1109,7 +1108,7 @@ public class FarmerBrain {
 
 	private boolean withinReach(FarmerEntity farmer) {
 		if (job == Job.COLLECT) {
-			return target != null && farmer.squaredDistanceTo(target) <= COLLECT_REACH_SQUARED;
+			return target != null && farmer.distanceToSqr(target) <= COLLECT_REACH_SQUARED;
 		}
 
 		if (targetPos == null) {
@@ -1117,25 +1116,25 @@ public class FarmerBrain {
 		}
 
 		double reach = job == Job.DEPOSIT ? STATION_REACH_SQUARED : PLOT_REACH_SQUARED;
-		return farmer.squaredDistanceTo(Vec3d.ofCenter(targetPos)) <= reach;
+		return farmer.distanceToSqr(Vec3.atCenterOf(targetPos)) <= reach;
 	}
 
 	private void navigate(FarmerEntity farmer) {
 		if (job == Job.COLLECT) {
-			if (target == null || WorkerMovement.approach(farmer, target.getPos(), WALK_SPEED)) {
+			if (target == null || WorkerMovement.approach(farmer, target.position(), WALK_SPEED)) {
 				return;
 			}
 
 			// Pathed by hand rather than through startMovingTo(Entity, speed), which always asks
 			// for a path right onto the target's own block. For a drop resting against a fence that
 			// block is the fence, so the walk would silently never start.
-			Path direct = farmer.getNavigation().findPathTo(target, 0);
-			Path path = direct != null && !direct.reachesTarget()
-					? farmer.getNavigation().findPathTo(target, COLLECT_PATH_DISTANCE)
+			Path direct = farmer.getNavigation().createPath(target, 0);
+			Path path = direct != null && !direct.canReach()
+					? farmer.getNavigation().createPath(target, COLLECT_PATH_DISTANCE)
 					: direct;
 
 			if (path != null) {
-				farmer.getNavigation().startMovingAlong(path, WALK_SPEED);
+				farmer.getNavigation().moveTo(path, WALK_SPEED);
 			}
 
 			return;
@@ -1145,33 +1144,33 @@ public class FarmerBrain {
 			return;
 		}
 
-		if (WorkerMovement.approach(farmer, Vec3d.ofCenter(targetPos), WALK_SPEED)) {
+		if (WorkerMovement.approach(farmer, Vec3.atCenterOf(targetPos), WALK_SPEED)) {
 			return;
 		}
 
 		if (job == Job.DEPOSIT || job == Job.GATHER) {
 			// This overload already settles for a block next to the target, which it has to: a
 			// station and a melon are both solid and can only ever be walked up to.
-			farmer.getNavigation().startMovingTo(targetPos.getX() + 0.5, targetPos.getY(),
+			farmer.getNavigation().moveTo(targetPos.getX() + 0.5, targetPos.getY(),
 					targetPos.getZ() + 0.5, WALK_SPEED);
 			return;
 		}
 
 		// The block above the plot, which is where the farmer stands to work it.
-		BlockPos stand = targetPos.up();
-		Path path = farmer.getNavigation().findPathTo(stand, 0);
+		BlockPos stand = targetPos.above();
+		Path path = farmer.getNavigation().createPath(stand, 0);
 
 		if (path != null) {
-			farmer.getNavigation().startMovingAlong(path, WALK_SPEED);
+			farmer.getNavigation().moveTo(path, WALK_SPEED);
 		}
 	}
 
 	private double distanceToTarget(FarmerEntity farmer) {
 		if (target != null) {
-			return Math.sqrt(farmer.squaredDistanceTo(target));
+			return Math.sqrt(farmer.distanceToSqr(target));
 		}
 
-		return targetPos == null ? 0.0 : Math.sqrt(farmer.squaredDistanceTo(Vec3d.ofCenter(targetPos)));
+		return targetPos == null ? 0.0 : Math.sqrt(farmer.distanceToSqr(Vec3.atCenterOf(targetPos)));
 	}
 
 	/**

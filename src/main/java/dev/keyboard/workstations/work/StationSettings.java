@@ -1,9 +1,8 @@
 package dev.keyboard.workstations.work;
 
 import dev.keyboard.workstations.ModConfig;
-import net.minecraft.nbt.NbtCompound;
-
 import java.util.List;
+import net.minecraft.nbt.CompoundTag;
 
 /**
  * One ranch station's own orders. Every ranch is set up separately, so two stations can sit in the
@@ -122,13 +121,13 @@ public final class StationSettings implements WorkerSettings<StationSettings> {
 
 	@Override
 	public void copyFrom(StationSettings other) {
-		NbtCompound carrier = new NbtCompound();
+		CompoundTag carrier = new CompoundTag();
 		other.writeNbt(carrier);
 		readNbt(carrier);
 	}
 
 	@Override
-	public void writeNbt(NbtCompound nbt) {
+	public void writeNbt(CompoundTag nbt) {
 		for (SettingOption<StationSettings> option : OPTIONS) {
 			option.write(this, nbt);
 		}
@@ -136,7 +135,7 @@ public final class StationSettings implements WorkerSettings<StationSettings> {
 
 	/** Absent keys keep their current value, so a save from an older build loses nothing. */
 	@Override
-	public void readNbt(NbtCompound nbt) {
+	public void readNbt(CompoundTag nbt) {
 		for (SettingOption<StationSettings> option : OPTIONS) {
 			option.read(this, nbt);
 		}

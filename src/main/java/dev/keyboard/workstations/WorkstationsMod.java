@@ -18,29 +18,32 @@ import dev.keyboard.workstations.entity.LumberjackEntity;
 import dev.keyboard.workstations.entity.RancherEntity;
 import dev.keyboard.workstations.network.StationNetworking;
 import net.fabricmc.api.ModInitializer;
+import net.fabricmc.fabric.api.creativetab.v1.FabricCreativeModeTab;
 import net.fabricmc.fabric.api.event.player.UseBlockCallback;
-import net.fabricmc.fabric.api.itemgroup.v1.FabricItemGroup;
 import net.fabricmc.fabric.api.object.builder.v1.block.entity.FabricBlockEntityTypeBuilder;
 import net.fabricmc.fabric.api.object.builder.v1.entity.FabricDefaultAttributeRegistry;
-import net.minecraft.block.AbstractBlock;
-import net.minecraft.block.BlockState;
-import net.minecraft.block.MapColor;
-import net.minecraft.block.entity.BlockEntityType;
-import net.minecraft.block.piston.PistonBehavior;
-import net.minecraft.entity.EntityType;
-import net.minecraft.entity.SpawnGroup;
-import net.minecraft.item.BlockItem;
-import net.minecraft.item.Item;
-import net.minecraft.item.ItemGroup;
-import net.minecraft.item.ItemStack;
-import net.minecraft.registry.Registries;
-import net.minecraft.registry.Registry;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.sound.BlockSoundGroup;
-import net.minecraft.text.Text;
-import net.minecraft.util.ActionResult;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.math.BlockPos;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Registry;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.MobCategory;
+import net.minecraft.world.item.BlockItem;
+import net.minecraft.world.item.CreativeModeTab;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.SoundType;
+import net.minecraft.world.level.block.entity.BlockEntityType;
+import net.minecraft.world.level.block.state.BlockBehaviour;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.material.MapColor;
+import net.minecraft.world.level.material.PushReaction;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -60,37 +63,37 @@ public class WorkstationsMod implements ModInitializer {
 	public static final Identifier UNIVERSAL_FEED_ID = id("universal_feed");
 	public static final Identifier GROUP_ID = id("keyboard_workstations");
 
-	public static final RanchBlock RANCH_BLOCK = new RanchBlock(stationSettings());
-	public static final FarmBlock FARM_BLOCK = new FarmBlock(stationSettings());
-	public static final LumberBlock LUMBER_BLOCK = new LumberBlock(stationSettings());
-	public static final MilkBarrelBlock MILK_BARREL_BLOCK = new MilkBarrelBlock(barrelSettings());
-	public static final FeedBarrelBlock FEED_BARREL_BLOCK = new FeedBarrelBlock(chestSettings());
-	public static final SeedBoxBlock SEED_BOX_BLOCK = new SeedBoxBlock(chestSettings());
+	public static final RanchBlock RANCH_BLOCK = new RanchBlock(stationSettings(RANCH_ID));
+	public static final FarmBlock FARM_BLOCK = new FarmBlock(stationSettings(FARM_ID));
+	public static final LumberBlock LUMBER_BLOCK = new LumberBlock(stationSettings(LUMBER_ID));
+	public static final MilkBarrelBlock MILK_BARREL_BLOCK = new MilkBarrelBlock(barrelSettings(MILK_BARREL_ID));
+	public static final FeedBarrelBlock FEED_BARREL_BLOCK = new FeedBarrelBlock(chestSettings(FEED_BARREL_ID));
+	public static final SeedBoxBlock SEED_BOX_BLOCK = new SeedBoxBlock(chestSettings(SEED_BOX_ID));
 
-	public static final BlockItem RANCH_ITEM = new BlockItem(RANCH_BLOCK, new Item.Settings());
-	public static final BlockItem FARM_ITEM = new BlockItem(FARM_BLOCK, new Item.Settings());
-	public static final BlockItem LUMBER_ITEM = new BlockItem(LUMBER_BLOCK, new Item.Settings());
-	public static final BlockItem MILK_BARREL_ITEM = new BlockItem(MILK_BARREL_BLOCK, new Item.Settings());
-	public static final BlockItem FEED_BARREL_ITEM = new BlockItem(FEED_BARREL_BLOCK, new Item.Settings());
-	public static final BlockItem SEED_BOX_ITEM = new BlockItem(SEED_BOX_BLOCK, new Item.Settings());
-	public static final Item UNIVERSAL_FEED = new Item(new Item.Settings());
+	public static final BlockItem RANCH_ITEM = new BlockItem(RANCH_BLOCK, blockItemSettings(RANCH_ID));
+	public static final BlockItem FARM_ITEM = new BlockItem(FARM_BLOCK, blockItemSettings(FARM_ID));
+	public static final BlockItem LUMBER_ITEM = new BlockItem(LUMBER_BLOCK, blockItemSettings(LUMBER_ID));
+	public static final BlockItem MILK_BARREL_ITEM = new BlockItem(MILK_BARREL_BLOCK, blockItemSettings(MILK_BARREL_ID));
+	public static final BlockItem FEED_BARREL_ITEM = new BlockItem(FEED_BARREL_BLOCK, blockItemSettings(FEED_BARREL_ID));
+	public static final BlockItem SEED_BOX_ITEM = new BlockItem(SEED_BOX_BLOCK, blockItemSettings(SEED_BOX_ID));
+	public static final Item UNIVERSAL_FEED = new Item(itemSettings(UNIVERSAL_FEED_ID));
 
 	/**
 	 * One creative tab for everything the mod adds, rather than scattering four things through the
 	 * vanilla ones. Small enough a mod that a player looking for its parts wants them together, and
 	 * a station is no more a "functional block" than the feed is an "ingredient".
 	 */
-	public static final ItemGroup GROUP = FabricItemGroup.builder()
+	public static final CreativeModeTab GROUP = FabricCreativeModeTab.builder()
 			.icon(() -> new ItemStack(RANCH_ITEM))
-			.displayName(Text.translatable("itemGroup.keyboard_workstations"))
-			.entries((context, entries) -> {
-				entries.add(RANCH_ITEM);
-				entries.add(FARM_ITEM);
-				entries.add(LUMBER_ITEM);
-				entries.add(MILK_BARREL_ITEM);
-				entries.add(FEED_BARREL_ITEM);
-				entries.add(SEED_BOX_ITEM);
-				entries.add(UNIVERSAL_FEED);
+			.title(Component.translatable("itemGroup.keyboard_workstations"))
+			.displayItems((context, entries) -> {
+				entries.accept(RANCH_ITEM);
+				entries.accept(FARM_ITEM);
+				entries.accept(LUMBER_ITEM);
+				entries.accept(MILK_BARREL_ITEM);
+				entries.accept(FEED_BARREL_ITEM);
+				entries.accept(SEED_BOX_ITEM);
+				entries.accept(UNIVERSAL_FEED);
 			})
 			.build();
 
@@ -105,15 +108,16 @@ public class WorkstationsMod implements ModInitializer {
 	public static EntityType<LumberjackEntity> LUMBERJACK;
 
 	/** Every station is the same wooden table underneath, so they are built the same way. */
-	private static AbstractBlock.Settings stationSettings() {
-		return AbstractBlock.Settings.create()
-				.mapColor(MapColor.OAK_TAN)
+	private static BlockBehaviour.Properties stationSettings(Identifier id) {
+		return BlockBehaviour.Properties.of()
+				.setId(ResourceKey.create(Registries.BLOCK, id))
+				.mapColor(MapColor.WOOD)
 				.strength(1.5F)
-				.sounds(BlockSoundGroup.WOOD)
-				.burnable()
-				.nonOpaque()
-				.pistonBehavior(PistonBehavior.DESTROY)
-				.solidBlock((state, world, pos) -> false);
+				.sound(SoundType.WOOD)
+				.ignitedByLava()
+				.noOcclusion()
+				.pushReaction(PushReaction.DESTROY)
+				.isRedstoneConductor((state, world, pos) -> false);
 	}
 
 	/**
@@ -121,87 +125,96 @@ public class WorkstationsMod implements ModInitializer {
 	 * can be stood on, walked around and built against like any other solid block. Only the seeing
 	 * through it is unusual, because the top is open and the inside of the far wall shows.
 	 */
-	private static AbstractBlock.Settings barrelSettings() {
-		return AbstractBlock.Settings.create()
-				.mapColor(MapColor.OAK_TAN)
+	private static BlockBehaviour.Properties barrelSettings(Identifier id) {
+		return BlockBehaviour.Properties.of()
+				.setId(ResourceKey.create(Registries.BLOCK, id))
+				.mapColor(MapColor.WOOD)
 				.strength(1.5F)
-				.sounds(BlockSoundGroup.WOOD)
-				.burnable()
-				.nonOpaque();
+				.sound(SoundType.WOOD)
+				.ignitedByLava()
+				.noOcclusion();
 	}
 
 	/** A chest in all but name, so it is built out of what vanilla gives its own chests. */
-	private static AbstractBlock.Settings chestSettings() {
-		return AbstractBlock.Settings.create()
-				.mapColor(MapColor.OAK_TAN)
+	private static BlockBehaviour.Properties chestSettings(Identifier id) {
+		return BlockBehaviour.Properties.of()
+				.setId(ResourceKey.create(Registries.BLOCK, id))
+				.mapColor(MapColor.WOOD)
 				.strength(2.5F)
-				.sounds(BlockSoundGroup.WOOD)
-				.burnable();
+				.sound(SoundType.WOOD)
+				.ignitedByLava();
+	}
+
+	private static Item.Properties itemSettings(Identifier id) {
+		return new Item.Properties().setId(ResourceKey.create(Registries.ITEM, id));
+	}
+
+	private static Item.Properties blockItemSettings(Identifier id) {
+		return itemSettings(id).useBlockDescriptionPrefix();
 	}
 
 	@Override
 	public void onInitialize() {
 		ModConfig.get();
 
-		Registry.register(Registries.BLOCK, RANCH_ID, RANCH_BLOCK);
-		Registry.register(Registries.ITEM, RANCH_ID, RANCH_ITEM);
-		RANCH_BLOCK_ENTITY = Registry.register(Registries.BLOCK_ENTITY_TYPE, RANCH_ID,
+		registerBlock(RANCH_ID, RANCH_BLOCK, RANCH_ITEM);
+		RANCH_BLOCK_ENTITY = Registry.register(BuiltInRegistries.BLOCK_ENTITY_TYPE, RANCH_ID,
 				FabricBlockEntityTypeBuilder.create(RanchBlockEntity::new, RANCH_BLOCK).build());
 
-		Registry.register(Registries.BLOCK, FARM_ID, FARM_BLOCK);
-		Registry.register(Registries.ITEM, FARM_ID, FARM_ITEM);
-		FARM_BLOCK_ENTITY = Registry.register(Registries.BLOCK_ENTITY_TYPE, FARM_ID,
+		registerBlock(FARM_ID, FARM_BLOCK, FARM_ITEM);
+		FARM_BLOCK_ENTITY = Registry.register(BuiltInRegistries.BLOCK_ENTITY_TYPE, FARM_ID,
 				FabricBlockEntityTypeBuilder.create(FarmBlockEntity::new, FARM_BLOCK).build());
 
-		Registry.register(Registries.BLOCK, LUMBER_ID, LUMBER_BLOCK);
-		Registry.register(Registries.ITEM, LUMBER_ID, LUMBER_ITEM);
-		LUMBER_BLOCK_ENTITY = Registry.register(Registries.BLOCK_ENTITY_TYPE, LUMBER_ID,
+		registerBlock(LUMBER_ID, LUMBER_BLOCK, LUMBER_ITEM);
+		LUMBER_BLOCK_ENTITY = Registry.register(BuiltInRegistries.BLOCK_ENTITY_TYPE, LUMBER_ID,
 				FabricBlockEntityTypeBuilder.create(LumberBlockEntity::new, LUMBER_BLOCK).build());
 
 		// No spawn egg and no natural spawning: a station is the only thing that makes a worker.
-		RANCHER = Registry.register(Registries.ENTITY_TYPE, RANCHER_ID,
-				EntityType.Builder.<RancherEntity>create(RancherEntity::new, SpawnGroup.MISC)
-						.dimensions(0.6F, 1.95F)
-						.maxTrackingRange(10)
-						.build(RANCHER_ID.getPath()));
+		RANCHER = registerWorker(RANCHER_ID, EntityType.Builder.<RancherEntity>of(RancherEntity::new, MobCategory.MISC)
+				.sized(0.6F, 1.95F)
+				.clientTrackingRange(10));
 		FabricDefaultAttributeRegistry.register(RANCHER, RancherEntity.createRancherAttributes());
 
-		FARMER = Registry.register(Registries.ENTITY_TYPE, FARMER_ID,
-				EntityType.Builder.<FarmerEntity>create(FarmerEntity::new, SpawnGroup.MISC)
-						.dimensions(0.6F, 1.95F)
-						.maxTrackingRange(10)
-						.build(FARMER_ID.getPath()));
+		FARMER = registerWorker(FARMER_ID, EntityType.Builder.<FarmerEntity>of(FarmerEntity::new, MobCategory.MISC)
+				.sized(0.6F, 1.95F)
+				.clientTrackingRange(10));
 		FabricDefaultAttributeRegistry.register(FARMER, FarmerEntity.createFarmerAttributes());
 
-		LUMBERJACK = Registry.register(Registries.ENTITY_TYPE, LUMBERJACK_ID,
-				EntityType.Builder.<LumberjackEntity>create(LumberjackEntity::new, SpawnGroup.MISC)
-						.dimensions(0.6F, 1.95F)
-						.maxTrackingRange(10)
-						.build(LUMBERJACK_ID.getPath()));
+		LUMBERJACK = registerWorker(LUMBERJACK_ID, EntityType.Builder.<LumberjackEntity>of(LumberjackEntity::new, MobCategory.MISC)
+				.sized(0.6F, 1.95F)
+				.clientTrackingRange(10));
 		FabricDefaultAttributeRegistry.register(LUMBERJACK, LumberjackEntity.createLumberjackAttributes());
 
-		Registry.register(Registries.BLOCK, MILK_BARREL_ID, MILK_BARREL_BLOCK);
-		Registry.register(Registries.ITEM, MILK_BARREL_ID, MILK_BARREL_ITEM);
-		MILK_BARREL_BLOCK_ENTITY = Registry.register(Registries.BLOCK_ENTITY_TYPE, MILK_BARREL_ID,
+		registerBlock(MILK_BARREL_ID, MILK_BARREL_BLOCK, MILK_BARREL_ITEM);
+		MILK_BARREL_BLOCK_ENTITY = Registry.register(BuiltInRegistries.BLOCK_ENTITY_TYPE, MILK_BARREL_ID,
 				FabricBlockEntityTypeBuilder.create(MilkBarrelBlockEntity::new, MILK_BARREL_BLOCK).build());
 
-		Registry.register(Registries.BLOCK, FEED_BARREL_ID, FEED_BARREL_BLOCK);
-		Registry.register(Registries.ITEM, FEED_BARREL_ID, FEED_BARREL_ITEM);
-		FEED_BARREL_BLOCK_ENTITY = Registry.register(Registries.BLOCK_ENTITY_TYPE, FEED_BARREL_ID,
+		registerBlock(FEED_BARREL_ID, FEED_BARREL_BLOCK, FEED_BARREL_ITEM);
+		FEED_BARREL_BLOCK_ENTITY = Registry.register(BuiltInRegistries.BLOCK_ENTITY_TYPE, FEED_BARREL_ID,
 				FabricBlockEntityTypeBuilder.create(FeedBarrelBlockEntity::new, FEED_BARREL_BLOCK).build());
 
-		Registry.register(Registries.BLOCK, SEED_BOX_ID, SEED_BOX_BLOCK);
-		Registry.register(Registries.ITEM, SEED_BOX_ID, SEED_BOX_ITEM);
-		SEED_BOX_BLOCK_ENTITY = Registry.register(Registries.BLOCK_ENTITY_TYPE, SEED_BOX_ID,
+		registerBlock(SEED_BOX_ID, SEED_BOX_BLOCK, SEED_BOX_ITEM);
+		SEED_BOX_BLOCK_ENTITY = Registry.register(BuiltInRegistries.BLOCK_ENTITY_TYPE, SEED_BOX_ID,
 				FabricBlockEntityTypeBuilder.create(SeedBoxBlockEntity::new, SEED_BOX_BLOCK).build());
 
-		Registry.register(Registries.ITEM, UNIVERSAL_FEED_ID, UNIVERSAL_FEED);
-		Registry.register(Registries.ITEM_GROUP, GROUP_ID, GROUP);
+		Registry.register(BuiltInRegistries.ITEM, UNIVERSAL_FEED_ID, UNIVERSAL_FEED);
+		Registry.register(BuiltInRegistries.CREATIVE_MODE_TAB, GROUP_ID, GROUP);
 
 		StationNetworking.registerServerReceivers();
 		registerSettingsGesture();
 
 		LOGGER.info("Workstations initialized");
+	}
+
+	private static void registerBlock(Identifier id, Block block, BlockItem item) {
+		Registry.register(BuiltInRegistries.BLOCK, id, block);
+		Registry.register(BuiltInRegistries.ITEM, id, item);
+	}
+
+	private static <T extends net.minecraft.world.entity.Entity> EntityType<T> registerWorker(
+			Identifier id, EntityType.Builder<T> builder) {
+		ResourceKey<EntityType<?>> key = ResourceKey.create(Registries.ENTITY_TYPE, id);
+		return Registry.register(BuiltInRegistries.ENTITY_TYPE, id, builder.build(key));
 	}
 
 	/**
@@ -218,21 +231,21 @@ public class WorkstationsMod implements ModInitializer {
 			BlockPos pos = hit.getBlockPos();
 			BlockState state = world.getBlockState(pos);
 
-			if (!player.isSneaking() || !(state.isOf(RANCH_BLOCK) || state.isOf(FARM_BLOCK)
-					|| state.isOf(LUMBER_BLOCK))) {
-				return ActionResult.PASS;
+			if (!player.isShiftKeyDown() || !(state.is(RANCH_BLOCK) || state.is(FARM_BLOCK)
+					|| state.is(LUMBER_BLOCK))) {
+				return InteractionResult.PASS;
 			}
 
-			if (player instanceof ServerPlayerEntity serverPlayer
+			if (player instanceof ServerPlayer serverPlayer
 					&& world.getBlockEntity(pos) instanceof WorkStationBlockEntity<?, ?>) {
 				StationNetworking.openScreen(serverPlayer, pos);
 			}
 
-			return ActionResult.SUCCESS;
+			return InteractionResult.SUCCESS;
 		});
 	}
 
 	public static Identifier id(String path) {
-		return Identifier.of(MOD_ID, path);
+		return Identifier.fromNamespaceAndPath(MOD_ID, path);
 	}
 }

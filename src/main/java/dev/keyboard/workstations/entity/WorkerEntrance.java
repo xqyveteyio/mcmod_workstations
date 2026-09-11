@@ -1,20 +1,20 @@
 package dev.keyboard.workstations.entity;
 
-import net.minecraft.block.BlockState;
-import net.minecraft.block.Blocks;
-import net.minecraft.entity.mob.MobEntity;
-import net.minecraft.particle.BlockStateParticleEffect;
-import net.minecraft.particle.ParticleTypes;
-import net.minecraft.sound.BlockSoundGroup;
-import net.minecraft.sound.SoundCategory;
-import net.minecraft.sound.SoundEvents;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.random.Random;
-import net.minecraft.world.World;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.function.IntConsumer;
 import java.util.function.IntSupplier;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.particles.BlockParticleOption;
+import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.sounds.SoundSource;
+import net.minecraft.util.RandomSource;
+import net.minecraft.world.entity.Mob;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.SoundType;
+import net.minecraft.world.level.block.state.BlockState;
 
 /**
  * The show a worker puts on as it turns up for work, and as it leaves.
@@ -108,12 +108,12 @@ public final class WorkerEntrance {
 	 * roof. Light says whether the spot is out of doors; only collision says whether there is a
 	 * shaft to fall down.
 	 */
-	public static Style styleFor(World world, BlockPos post) {
-		if (world.isSkyVisibleAllowingSea(post) && isDropClear(world, post)) {
+	public static Style styleFor(Level world, BlockPos post) {
+		if (world.canSeeSkyFromBelowWater(post) && isDropClear(world, post)) {
 			return Style.FALL;
 		}
 
-		return world.isAir(post.down()) ? Style.SPARK : Style.DIG;
+		return world.isEmptyBlock(post.below()) ? Style.SPARK : Style.DIG;
 	}
 
 	/**
@@ -128,8 +128,8 @@ public final class WorkerEntrance {
 	 * <p>One block higher than the drop, because the worker is put in with its feet at the top of
 	 * the shaft and its head above that.
 	 */
-	private static boolean isDropClear(World world, BlockPos post) {
-		BlockPos.Mutable cursor = new BlockPos.Mutable();
+	private static boolean isDropClear(Level world, BlockPos post) {
+		BlockPos.MutableBlockPos cursor = new BlockPos.MutableBlockPos();
 
 		for (int above = 1; above <= FALL_HEIGHT + 1; above++) {
 			cursor.set(post.getX(), post.getY() + above, post.getZ());
@@ -177,8 +177,8 @@ public final class WorkerEntrance {
 	}
 
 	/** Driven from the worker's own tick on both sides: the server times it, the client shows it. */
-	public void tick(MobEntity worker) {
-		if (worker.getWorld().isClient()) {
+	public void tick(Mob worker) {
+		if (worker.level().isClientSide()) {
 			climb(worker);
 			return;
 		}
@@ -201,7 +201,7 @@ public final class WorkerEntrance {
 	 *
 	 * @return whether the status was one of ours, so the worker knows whether to keep looking
 	 */
-	public boolean handleStatus(MobEntity worker, byte status) {
+	public boolean handleStatus(Mob worker, byte status) {
 		switch (status) {
 			case SPARK_STATUS, LEAVE_STATUS -> sparkle(worker);
 			case LAND_STATUS -> land(worker);
@@ -214,8 +214,8 @@ public final class WorkerEntrance {
 	}
 
 	/** Sends a worker off in a shower of sparks. Called on the server; the sparks are the clients'. */
-	public static void leave(MobEntity worker) {
-		worker.getWorld().sendEntityStatus(worker, LEAVE_STATUS);
+	public static void leave(Mob worker) {
+		worker.level().broadcastEntityEvent(worker, LEAVE_STATUS);
 		worker.discard();
 	}
 
@@ -224,7 +224,7 @@ public final class WorkerEntrance {
 	 * fall damage is written off every tick rather than caught on landing, because whether a worker
 	 * can be hurt at all is a station setting and this must not depend on how it is set.
 	 */
-	private void fall(MobEntity worker) {
+	private void fall(Mob worker) {
 		worker.fallDistance = 0.0F;
 
 		if (waited < ANNOUNCE_DELAY) {
@@ -233,11 +233,11 @@ public final class WorkerEntrance {
 
 		// Water counts as having arrived. A worker that came down in a pond floats rather than
 		// landing, and would otherwise sit out the whole ceiling with its work suspended.
-		if (!worker.isOnGround() && !worker.isTouchingWater() && waited < FALL_LIMIT) {
+		if (!worker.onGround() && !worker.isInWater() && waited < FALL_LIMIT) {
 			return;
 		}
 
-		worker.getWorld().sendEntityStatus(worker, LAND_STATUS);
+		worker.level().broadcastEntityEvent(worker, LAND_STATUS);
 		arriving = null;
 	}
 
@@ -252,9 +252,9 @@ public final class WorkerEntrance {
 	}
 
 	/** Nothing to do but wait for the burst to go off and for it to have finished going off. */
-	private void spark(MobEntity worker) {
+	private void spark(Mob worker) {
 		if (waited == ANNOUNCE_DELAY) {
-			worker.getWorld().sendEntityStatus(worker, SPARK_STATUS);
+			worker.level().broadcastEntityEvent(worker, SPARK_STATUS);
 		}
 
 		if (waited >= ANNOUNCE_DELAY + SPARK_TICKS) {
@@ -275,7 +275,7 @@ public final class WorkerEntrance {
 	 * worker's height to the moment each update happened to arrive, which lands anywhere within a
 	 * frame and reads as a shudder rather than a climb.
 	 */
-	private void climb(MobEntity worker) {
+	private void climb(Mob worker) {
 		int synced = buried.getAsInt();
 
 		if (!climbing) {
@@ -298,39 +298,39 @@ public final class WorkerEntrance {
 			return;
 		}
 
-		World world = worker.getWorld();
-		Random random = worker.getRandom();
+		Level world = worker.level();
+		RandomSource random = worker.getRandom();
 		// The worker only looks buried: it stands on the floor throughout, so the block under it is
 		// the one it is supposedly clawing through.
-		BlockState under = world.getBlockState(worker.getBlockPos().down());
-		BlockState spoil = under.isAir() ? Blocks.DIRT.getDefaultState() : under;
+		BlockState under = world.getBlockState(worker.blockPosition().below());
+		BlockState spoil = under.isAir() ? Blocks.DIRT.defaultBlockState() : under;
 		double x = worker.getX();
 		double y = worker.getY();
 		double z = worker.getZ();
 
 		for (int i = 0; i < 4; i++) {
-			world.addParticle(new BlockStateParticleEffect(ParticleTypes.BLOCK, spoil), x, y, z,
+			world.addParticle(new BlockParticleOption(ParticleTypes.BLOCK, spoil), x, y, z,
 					random.nextDouble() * 2.0 - 1.0, random.nextDouble() * 4.0, random.nextDouble() * 2.0 - 1.0);
-			world.addParticle(new BlockStateParticleEffect(ParticleTypes.FALLING_DUST, spoil), x, y, z,
+			world.addParticle(new BlockParticleOption(ParticleTypes.FALLING_DUST, spoil), x, y, z,
 					(random.nextDouble() - 0.5) * 0.5, random.nextDouble() * 0.5, (random.nextDouble() - 0.5) * 0.5);
 		}
 
 		// Every other tick: one scrape per tick for three seconds would be a drill, not digging.
 		if (left % 2 == 0) {
-			world.playSound(x, y, z, BlockSoundGroup.GRAVEL.getHitSound(), SoundCategory.BLOCKS, 0.2F,
+			world.playLocalSound(x, y, z, SoundType.GRAVEL.getHitSound(), SoundSource.BLOCKS, 0.2F,
 					random.nextFloat() + 0.5F, false);
 		}
 	}
 
 	/** The burst that stands in for an entrance, and doubles as the way every worker leaves. */
-	private static void sparkle(MobEntity worker) {
-		World world = worker.getWorld();
-		Random random = worker.getRandom();
+	private static void sparkle(Mob worker) {
+		Level world = worker.level();
+		RandomSource random = worker.getRandom();
 		double x = worker.getX();
-		double y = worker.getBodyY(0.5);
+		double y = worker.getY(0.5);
 		double z = worker.getZ();
 
-		world.playSound(x, y, z, SoundEvents.ITEM_FIRECHARGE_USE, SoundCategory.NEUTRAL, 0.6F, 1.0F, false);
+		world.playLocalSound(x, y, z, SoundEvents.FIRECHARGE_USE, SoundSource.NEUTRAL, 0.6F, 1.0F, false);
 
 		for (int i = 0; i < SPARK_COUNT; i++) {
 			world.addParticle(ParticleTypes.FIREWORK, x, y, z,
@@ -342,14 +342,14 @@ public final class WorkerEntrance {
 	}
 
 	/** The thump at the end of a drop, kicking up dust around the worker's boots. */
-	private static void land(MobEntity worker) {
-		World world = worker.getWorld();
-		Random random = worker.getRandom();
+	private static void land(Mob worker) {
+		Level world = worker.level();
+		RandomSource random = worker.getRandom();
 		double x = worker.getX();
 		double y = worker.getY();
 		double z = worker.getZ();
 
-		world.playSound(x, y, z, SoundEvents.ENTITY_GENERIC_BIG_FALL, SoundCategory.NEUTRAL, 0.6F, 1.0F, false);
+		world.playLocalSound(x, y, z, SoundEvents.GENERIC_BIG_FALL, SoundSource.NEUTRAL, 0.6F, 1.0F, false);
 
 		for (int i = 0; i < LANDING_PUFF; i++) {
 			world.addParticle(ParticleTypes.CLOUD, x, y, z,

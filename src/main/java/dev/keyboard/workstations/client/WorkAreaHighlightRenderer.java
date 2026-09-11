@@ -1,84 +1,76 @@
 package dev.keyboard.workstations.client;
 
+import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.blaze3d.vertex.VertexConsumer;
 import dev.keyboard.workstations.block.WorkStationBlockEntity;
 import dev.keyboard.workstations.work.WorkArea;
-import net.minecraft.client.render.RenderLayer;
-import net.minecraft.client.render.VertexConsumer;
-import net.minecraft.client.render.VertexConsumerProvider;
-import net.minecraft.client.render.block.entity.BlockEntityRenderer;
-import net.minecraft.client.render.block.entity.BlockEntityRendererFactory;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Box;
-import net.minecraft.util.math.MathHelper;
+import net.minecraft.client.renderer.SubmitNodeCollector;
+import net.minecraft.client.renderer.blockentity.state.BlockEntityRenderState;
+import net.minecraft.client.renderer.rendertype.RenderTypes;
+import net.minecraft.core.BlockPos;
+import net.minecraft.util.Mth;
+import net.minecraft.world.phys.AABB;
 import org.joml.Matrix4f;
 
 /**
  * Draws a worker's work area for debugging: a wireframe box for the whole volume plus a
  * translucent slab at the station's own level, which is the part you actually want to line up
  * with your fences.
- *
- * <p>Generic over the kind of station, since every station has an area and none of the drawing
- * cares what the work inside it is.
  */
-public class WorkAreaHighlightRenderer<T extends WorkStationBlockEntity<?, ?>> implements BlockEntityRenderer<T> {
+final class WorkAreaHighlightRenderer {
 	private static final float FLOOR_OFFSET = 0.02F;
 	private static final float FILL_ALPHA = 0.10F;
 	private static final float LINE_ALPHA = 0.8F;
 
-	public WorkAreaHighlightRenderer(BlockEntityRendererFactory.Context context) {
+	private WorkAreaHighlightRenderer() {
 	}
 
-	@Override
-	public boolean rendersOutsideBoundingBox(T blockEntity) {
-		return true;
-	}
-
-	@Override
-	public int getRenderDistance() {
-		return 192;
-	}
-
-	@Override
-	public void render(T blockEntity, float tickDelta, MatrixStack matrices,
-			VertexConsumerProvider vertexConsumers, int light, int overlay) {
+	static void extract(WorkStationBlockEntity<?, ?> station, HighlightRenderState state) {
 		if (!HighlightState.shouldRender()) {
+			state.visible = false;
 			return;
 		}
 
-		WorkArea area = blockEntity.getWorkArea();
-		BlockPos origin = blockEntity.getPos();
-		Box box = area.getBox();
+		WorkArea area = station.getWorkArea();
+		BlockPos origin = station.getBlockPos();
+		AABB box = area.getBox();
 
-		// The block entity is drawn at its own position, so everything shifts into local space.
-		float minX = (float) (box.minX - origin.getX());
-		float minY = (float) (box.minY - origin.getY());
-		float minZ = (float) (box.minZ - origin.getZ());
-		float maxX = (float) (box.maxX - origin.getX());
-		float maxY = (float) (box.maxY - origin.getY());
-		float maxZ = (float) (box.maxZ - origin.getZ());
-
-		renderFloor(matrices, vertexConsumers, minX, minZ, maxX, maxZ);
-
-		VertexConsumer lines = vertexConsumers.getBuffer(RenderLayer.getLines());
-		MatrixStack.Entry entry = matrices.peek();
-		box(lines, entry, minX, minY, minZ, maxX, maxY, maxZ, 0.3F, 0.85F, 0.95F);
-		// The station itself, so the anchor is easy to spot from across the area.
-		box(lines, entry, 0.0F, 0.0F, 0.0F, 1.0F, 1.0F, 1.0F, 1.0F, 0.85F, 0.25F);
+		state.visible = true;
+		state.minX = (float) (box.minX - origin.getX());
+		state.minY = (float) (box.minY - origin.getY());
+		state.minZ = (float) (box.minZ - origin.getZ());
+		state.maxX = (float) (box.maxX - origin.getX());
+		state.maxY = (float) (box.maxY - origin.getY());
+		state.maxZ = (float) (box.maxZ - origin.getZ());
 	}
 
-	private void renderFloor(MatrixStack matrices, VertexConsumerProvider vertexConsumers,
-			float minX, float minZ, float maxX, float maxZ) {
-		VertexConsumer buffer = vertexConsumers.getBuffer(RenderLayer.getDebugQuads());
-		Matrix4f matrix = matrices.peek().getPositionMatrix();
+	static void submit(HighlightRenderState state, PoseStack matrices, SubmitNodeCollector collector) {
+		if (!state.visible) {
+			return;
+		}
 
-		buffer.vertex(matrix, minX, FLOOR_OFFSET, minZ).color(0.3F, 0.85F, 0.95F, FILL_ALPHA);
-		buffer.vertex(matrix, minX, FLOOR_OFFSET, maxZ).color(0.3F, 0.85F, 0.95F, FILL_ALPHA);
-		buffer.vertex(matrix, maxX, FLOOR_OFFSET, maxZ).color(0.3F, 0.85F, 0.95F, FILL_ALPHA);
-		buffer.vertex(matrix, maxX, FLOOR_OFFSET, minZ).color(0.3F, 0.85F, 0.95F, FILL_ALPHA);
+		float minX = state.minX;
+		float minY = state.minY;
+		float minZ = state.minZ;
+		float maxX = state.maxX;
+		float maxY = state.maxY;
+		float maxZ = state.maxZ;
+
+		collector.submitCustomGeometry(matrices, RenderTypes.debugQuads(), (pose, buffer) -> {
+			Matrix4f matrix = pose.pose();
+			buffer.addVertex(matrix, minX, FLOOR_OFFSET, minZ).setColor(0.3F, 0.85F, 0.95F, FILL_ALPHA);
+			buffer.addVertex(matrix, minX, FLOOR_OFFSET, maxZ).setColor(0.3F, 0.85F, 0.95F, FILL_ALPHA);
+			buffer.addVertex(matrix, maxX, FLOOR_OFFSET, maxZ).setColor(0.3F, 0.85F, 0.95F, FILL_ALPHA);
+			buffer.addVertex(matrix, maxX, FLOOR_OFFSET, minZ).setColor(0.3F, 0.85F, 0.95F, FILL_ALPHA);
+		});
+
+		collector.submitCustomGeometry(matrices, RenderTypes.lines(), (pose, buffer) -> {
+			box(buffer, pose, minX, minY, minZ, maxX, maxY, maxZ, 0.3F, 0.85F, 0.95F);
+			box(buffer, pose, 0.0F, 0.0F, 0.0F, 1.0F, 1.0F, 1.0F, 1.0F, 0.85F, 0.25F);
+		});
 	}
 
-	private void box(VertexConsumer buffer, MatrixStack.Entry entry, float minX, float minY, float minZ,
+	private static void box(VertexConsumer buffer, PoseStack.Pose entry, float minX, float minY, float minZ,
 			float maxX, float maxY, float maxZ, float red, float green, float blue) {
 		line(buffer, entry, minX, minY, minZ, maxX, minY, minZ, red, green, blue);
 		line(buffer, entry, maxX, minY, minZ, maxX, minY, maxZ, red, green, blue);
@@ -96,12 +88,12 @@ public class WorkAreaHighlightRenderer<T extends WorkStationBlockEntity<?, ?>> i
 		line(buffer, entry, minX, minY, maxZ, minX, maxY, maxZ, red, green, blue);
 	}
 
-	private void line(VertexConsumer buffer, MatrixStack.Entry entry, float x1, float y1, float z1,
+	private static void line(VertexConsumer buffer, PoseStack.Pose entry, float x1, float y1, float z1,
 			float x2, float y2, float z2, float red, float green, float blue) {
 		float dx = x2 - x1;
 		float dy = y2 - y1;
 		float dz = z2 - z1;
-		float length = MathHelper.sqrt(dx * dx + dy * dy + dz * dz);
+		float length = Mth.sqrt(dx * dx + dy * dy + dz * dz);
 
 		if (length == 0.0F) {
 			return;
@@ -111,7 +103,19 @@ public class WorkAreaHighlightRenderer<T extends WorkStationBlockEntity<?, ?>> i
 		dy /= length;
 		dz /= length;
 
-		buffer.vertex(entry, x1, y1, z1).color(red, green, blue, LINE_ALPHA).normal(entry, dx, dy, dz);
-		buffer.vertex(entry, x2, y2, z2).color(red, green, blue, LINE_ALPHA).normal(entry, dx, dy, dz);
+		buffer.addVertex(entry, x1, y1, z1).setColor(red, green, blue, LINE_ALPHA)
+				.setNormal(entry, dx, dy, dz).setLineWidth(2.0F);
+		buffer.addVertex(entry, x2, y2, z2).setColor(red, green, blue, LINE_ALPHA)
+				.setNormal(entry, dx, dy, dz).setLineWidth(2.0F);
+	}
+
+	static class HighlightRenderState extends BlockEntityRenderState {
+		boolean visible;
+		float minX;
+		float minY;
+		float minZ;
+		float maxX;
+		float maxY;
+		float maxZ;
 	}
 }

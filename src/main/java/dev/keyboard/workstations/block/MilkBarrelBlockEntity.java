@@ -1,12 +1,12 @@
 package dev.keyboard.workstations.block;
 
 import dev.keyboard.workstations.WorkstationsMod;
-import net.minecraft.block.BlockState;
-import net.minecraft.block.entity.BlockEntity;
-import net.minecraft.nbt.NbtCompound;
-import net.minecraft.registry.RegistryWrapper;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.MathHelper;
+import net.minecraft.core.BlockPos;
+import net.minecraft.util.Mth;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.storage.ValueInput;
+import net.minecraft.world.level.storage.ValueOutput;
 
 /**
  * The milk a barrel is holding, in buckets.
@@ -63,25 +63,25 @@ public class MilkBarrelBlockEntity extends BlockEntity {
 	}
 
 	private void set(int amount) {
-		stored = MathHelper.clamp(amount, 0, CAPACITY);
-		markDirty();
+		stored = Mth.clamp(amount, 0, CAPACITY);
+		setChanged();
 
-		if (world != null) {
+		if (level != null) {
 			// Both of these read the new amount, so neither can be folded into markDirty.
-			MilkBarrelBlock.showLevel(world, pos, getCachedState(), stored);
-			world.updateComparators(pos, getCachedState().getBlock());
+			MilkBarrelBlock.showLevel(level, worldPosition, getBlockState(), stored);
+			level.updateNeighbourForOutputSignal(worldPosition, getBlockState().getBlock());
 		}
 	}
 
 	@Override
-	protected void readNbt(NbtCompound nbt, RegistryWrapper.WrapperLookup registryLookup) {
-		super.readNbt(nbt, registryLookup);
-		stored = MathHelper.clamp(nbt.getInt(MILK_KEY), 0, CAPACITY);
+	protected void loadAdditional(ValueInput input) {
+		super.loadAdditional(input);
+		stored = Mth.clamp(input.getIntOr(MILK_KEY, 0), 0, CAPACITY);
 	}
 
 	@Override
-	protected void writeNbt(NbtCompound nbt, RegistryWrapper.WrapperLookup registryLookup) {
-		super.writeNbt(nbt, registryLookup);
-		nbt.putInt(MILK_KEY, stored);
+	protected void saveAdditional(ValueOutput output) {
+		super.saveAdditional(output);
+		output.putInt(MILK_KEY, stored);
 	}
 }

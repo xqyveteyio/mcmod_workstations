@@ -1,0 +1,6 @@
+{
+	"model": {
+		"type": "minecraft:model",
+		"model": "keyboard_workstations:block/farm_station"
+	}
+}

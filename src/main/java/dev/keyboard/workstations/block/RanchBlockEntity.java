@@ -5,18 +5,16 @@ import dev.keyboard.workstations.entity.RancherEntity;
 import dev.keyboard.workstations.work.AreaContainers;
 import dev.keyboard.workstations.work.StationSettings;
 import dev.keyboard.workstations.work.WorkArea;
-import net.minecraft.block.BlockState;
-import net.minecraft.entity.EntityType;
-import net.minecraft.inventory.Inventory;
-import net.minecraft.nbt.NbtCompound;
-import net.minecraft.nbt.NbtElement;
-import net.minecraft.registry.RegistryWrapper;
-import net.minecraft.text.Text;
-import net.minecraft.util.math.BlockPos;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.List;
+import net.minecraft.core.BlockPos;
+import net.minecraft.network.chat.Component;
+import net.minecraft.world.Container;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.storage.ValueInput;
 
 /**
  * The ranch station: storage for feed going in and produce coming out, plus the owner of one
@@ -48,7 +46,7 @@ public class RanchBlockEntity extends WorkStationBlockEntity<RancherEntity, Stat
 	 */
 	@Nullable
 	public MilkBarrelBlockEntity milkBarrel() {
-		for (MilkBarrelBlockEntity barrel : barrels.in(world, getWorkArea())) {
+		for (MilkBarrelBlockEntity barrel : barrels.in(level, getWorkArea())) {
 			if (!barrel.isFull()) {
 				return barrel;
 			}
@@ -63,8 +61,8 @@ public class RanchBlockEntity extends WorkStationBlockEntity<RancherEntity, Stat
 	 * <p>Separate from {@link #feedStores()} because the box is where feed is meant to live
 	 * and the station is only what catches what was left on its shelves by hand.
 	 */
-	public List<Inventory> feedBoxes() {
-		return List.copyOf(feedBarrels.in(world, getWorkArea()));
+	public List<Container> feedBoxes() {
+		return List.copyOf(feedBarrels.in(level, getWorkArea()));
 	}
 
 	/**
@@ -75,8 +73,8 @@ public class RanchBlockEntity extends WorkStationBlockEntity<RancherEntity, Stat
 	 * absent so feed left on its shelves by hand is still used, and with no box in the area
 	 * the station is the only store there is and everything works as it did before boxes existed.
 	 */
-	public List<Inventory> feedStores() {
-		List<Inventory> stores = new ArrayList<>(feedBoxes());
+	public List<Container> feedStores() {
+		List<Container> stores = new ArrayList<>(feedBoxes());
 		stores.add(this);
 		return stores;
 	}
@@ -88,7 +86,7 @@ public class RanchBlockEntity extends WorkStationBlockEntity<RancherEntity, Stat
 
 	@Override
 	public WorkArea getWorkArea() {
-		return WorkArea.of(pos, getCachedState().get(RanchBlock.FACING),
+		return WorkArea.of(worldPosition, getBlockState().getValue(RanchBlock.FACING),
 				settings.workAlong, settings.workAcross, settings.workAbove, settings.workBelow);
 	}
 
@@ -108,24 +106,26 @@ public class RanchBlockEntity extends WorkStationBlockEntity<RancherEntity, Stat
 	}
 
 	@Override
-	protected Text getContainerName() {
-		return Text.translatable("container.keyboard_workstations.ranch_station");
+	protected Component getDefaultName() {
+		return Component.translatable("container.keyboard_workstations.ranch_station");
 	}
 
 	@Override
-	protected void readNbt(NbtCompound nbt, RegistryWrapper.WrapperLookup registryLookup) {
-		super.readNbt(nbt, registryLookup);
+	protected void loadAdditional(ValueInput input) {
+		super.loadAdditional(input);
 
 		// Stations saved before settings were per block only recorded the area size. Checked only
 		// when there are no settings to read, so a station that has both because someone merged the
 		// old keys back in is not dragged back to them.
-		if (!nbt.contains(SETTINGS_KEY, NbtElement.COMPOUND_TYPE)
-				&& nbt.contains(LEGACY_RADIUS_KEY, NbtElement.INT_TYPE)) {
-			settings.workAlong = nbt.getInt(LEGACY_RADIUS_KEY);
-			settings.workAcross = nbt.getInt(LEGACY_RADIUS_KEY);
-			settings.workAbove = nbt.getInt(LEGACY_HEIGHT_KEY);
-			settings.workBelow = nbt.getInt(LEGACY_HEIGHT_KEY);
-			settings.clamp();
+		if (input.child(SETTINGS_KEY).isEmpty()) {
+			input.getInt(LEGACY_RADIUS_KEY).ifPresent(radius -> {
+				settings.workAlong = radius;
+				settings.workAcross = radius;
+				int height = input.getIntOr(LEGACY_HEIGHT_KEY, radius);
+				settings.workAbove = height;
+				settings.workBelow = height;
+				settings.clamp();
+			});
 		}
 	}
 }

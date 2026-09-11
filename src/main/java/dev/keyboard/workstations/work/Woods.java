@@ -1,21 +1,5 @@
 package dev.keyboard.workstations.work;
 
-import net.minecraft.block.BlockState;
-import net.minecraft.block.Blocks;
-import net.minecraft.block.SaplingBlock;
-import net.minecraft.block.SaplingGenerator;
-import net.minecraft.inventory.Inventory;
-import net.minecraft.item.BlockItem;
-import net.minecraft.item.Item;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
-import net.minecraft.registry.Registries;
-import net.minecraft.registry.tag.BlockTags;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Direction;
-import net.minecraft.util.math.random.Random;
-import net.minecraft.world.WorldView;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayDeque;
@@ -26,6 +10,22 @@ import java.util.List;
 import java.util.Map;
 import java.util.Queue;
 import java.util.Set;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.tags.BlockTags;
+import net.minecraft.util.RandomSource;
+import net.minecraft.world.Container;
+import net.minecraft.world.item.BlockItem;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.level.LevelReader;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.SaplingBlock;
+import net.minecraft.world.level.block.grower.TreeGrower;
+import net.minecraft.world.level.block.state.BlockState;
 
 /**
  * What the lumberjack knows about trees and saplings, kept apart from the AI so "is this a tree,
@@ -90,11 +90,11 @@ public final class Woods {
 	}
 
 	public static boolean isLog(BlockState state) {
-		return state.isIn(BlockTags.LOGS);
+		return state.is(BlockTags.LOGS);
 	}
 
 	public static boolean isLeaves(BlockState state) {
-		return state.isIn(BlockTags.LEAVES) || state.isIn(BlockTags.WART_BLOCKS);
+		return state.is(BlockTags.LEAVES) || state.is(BlockTags.WART_BLOCKS);
 	}
 
 	/**
@@ -102,16 +102,16 @@ public final class Woods {
 	 * already worked, not a trunk that grew there.
 	 */
 	public static boolean isWorked(BlockState state) {
-		return Registries.BLOCK.getId(state.getBlock()).getPath().contains("stripped");
+		return BuiltInRegistries.BLOCK.getKey(state.getBlock()).getPath().contains("stripped");
 	}
 
 	/**
 	 * Whether {@code pos} is a log built into something: planks, stairs, a door, glass. The four
 	 * sides only, so a trunk on a cobble path or a stone floor is still a trunk.
 	 */
-	public static boolean isFramed(WorldView world, BlockPos pos) {
-		for (Direction face : Direction.Type.HORIZONTAL) {
-			if (isJoinery(world.getBlockState(pos.offset(face)))) {
+	public static boolean isFramed(LevelReader world, BlockPos pos) {
+		for (Direction face : Direction.Plane.HORIZONTAL) {
+			if (isJoinery(world.getBlockState(pos.relative(face)))) {
 				return true;
 			}
 		}
@@ -124,19 +124,19 @@ public final class Woods {
 	 * Fences are left out: a trunk in a pen touches those all the time and is still a tree.
 	 */
 	private static boolean isJoinery(BlockState state) {
-		return state.isIn(BlockTags.PLANKS)
-				|| state.isIn(BlockTags.WOODEN_STAIRS)
-				|| state.isIn(BlockTags.WOODEN_SLABS)
-				|| state.isIn(BlockTags.WOODEN_DOORS)
-				|| state.isIn(BlockTags.WOODEN_TRAPDOORS)
-				|| state.isIn(BlockTags.FENCE_GATES)
-				|| state.isIn(BlockTags.WOOL)
-				|| state.isIn(BlockTags.BEDS)
-				|| state.isIn(BlockTags.IMPERMEABLE);
+		return state.is(BlockTags.PLANKS)
+				|| state.is(BlockTags.WOODEN_STAIRS)
+				|| state.is(BlockTags.WOODEN_SLABS)
+				|| state.is(BlockTags.WOODEN_DOORS)
+				|| state.is(BlockTags.WOODEN_TRAPDOORS)
+				|| state.is(BlockTags.FENCE_GATES)
+				|| state.is(BlockTags.WOOL)
+				|| state.is(BlockTags.BEDS)
+				|| state.is(BlockTags.IMPERMEABLE);
 	}
 
 	/** A log that is still part of a tree, not a post or a beam. */
-	public static boolean isTrunkLog(WorldView world, BlockPos pos) {
+	public static boolean isTrunkLog(LevelReader world, BlockPos pos) {
 		BlockState state = world.getBlockState(pos);
 		return isLog(state) && !isWorked(state) && !isFramed(world, pos);
 	}
@@ -147,7 +147,7 @@ public final class Woods {
 	}
 
 	public static boolean isSapling(BlockState state) {
-		return state.isIn(BlockTags.SAPLINGS);
+		return state.is(BlockTags.SAPLINGS);
 	}
 
 	/** Whether a stack is a sapling the lumberjack could put in the ground. */
@@ -186,10 +186,10 @@ public final class Woods {
 			return false;
 		}
 
-		SaplingGenerator generator = sapling.generator;
-		Random roll = Random.create(0L);
-		return generator.getSmallTreeFeature(roll, false) == null
-				&& generator.getSmallTreeFeature(roll, true) == null;
+		TreeGrower generator = sapling.treeGrower;
+		RandomSource roll = RandomSource.create(0L);
+		return generator.getConfiguredFeature(roll, false) == null
+				&& generator.getConfiguredFeature(roll, true) == null;
 	}
 
 	/**
@@ -211,10 +211,10 @@ public final class Woods {
 	 * no square at all.
 	 */
 	@Nullable
-	public static BlockPos squareFrom(WorldView world, BlockPos soil, SaplingBlock sapling, WorkArea area) {
+	public static BlockPos squareFrom(LevelReader world, BlockPos soil, SaplingBlock sapling, WorkArea area) {
 		for (int dx = 1 - SQUARE_SIDE; dx <= 0; dx++) {
 			for (int dz = 1 - SQUARE_SIDE; dz <= 0; dz++) {
-				BlockPos corner = soil.add(dx, 0, dz);
+				BlockPos corner = soil.offset(dx, 0, dz);
 
 				if (squareWorks(world, corner, sapling, area)) {
 					return corner;
@@ -226,7 +226,7 @@ public final class Woods {
 	}
 
 	/** The squares of the block rooted at {@code corner} that are still waiting for a sapling. */
-	public static List<BlockPos> squareGaps(WorldView world, BlockPos corner, SaplingBlock sapling) {
+	public static List<BlockPos> squareGaps(LevelReader world, BlockPos corner, SaplingBlock sapling) {
 		List<BlockPos> gaps = new ArrayList<>();
 
 		for (BlockPos plot : square(corner)) {
@@ -238,7 +238,7 @@ public final class Woods {
 		return gaps;
 	}
 
-	private static boolean squareWorks(WorldView world, BlockPos corner, SaplingBlock sapling, WorkArea area) {
+	private static boolean squareWorks(LevelReader world, BlockPos corner, SaplingBlock sapling, WorkArea area) {
 		boolean gap = false;
 
 		for (BlockPos plot : square(corner)) {
@@ -248,7 +248,7 @@ public final class Woods {
 
 			if (canPlant(world, plot, sapling)) {
 				gap = true;
-			} else if (!world.getBlockState(plot.up()).isOf(sapling)) {
+			} else if (!world.getBlockState(plot.above()).is(sapling)) {
 				return false;
 			}
 		}
@@ -261,7 +261,7 @@ public final class Woods {
 
 		for (int dx = 0; dx < SQUARE_SIDE; dx++) {
 			for (int dz = 0; dz < SQUARE_SIDE; dz++) {
-				plots.add(corner.add(dx, 0, dz));
+				plots.add(corner.offset(dx, 0, dz));
 			}
 		}
 
@@ -269,7 +269,7 @@ public final class Woods {
 	}
 
 	public static boolean isBoneMeal(ItemStack stack) {
-		return stack.isOf(Items.BONE_MEAL);
+		return stack.is(Items.BONE_MEAL);
 	}
 
 	/**
@@ -277,12 +277,12 @@ public final class Woods {
 	 * This is the whole of what the lumberjack is allowed to plant, whether or not it is set to
 	 * spend them.
 	 */
-	public static List<Item> palette(List<Inventory> stores) {
+	public static List<Item> palette(List<Container> stores) {
 		Set<Item> saplings = new LinkedHashSet<>();
 
-		for (Inventory store : stores) {
-			for (int slot = 0; slot < store.size(); slot++) {
-				ItemStack stack = store.getStack(slot);
+		for (Container store : stores) {
+			for (int slot = 0; slot < store.getContainerSize(); slot++) {
+				ItemStack stack = store.getItem(slot);
 
 				if (isSapling(stack)) {
 					saplings.add(stack.getItem());
@@ -303,19 +303,19 @@ public final class Woods {
 	 * @param includeLeaves whether to walk the canopy. Off leaves the list empty, which is a
 	 * tree the lumberjack will fell for its logs and otherwise leave standing to decay.
 	 */
-	public static Tree gather(ServerWorld world, BlockPos start, boolean includeLeaves) {
+	public static Tree gather(ServerLevel world, BlockPos start, boolean includeLeaves) {
 		List<BlockPos> logs = new ArrayList<>();
 		Set<BlockPos> seen = new LinkedHashSet<>();
 		Queue<BlockPos> queue = new ArrayDeque<>();
-		queue.add(start.toImmutable());
-		seen.add(start.toImmutable());
+		queue.add(start.immutable());
+		seen.add(start.immutable());
 
-		BlockPos.Mutable cursor = new BlockPos.Mutable();
+		BlockPos.MutableBlockPos cursor = new BlockPos.MutableBlockPos();
 
 		while (!queue.isEmpty() && logs.size() < MAX_LOGS) {
 			BlockPos current = queue.poll();
 
-			if (!world.isChunkLoaded(current.getX() >> 4, current.getZ() >> 4)) {
+			if (!world.hasChunk(current.getX() >> 4, current.getZ() >> 4)) {
 				continue;
 			}
 
@@ -337,7 +337,7 @@ public final class Woods {
 						}
 
 						cursor.set(current.getX() + dx, current.getY() + dy, current.getZ() + dz);
-						BlockPos next = cursor.toImmutable();
+						BlockPos next = cursor.immutable();
 
 						if (seen.add(next)) {
 							queue.add(next);
@@ -350,7 +350,7 @@ public final class Woods {
 		if (logs.isEmpty()) {
 			// The starting block is still spoken for, or a framed post would be asked about on
 			// every look and never marked seen.
-			return new Tree(start.toImmutable(), List.of(start.toImmutable()), List.of(), false);
+			return new Tree(start.immutable(), List.of(start.immutable()), List.of(), false);
 		}
 
 		List<BlockPos> foundLeaves = canopy(world, logs);
@@ -368,15 +368,15 @@ public final class Woods {
 	 * The lowest log, preferring one that is sitting on soil a sapling could use. That is the
 	 * square to walk to and the square to put a sapling back on; a log higher up is a branch.
 	 */
-	private static BlockPos stumpOf(ServerWorld world, List<BlockPos> logs) {
+	private static BlockPos stumpOf(ServerLevel world, List<BlockPos> logs) {
 		BlockPos stump = logs.get(0);
 
 		for (BlockPos log : logs) {
 			boolean lower = log.getY() < stump.getY()
 					|| (log.getY() == stump.getY() && log.asLong() < stump.asLong());
-			boolean betterSoil = canPlantAt(world, log.down()) && !canPlantAt(world, stump.down());
+			boolean betterSoil = canPlantAt(world, log.below()) && !canPlantAt(world, stump.below());
 
-			if (betterSoil || (lower && canPlantAt(world, log.down()) == canPlantAt(world, stump.down()))) {
+			if (betterSoil || (lower && canPlantAt(world, log.below()) == canPlantAt(world, stump.below()))) {
 				stump = log;
 			}
 		}
@@ -388,7 +388,7 @@ public final class Woods {
 	 * Leaves hanging off these logs, walked the way vanilla walks leaf distance: six faces, and
 	 * only as far as a leaf can sit from a log before it would decay on its own.
 	 */
-	private static List<BlockPos> canopy(ServerWorld world, List<BlockPos> logs) {
+	private static List<BlockPos> canopy(ServerLevel world, List<BlockPos> logs) {
 		List<BlockPos> leaves = new ArrayList<>();
 		Set<BlockPos> seen = new LinkedHashSet<>(logs);
 		Queue<LeafStep> queue = new ArrayDeque<>();
@@ -397,7 +397,7 @@ public final class Woods {
 			queue.add(new LeafStep(log, 0));
 		}
 
-		BlockPos.Mutable cursor = new BlockPos.Mutable();
+		BlockPos.MutableBlockPos cursor = new BlockPos.MutableBlockPos();
 
 		while (!queue.isEmpty() && leaves.size() < MAX_LEAVES) {
 			LeafStep step = queue.poll();
@@ -408,9 +408,9 @@ public final class Woods {
 
 			for (Direction face : Direction.values()) {
 				cursor.set(step.pos).move(face);
-				BlockPos next = cursor.toImmutable();
+				BlockPos next = cursor.immutable();
 
-				if (!seen.add(next) || !world.isChunkLoaded(next.getX() >> 4, next.getZ() >> 4)) {
+				if (!seen.add(next) || !world.hasChunk(next.getX() >> 4, next.getZ() >> 4)) {
 					continue;
 				}
 
@@ -444,12 +444,12 @@ public final class Woods {
 	 * @return the square to stand in, or null when the trunk is walled in on all four sides
 	 */
 	@Nullable
-	public static BlockPos standingSpotBeside(WorldView world, BlockPos trunk) {
+	public static BlockPos standingSpotBeside(LevelReader world, BlockPos trunk) {
 		// Level with the stump first, then a step up and a step down, so a tree on a slope or one
 		// whose lowest log is buried is still approached rather than written off.
 		for (int dy : new int[] {0, 1, -1}) {
-			for (Direction face : Direction.Type.HORIZONTAL) {
-				BlockPos candidate = trunk.offset(face).up(dy);
+			for (Direction face : Direction.Plane.HORIZONTAL) {
+				BlockPos candidate = trunk.relative(face).above(dy);
 
 				if (canStandIn(world, candidate)) {
 					return candidate;
@@ -461,10 +461,10 @@ public final class Woods {
 	}
 
 	/** Room for a worker's feet and head, on ground that will hold it up. */
-	private static boolean canStandIn(WorldView world, BlockPos pos) {
+	private static boolean canStandIn(LevelReader world, BlockPos pos) {
 		return world.getBlockState(pos).getCollisionShape(world, pos).isEmpty()
-				&& world.getBlockState(pos.up()).getCollisionShape(world, pos.up()).isEmpty()
-				&& !world.getBlockState(pos.down()).getCollisionShape(world, pos.down()).isEmpty();
+				&& world.getBlockState(pos.above()).getCollisionShape(world, pos.above()).isEmpty()
+				&& !world.getBlockState(pos.below()).getCollisionShape(world, pos.below()).isEmpty();
 	}
 
 	/**
@@ -472,19 +472,19 @@ public final class Woods {
 	 * itself would accept. The actual sapling is checked again at planting time, so a modded
 	 * sapling that wants unusual ground is not forced into dirt here.
 	 */
-	public static boolean canPlantAt(WorldView world, BlockPos soil) {
-		BlockPos above = soil.up();
+	public static boolean canPlantAt(LevelReader world, BlockPos soil) {
+		BlockPos above = soil.above();
 		return isPlantingSpace(world, above)
-				&& world.getBaseLightLevel(above, 0) >= MIN_LIGHT
-				&& Blocks.OAK_SAPLING.getDefaultState().canPlaceAt(world, above);
+				&& world.getRawBrightness(above, 0) >= MIN_LIGHT
+				&& Blocks.OAK_SAPLING.defaultBlockState().canSurvive(world, above);
 	}
 
 	/** Whether this particular sapling will survive on {@code soil}. */
-	public static boolean canPlant(WorldView world, BlockPos soil, SaplingBlock sapling) {
-		BlockPos above = soil.up();
+	public static boolean canPlant(LevelReader world, BlockPos soil, SaplingBlock sapling) {
+		BlockPos above = soil.above();
 		return isPlantingSpace(world, above)
-				&& world.getBaseLightLevel(above, 0) >= MIN_LIGHT
-				&& sapling.getDefaultState().canPlaceAt(world, above);
+				&& world.getRawBrightness(above, 0) >= MIN_LIGHT
+				&& sapling.defaultBlockState().canSurvive(world, above);
 	}
 
 	/**
@@ -495,7 +495,7 @@ public final class Woods {
 	 * on bare air made a single tuft the reason a dark oak's square came up one corner short,
 	 * which is a tree refused over something the planting itself removes.
 	 */
-	private static boolean isPlantingSpace(WorldView world, BlockPos pos) {
+	private static boolean isPlantingSpace(LevelReader world, BlockPos pos) {
 		BlockState state = world.getBlockState(pos);
 		return state.isAir() || isSweptAside(state);
 	}
@@ -509,8 +509,8 @@ public final class Woods {
 	 * 3x3 of clear blocks at two heights is enough that an oak or a birch will actually try, and
 	 * it is what stops auto-planting from covering a floor that has a roof three blocks up.
 	 */
-	public static boolean hasRoomToGrow(WorldView world, BlockPos saplingPos) {
-		BlockPos.Mutable cursor = new BlockPos.Mutable();
+	public static boolean hasRoomToGrow(LevelReader world, BlockPos saplingPos) {
+		BlockPos.MutableBlockPos cursor = new BlockPos.MutableBlockPos();
 
 		for (int dy = 1; dy <= GROW_HEIGHT; dy++) {
 			cursor.set(saplingPos.getX(), saplingPos.getY() + dy, saplingPos.getZ());
@@ -563,7 +563,7 @@ public final class Woods {
 	 * water is a sapling washed away the moment it is placed.
 	 */
 	private static boolean isSweptAside(BlockState state) {
-		return state.isReplaceable() && state.getFluidState().isEmpty();
+		return state.canBeReplaced() && state.getFluidState().isEmpty();
 	}
 
 	private record LeafStep(BlockPos pos, int distance) {
@@ -580,9 +580,9 @@ public final class Woods {
 	 */
 	public record Tree(BlockPos stump, List<BlockPos> logs, List<BlockPos> leaves, boolean grown) {
 		/** Whether any of the trunk is still standing, which is what makes the job still worth doing. */
-		public boolean standing(ServerWorld world) {
+		public boolean standing(ServerLevel world) {
 			for (BlockPos log : logs) {
-				if (world.isChunkLoaded(log.getX() >> 4, log.getZ() >> 4) && isLog(world.getBlockState(log))) {
+				if (world.hasChunk(log.getX() >> 4, log.getZ() >> 4) && isLog(world.getBlockState(log))) {
 					return true;
 				}
 			}
@@ -592,7 +592,7 @@ public final class Woods {
 
 		/** Soil the replacement sapling goes on, which is the block under the stump. */
 		public BlockPos soil() {
-			return stump.down();
+			return stump.below();
 		}
 
 		/**

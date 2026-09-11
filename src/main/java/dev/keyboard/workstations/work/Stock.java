@@ -1,12 +1,12 @@
 package dev.keyboard.workstations.work;
 
-import net.minecraft.inventory.Inventory;
-import net.minecraft.item.Item;
-import net.minecraft.item.ItemStack;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
 import java.util.function.Predicate;
+import net.minecraft.world.Container;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
 
 /**
  * Moving items into and out of the inventories a station works with.
@@ -38,14 +38,14 @@ public final class Stock {
 	 * <p>The stores come in the order they are to be drawn down, so a seed box beside the station
 	 * is emptied of a kind before the station's own copies of it are touched.
 	 */
-	public static boolean spend(List<Inventory> stores, Item item) {
-		for (Inventory store : stores) {
-			for (int slot = 0; slot < store.size(); slot++) {
-				ItemStack stack = store.getStack(slot);
+	public static boolean spend(List<Container> stores, Item item) {
+		for (Container store : stores) {
+			for (int slot = 0; slot < store.getContainerSize(); slot++) {
+				ItemStack stack = store.getItem(slot);
 
 				if (!stack.isEmpty() && stack.getItem() == item) {
-					store.removeStack(slot, 1);
-					store.markDirty();
+					store.removeItem(slot, 1);
+					store.setChanged();
 					return true;
 				}
 			}
@@ -55,7 +55,7 @@ public final class Stock {
 	}
 
 	/** Whether any of the stores is holding at least one of {@code item}. */
-	public static boolean holds(List<Inventory> stores, Item item) {
+	public static boolean holds(List<Container> stores, Item item) {
 		return count(stores, item) > 0;
 	}
 
@@ -65,10 +65,10 @@ public final class Stock {
 	 * drawn down first is.
 	 */
 	@Nullable
-	public static Held find(List<Inventory> stores, Predicate<ItemStack> wanted) {
-		for (Inventory store : stores) {
-			for (int slot = 0; slot < store.size(); slot++) {
-				if (wanted.test(store.getStack(slot))) {
+	public static Held find(List<Container> stores, Predicate<ItemStack> wanted) {
+		for (Container store : stores) {
+			for (int slot = 0; slot < store.getContainerSize(); slot++) {
+				if (wanted.test(store.getItem(slot))) {
 					return new Held(store, slot);
 				}
 			}
@@ -78,12 +78,12 @@ public final class Stock {
 	}
 
 	/** How many items across these stores {@code wanted} accepts. */
-	public static int count(List<Inventory> stores, Predicate<ItemStack> wanted) {
+	public static int count(List<Container> stores, Predicate<ItemStack> wanted) {
 		int total = 0;
 
-		for (Inventory store : stores) {
-			for (int slot = 0; slot < store.size(); slot++) {
-				ItemStack stack = store.getStack(slot);
+		for (Container store : stores) {
+			for (int slot = 0; slot < store.getContainerSize(); slot++) {
+				ItemStack stack = store.getItem(slot);
 
 				if (wanted.test(stack)) {
 					total += stack.getCount();
@@ -99,16 +99,16 @@ public final class Stock {
 	 * for could have been in any of several stores. A slot number on its own would be meaningless
 	 * without the store it counts from.
 	 */
-	public record Held(Inventory store, int slot) {
+	public record Held(Container store, int slot) {
 		public ItemStack stack() {
-			return store.getStack(slot);
+			return store.getItem(slot);
 		}
 
 		public ItemStack take(int amount) {
-			ItemStack taken = store.removeStack(slot, amount);
+			ItemStack taken = store.removeItem(slot, amount);
 
 			if (!taken.isEmpty()) {
-				store.markDirty();
+				store.setChanged();
 			}
 
 			return taken;
@@ -116,12 +116,12 @@ public final class Stock {
 	}
 
 	/** How many of {@code item} the stores hold between them. */
-	public static int count(List<Inventory> stores, Item item) {
+	public static int count(List<Container> stores, Item item) {
 		int total = 0;
 
-		for (Inventory store : stores) {
-			for (int slot = 0; slot < store.size(); slot++) {
-				ItemStack stack = store.getStack(slot);
+		for (Container store : stores) {
+			for (int slot = 0; slot < store.getContainerSize(); slot++) {
+				ItemStack stack = store.getItem(slot);
 
 				if (!stack.isEmpty() && stack.getItem() == item) {
 					total += stack.getCount();
@@ -153,7 +153,7 @@ public final class Stock {
 	 * somewhere other than where the harvest is collected, and would in time pack the boxes with
 	 * food that has nothing to do with sowing.
 	 */
-	public static ItemStack stow(Inventory station, List<Inventory> boxes, ItemStack stack) {
+	public static ItemStack stow(Container station, List<Container> boxes, ItemStack stack) {
 		if (belongsInBox(stack)) {
 			int offered = Crops.isEdibleSeed(stack)
 					? Math.min(stack.getCount(), boxRoomFor(boxes, stack))
@@ -170,7 +170,7 @@ public final class Stock {
 					if (stack.isEmpty()) {
 						stack = refused;
 					} else {
-						stack.increment(refused.getCount());
+						stack.grow(refused.getCount());
 					}
 				}
 			}
@@ -185,14 +185,14 @@ public final class Stock {
 	}
 
 	/** How much more of a seed that is also food the boxes should be holding. */
-	private static int boxRoomFor(List<Inventory> boxes, ItemStack stack) {
+	private static int boxRoomFor(List<Container> boxes, ItemStack stack) {
 		int held = 0;
 
-		for (Inventory box : boxes) {
-			for (int slot = 0; slot < box.size(); slot++) {
-				ItemStack existing = box.getStack(slot);
+		for (Container box : boxes) {
+			for (int slot = 0; slot < box.getContainerSize(); slot++) {
+				ItemStack existing = box.getItem(slot);
 
-				if (ItemStack.areItemsAndComponentsEqual(existing, stack)) {
+				if (ItemStack.isSameItemSameComponents(existing, stack)) {
 					held += existing.getCount();
 				}
 			}
@@ -202,8 +202,8 @@ public final class Stock {
 	}
 
 	/** Works down the destinations in order, returning whatever none of them had room for. */
-	public static ItemStack fill(List<Inventory> destinations, ItemStack stack) {
-		for (Inventory destination : destinations) {
+	public static ItemStack fill(List<Container> destinations, ItemStack stack) {
+		for (Container destination : destinations) {
 			if (stack.isEmpty()) {
 				break;
 			}
@@ -212,7 +212,7 @@ public final class Stock {
 			stack = insert(destination, stack);
 
 			if (stack.getCount() != before) {
-				destination.markDirty();
+				destination.setChanged();
 			}
 		}
 
@@ -220,26 +220,26 @@ public final class Stock {
 	}
 
 	/** Moves what fits into {@code target}, mutating and returning the leftover. */
-	public static ItemStack insert(Inventory target, ItemStack stack) {
-		for (int slot = 0; slot < target.size() && !stack.isEmpty(); slot++) {
-			ItemStack existing = target.getStack(slot);
+	public static ItemStack insert(Container target, ItemStack stack) {
+		for (int slot = 0; slot < target.getContainerSize() && !stack.isEmpty(); slot++) {
+			ItemStack existing = target.getItem(slot);
 
 			if (existing.isEmpty()) {
-				target.setStack(slot, stack.copy());
+				target.setItem(slot, stack.copy());
 				stack.setCount(0);
 				break;
 			}
 
-			if (!ItemStack.areItemsAndComponentsEqual(existing, stack)) {
+			if (!ItemStack.isSameItemSameComponents(existing, stack)) {
 				continue;
 			}
 
-			int room = Math.min(existing.getMaxCount(), target.getMaxCountPerStack()) - existing.getCount();
+			int room = Math.min(existing.getMaxStackSize(), target.getMaxStackSize()) - existing.getCount();
 			int moved = Math.min(room, stack.getCount());
 
 			if (moved > 0) {
-				existing.increment(moved);
-				stack.decrement(moved);
+				existing.grow(moved);
+				stack.shrink(moved);
 			}
 		}
 

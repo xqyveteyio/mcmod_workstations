@@ -1,15 +1,15 @@
 package dev.keyboard.workstations.work;
 
-import net.minecraft.item.Item;
-import net.minecraft.nbt.NbtCompound;
-import net.minecraft.nbt.NbtElement;
-import net.minecraft.nbt.NbtList;
-import net.minecraft.registry.Registries;
-import net.minecraft.util.Identifier;
-
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.ListTag;
+import net.minecraft.resources.Identifier;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.level.storage.ValueInput;
+import net.minecraft.world.level.storage.ValueOutput;
 
 /**
  * What a planting station has put in the ground, so its mix can keep to the ratios it was given.
@@ -51,12 +51,12 @@ public final class SeedStock {
 		return true;
 	}
 
-	public void writeNbt(NbtCompound nbt) {
-		NbtList tally = new NbtList();
+	public void writeNbt(CompoundTag nbt) {
+		ListTag tally = new ListTag();
 
 		for (Map.Entry<Item, Integer> entry : planted.entrySet()) {
-			NbtCompound row = new NbtCompound();
-			row.putString(SEED_KEY, Registries.ITEM.getId(entry.getKey()).toString());
+			CompoundTag row = new CompoundTag();
+			row.putString(SEED_KEY, BuiltInRegistries.ITEM.getKey(entry.getKey()).toString());
 			row.putInt(COUNT_KEY, entry.getValue());
 			tally.add(row);
 		}
@@ -64,16 +64,39 @@ public final class SeedStock {
 		nbt.put(PLANTED_KEY, tally);
 	}
 
-	public void readNbt(NbtCompound nbt) {
+	public void save(ValueOutput output) {
+		var tally = output.list(PLANTED_KEY, CompoundTag.CODEC);
+
+		for (Map.Entry<Item, Integer> entry : planted.entrySet()) {
+			CompoundTag row = new CompoundTag();
+			row.putString(SEED_KEY, BuiltInRegistries.ITEM.getKey(entry.getKey()).toString());
+			row.putInt(COUNT_KEY, entry.getValue());
+			tally.add(row);
+		}
+	}
+
+	public void load(ValueInput input) {
 		planted.clear();
-		NbtList tally = nbt.getList(PLANTED_KEY, NbtElement.COMPOUND_TYPE);
+
+		for (CompoundTag row : input.listOrEmpty(PLANTED_KEY, CompoundTag.CODEC)) {
+			Identifier id = Identifier.tryParse(row.getStringOr(SEED_KEY, ""));
+
+			if (id != null && BuiltInRegistries.ITEM.containsKey(id)) {
+				planted.put(BuiltInRegistries.ITEM.getValue(id), row.getIntOr(COUNT_KEY, 0));
+			}
+		}
+	}
+
+	public void readNbt(CompoundTag nbt) {
+		planted.clear();
+		ListTag tally = nbt.getListOrEmpty(PLANTED_KEY);
 
 		for (int index = 0; index < tally.size(); index++) {
-			NbtCompound row = tally.getCompound(index);
-			Identifier id = Identifier.tryParse(row.getString(SEED_KEY));
+			CompoundTag row = tally.getCompoundOrEmpty(index);
+			Identifier id = Identifier.tryParse(row.getStringOr(SEED_KEY, ""));
 
-			if (id != null && Registries.ITEM.containsId(id)) {
-				planted.put(Registries.ITEM.get(id), row.getInt(COUNT_KEY));
+			if (id != null && BuiltInRegistries.ITEM.containsKey(id)) {
+				planted.put(BuiltInRegistries.ITEM.getValue(id), row.getIntOr(COUNT_KEY, 0));
 			}
 		}
 	}

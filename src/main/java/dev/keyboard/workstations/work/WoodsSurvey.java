@@ -1,8 +1,5 @@
 package dev.keyboard.workstations.work;
 
-import net.minecraft.block.BlockState;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.util.math.BlockPos;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
@@ -11,6 +8,9 @@ import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import net.minecraft.core.BlockPos;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.level.block.state.BlockState;
 
 /**
  * One look at the wood a lumber station is working: the trees still standing, the saplings
@@ -43,13 +43,13 @@ public final class WoodsSurvey {
 	private WoodsSurvey() {
 	}
 
-	public static WoodsSurvey of(ServerWorld world, WorkArea area, Collection<BlockPos> stumps,
+	public static WoodsSurvey of(ServerLevel world, WorkArea area, Collection<BlockPos> stumps,
 			boolean autoPlant, boolean breakLeaves) {
 		WoodsSurvey survey = new WoodsSurvey();
 		Set<BlockPos> claimed = new HashSet<>();
 
 		List<BlockPos> logs = Pickings.find(world, area, Woods::isLog);
-		logs.sort(Comparator.comparingDouble(log -> log.getSquaredDistance(area.getCenter())));
+		logs.sort(Comparator.comparingDouble(log -> log.distSqr(area.getCenter())));
 
 		for (BlockPos log : logs) {
 			if (survey.trees.size() >= MAX_TREES || claimed.contains(log)) {
@@ -73,7 +73,7 @@ public final class WoodsSurvey {
 		}
 
 		for (BlockPos sapling : survey.saplings) {
-			occupied.add(sapling.down());
+			occupied.add(sapling.below());
 		}
 
 		for (BlockPos stump : stumps) {
@@ -101,8 +101,8 @@ public final class WoodsSurvey {
 	 * replants.
 	 */
 	@Nullable
-	private static BlockPos soilOf(ServerWorld world, BlockPos stump) {
-		if (!world.isChunkLoaded(stump.getX() >> 4, stump.getZ() >> 4)) {
+	private static BlockPos soilOf(ServerLevel world, BlockPos stump) {
+		if (!world.hasChunk(stump.getX() >> 4, stump.getZ() >> 4)) {
 			return null;
 		}
 
@@ -116,24 +116,24 @@ public final class WoodsSurvey {
 			return stump;
 		}
 
-		return Woods.canPlantAt(world, stump.down()) ? stump.down() : null;
+		return Woods.canPlantAt(world, stump.below()) ? stump.below() : null;
 	}
 
-	private void scanOpenGround(ServerWorld world, WorkArea area, Set<BlockPos> occupied) {
+	private void scanOpenGround(ServerLevel world, WorkArea area, Set<BlockPos> occupied) {
 		BlockPos center = area.getCenter();
 		int xRadius = area.getXRadius();
 		int zRadius = area.getZRadius();
 		int above = area.getAbove();
 		int below = area.getBelow();
 		int step = Woods.PLANT_SPACING;
-		BlockPos.Mutable cursor = new BlockPos.Mutable();
+		BlockPos.MutableBlockPos cursor = new BlockPos.MutableBlockPos();
 
 		for (int dx = -xRadius; dx <= xRadius && plantable.size() < MAX_PLANTABLE; dx += step) {
 			for (int dz = -zRadius; dz <= zRadius && plantable.size() < MAX_PLANTABLE; dz += step) {
 				int x = center.getX() + dx;
 				int z = center.getZ() + dz;
 
-				if (!world.isChunkLoaded(x >> 4, z >> 4)) {
+				if (!world.hasChunk(x >> 4, z >> 4)) {
 					continue;
 				}
 
@@ -144,9 +144,9 @@ public final class WoodsSurvey {
 						continue;
 					}
 
-					BlockPos soil = cursor.toImmutable();
+					BlockPos soil = cursor.immutable();
 
-					if (acceptPlanting(soil, occupied, true) && Woods.hasRoomToGrow(world, soil.up())) {
+					if (acceptPlanting(soil, occupied, true) && Woods.hasRoomToGrow(world, soil.above())) {
 						plantable.add(soil);
 						occupied.add(soil);
 						break;

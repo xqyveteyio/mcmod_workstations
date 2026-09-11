@@ -12,19 +12,19 @@ import dev.keyboard.workstations.work.StationSettings;
 import dev.keyboard.workstations.work.Woods;
 import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
-import net.minecraft.block.entity.BlockEntity;
-import net.minecraft.item.Item;
-import net.minecraft.nbt.NbtCompound;
-import net.minecraft.network.RegistryByteBuf;
-import net.minecraft.network.codec.PacketCodec;
-import net.minecraft.network.codec.PacketCodecs;
-import net.minecraft.network.packet.CustomPayload;
-import net.minecraft.registry.Registries;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.text.Text;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.math.BlockPos;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.codec.ByteBufCodecs;
+import net.minecraft.network.codec.StreamCodec;
+import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
+import net.minecraft.resources.Identifier;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.level.block.entity.BlockEntity;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
@@ -53,67 +53,67 @@ public final class StationNetworking {
 	}
 
 	/** Server to client: put the settings screen up for a station. */
-	public record OpenScreenPayload(BlockPos pos, List<Identifier> palette) implements CustomPayload {
-		public static final Id<OpenScreenPayload> ID = new Id<>(WorkstationsMod.id("open_screen"));
-		public static final PacketCodec<RegistryByteBuf, OpenScreenPayload> CODEC = PacketCodec.tuple(
-				BlockPos.PACKET_CODEC, OpenScreenPayload::pos,
-				Identifier.PACKET_CODEC.collect(PacketCodecs.toList()), OpenScreenPayload::palette,
+	public record OpenScreenPayload(BlockPos pos, List<Identifier> palette) implements CustomPacketPayload {
+		public static final Type<OpenScreenPayload> ID = new Type<>(WorkstationsMod.id("open_screen"));
+		public static final StreamCodec<RegistryFriendlyByteBuf, OpenScreenPayload> CODEC = StreamCodec.composite(
+				BlockPos.STREAM_CODEC, OpenScreenPayload::pos,
+				Identifier.STREAM_CODEC.apply(ByteBufCodecs.list()), OpenScreenPayload::palette,
 				OpenScreenPayload::new);
 
 		@Override
-		public Id<? extends CustomPayload> getId() {
+		public Type<? extends CustomPacketPayload> type() {
 			return ID;
 		}
 	}
 
 	/** Client to server: store what the screen was left showing. */
-	public record SaveSettingsPayload(BlockPos pos, NbtCompound nbt) implements CustomPayload {
-		public static final Id<SaveSettingsPayload> ID = new Id<>(WorkstationsMod.id("save_settings"));
-		public static final PacketCodec<RegistryByteBuf, SaveSettingsPayload> CODEC = PacketCodec.tuple(
-				BlockPos.PACKET_CODEC, SaveSettingsPayload::pos,
-				PacketCodecs.UNLIMITED_NBT_COMPOUND, SaveSettingsPayload::nbt,
+	public record SaveSettingsPayload(BlockPos pos, CompoundTag nbt) implements CustomPacketPayload {
+		public static final Type<SaveSettingsPayload> ID = new Type<>(WorkstationsMod.id("save_settings"));
+		public static final StreamCodec<RegistryFriendlyByteBuf, SaveSettingsPayload> CODEC = StreamCodec.composite(
+				BlockPos.STREAM_CODEC, SaveSettingsPayload::pos,
+				ByteBufCodecs.TRUSTED_COMPOUND_TAG, SaveSettingsPayload::nbt,
 				SaveSettingsPayload::new);
 
 		@Override
-		public Id<? extends CustomPayload> getId() {
+		public Type<? extends CustomPacketPayload> type() {
 			return ID;
 		}
 	}
 
 	/** Client to server: call the worker home, hiring a replacement if there is none. */
-	public record RecallWorkerPayload(BlockPos pos) implements CustomPayload {
-		public static final Id<RecallWorkerPayload> ID = new Id<>(WorkstationsMod.id("recall_worker"));
-		public static final PacketCodec<RegistryByteBuf, RecallWorkerPayload> CODEC = PacketCodec.tuple(
-				BlockPos.PACKET_CODEC, RecallWorkerPayload::pos, RecallWorkerPayload::new);
+	public record RecallWorkerPayload(BlockPos pos) implements CustomPacketPayload {
+		public static final Type<RecallWorkerPayload> ID = new Type<>(WorkstationsMod.id("recall_worker"));
+		public static final StreamCodec<RegistryFriendlyByteBuf, RecallWorkerPayload> CODEC = StreamCodec.composite(
+				BlockPos.STREAM_CODEC, RecallWorkerPayload::pos, RecallWorkerPayload::new);
 
 		@Override
-		public Id<? extends CustomPayload> getId() {
+		public Type<? extends CustomPacketPayload> type() {
 			return ID;
 		}
 	}
 
 	/** Client to server: take the field survey again, for a farm built after the block was placed. */
-	public record RescanPlotsPayload(BlockPos pos) implements CustomPayload {
-		public static final Id<RescanPlotsPayload> ID = new Id<>(WorkstationsMod.id("rescan_plots"));
-		public static final PacketCodec<RegistryByteBuf, RescanPlotsPayload> CODEC = PacketCodec.tuple(
-				BlockPos.PACKET_CODEC, RescanPlotsPayload::pos, RescanPlotsPayload::new);
+	public record RescanPlotsPayload(BlockPos pos) implements CustomPacketPayload {
+		public static final Type<RescanPlotsPayload> ID = new Type<>(WorkstationsMod.id("rescan_plots"));
+		public static final StreamCodec<RegistryFriendlyByteBuf, RescanPlotsPayload> CODEC = StreamCodec.composite(
+				BlockPos.STREAM_CODEC, RescanPlotsPayload::pos, RescanPlotsPayload::new);
 
 		@Override
-		public Id<? extends CustomPayload> getId() {
+		public Type<? extends CustomPacketPayload> type() {
 			return ID;
 		}
 	}
 
 	public static void registerServerReceivers() {
-		PayloadTypeRegistry.playS2C().register(OpenScreenPayload.ID, OpenScreenPayload.CODEC);
-		PayloadTypeRegistry.playC2S().register(SaveSettingsPayload.ID, SaveSettingsPayload.CODEC);
-		PayloadTypeRegistry.playC2S().register(RecallWorkerPayload.ID, RecallWorkerPayload.CODEC);
-		PayloadTypeRegistry.playC2S().register(RescanPlotsPayload.ID, RescanPlotsPayload.CODEC);
+		PayloadTypeRegistry.clientboundPlay().register(OpenScreenPayload.ID, OpenScreenPayload.CODEC);
+		PayloadTypeRegistry.serverboundPlay().register(SaveSettingsPayload.ID, SaveSettingsPayload.CODEC);
+		PayloadTypeRegistry.serverboundPlay().register(RecallWorkerPayload.ID, RecallWorkerPayload.CODEC);
+		PayloadTypeRegistry.serverboundPlay().register(RescanPlotsPayload.ID, RescanPlotsPayload.CODEC);
 
 		ServerPlayNetworking.registerGlobalReceiver(SaveSettingsPayload.ID, (payload, context) -> {
-			ServerPlayerEntity player = context.player();
+			ServerPlayer player = context.player();
 			WorkStationBlockEntity<?, ?> station = reachableStation(player, payload.pos());
-			NbtCompound nbt = payload.nbt();
+			CompoundTag nbt = payload.nbt();
 
 			// Which kind of settings the packet holds is decided by the block it names rather
 			// than by anything in the packet, so a mismatched pair cannot be applied at all.
@@ -133,31 +133,31 @@ public final class StationNetworking {
 		});
 
 		ServerPlayNetworking.registerGlobalReceiver(RecallWorkerPayload.ID, (payload, context) -> {
-			ServerPlayerEntity player = context.player();
+			ServerPlayer player = context.player();
 			WorkStationBlockEntity<?, ?> station = reachableStation(player, payload.pos());
 
-			if (station == null || !(player.getWorld() instanceof ServerWorld world)) {
+			if (station == null || !(player.level() instanceof ServerLevel world)) {
 				return;
 			}
 
 			// Over the hotbar rather than in the screen, so the answer survives closing it.
-			player.sendMessage(Text.translatable(switch (station.recallWorker(world)) {
+			player.sendOverlayMessage(Component.translatable(switch (station.recallWorker(world)) {
 				case SUMMONED -> "message.keyboard_workstations.worker_summoned";
 				case MOVED -> "message.keyboard_workstations.worker_recalled";
 				case NO_ROOM -> "message.keyboard_workstations.worker_no_room";
-			}), true);
+			}));
 		});
 
 		ServerPlayNetworking.registerGlobalReceiver(RescanPlotsPayload.ID, (payload, context) -> {
-			ServerPlayerEntity player = context.player();
+			ServerPlayer player = context.player();
 
 			if (!(reachableStation(player, payload.pos()) instanceof FarmBlockEntity farm)
-					|| !(player.getWorld() instanceof ServerWorld world)) {
+					|| !(player.level() instanceof ServerLevel world)) {
 				return;
 			}
 
-			player.sendMessage(Text.translatable("message.keyboard_workstations.plots_registered",
-					farm.registerPlots(world)), true);
+			player.sendOverlayMessage(Component.translatable("message.keyboard_workstations.plots_registered",
+					farm.registerPlots(world)));
 		});
 	}
 
@@ -167,9 +167,9 @@ public final class StationNetworking {
 	 * <p>A farm's seed list rides along, because a station does not send its contents to the client
 	 * and the ratio rows are built from exactly those contents. Ranches send an empty list.
 	 */
-	public static void openScreen(ServerPlayerEntity player, BlockPos pos) {
-		List<Identifier> palette = paletteAt(player.getWorld().getBlockEntity(pos)).stream()
-				.map(Registries.ITEM::getId)
+	public static void openScreen(ServerPlayer player, BlockPos pos) {
+		List<Identifier> palette = paletteAt(player.level().getBlockEntity(pos)).stream()
+				.map(BuiltInRegistries.ITEM::getKey)
 				.toList();
 		ServerPlayNetworking.send(player, new OpenScreenPayload(pos, palette));
 	}
@@ -196,12 +196,12 @@ public final class StationNetworking {
 	 * station up, but only one they could actually be looking at.
 	 */
 	@Nullable
-	private static WorkStationBlockEntity<?, ?> reachableStation(ServerPlayerEntity player, BlockPos pos) {
-		if (player.squaredDistanceTo(pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5) > EDIT_RANGE_SQUARED) {
+	private static WorkStationBlockEntity<?, ?> reachableStation(ServerPlayer player, BlockPos pos) {
+		if (player.distanceToSqr(pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5) > EDIT_RANGE_SQUARED) {
 			return null;
 		}
 
-		return player.getWorld().getBlockEntity(pos) instanceof WorkStationBlockEntity<?, ?> station
+		return player.level().getBlockEntity(pos) instanceof WorkStationBlockEntity<?, ?> station
 				? station
 				: null;
 	}

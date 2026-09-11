@@ -1,42 +1,61 @@
 package dev.keyboard.workstations.client;
 
+import com.mojang.blaze3d.vertex.PoseStack;
 import dev.keyboard.workstations.block.RanchBlockEntity;
-import net.minecraft.client.render.VertexConsumerProvider;
-import net.minecraft.client.render.block.entity.BlockEntityRenderer;
-import net.minecraft.client.render.block.entity.BlockEntityRendererFactory;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.world.World;
+import java.util.ArrayList;
+import java.util.List;
+import net.minecraft.client.renderer.SubmitNodeCollector;
+import net.minecraft.client.renderer.blockentity.BlockEntityRenderer;
+import net.minecraft.client.renderer.blockentity.BlockEntityRendererProvider;
+import net.minecraft.client.renderer.blockentity.state.BlockEntityRenderState;
+import net.minecraft.client.renderer.feature.ModelFeatureRenderer;
+import net.minecraft.client.renderer.state.level.CameraRenderState;
+import net.minecraft.world.phys.Vec3;
 
 /**
  * Everything the station draws: the work area highlight, and the miniature pen on the tabletop. The
  * two are one renderer because a block entity type may only have one.
  */
-public class StationBlockEntityRenderer implements BlockEntityRenderer<RanchBlockEntity> {
-	private final WorkAreaHighlightRenderer<RanchBlockEntity> highlight;
-
-	public StationBlockEntityRenderer(BlockEntityRendererFactory.Context context) {
-		this.highlight = new WorkAreaHighlightRenderer<>(context);
+public class StationBlockEntityRenderer
+		implements BlockEntityRenderer<RanchBlockEntity, StationBlockEntityRenderer.State> {
+	public StationBlockEntityRenderer(BlockEntityRendererProvider.Context context) {
 	}
 
 	@Override
-	public boolean rendersOutsideBoundingBox(RanchBlockEntity station) {
+	public State createRenderState() {
+		return new State();
+	}
+
+	@Override
+	public boolean shouldRenderOffScreen() {
 		return true;
 	}
 
 	@Override
-	public int getRenderDistance() {
+	public int getViewDistance() {
 		return 192;
 	}
 
 	@Override
-	public void render(RanchBlockEntity station, float tickDelta, MatrixStack matrices,
-			VertexConsumerProvider vertexConsumers, int light, int overlay) {
-		highlight.render(station, tickDelta, matrices, vertexConsumers, light, overlay);
+	public void extractRenderState(RanchBlockEntity station, State state, float tickDelta, Vec3 camera,
+			ModelFeatureRenderer.CrumblingOverlay breakProgress) {
+		BlockEntityRenderState.extractBase(station, state, breakProgress);
+		WorkAreaHighlightRenderer.extract(station, state);
 
-		World world = station.getWorld();
+		state.animals.clear();
 
-		if (world != null) {
-			TabletopDisplay.render(world, tickDelta, matrices, vertexConsumers, light);
+		if (station.getLevel() != null) {
+			TabletopDisplay.extract(station.getLevel(), tickDelta, state.animals);
 		}
+	}
+
+	@Override
+	public void submit(State state, PoseStack matrices, SubmitNodeCollector collector, CameraRenderState camera) {
+		WorkAreaHighlightRenderer.submit(state, matrices, collector);
+		TabletopDisplay.submit(state.animals, matrices, collector, camera, state.lightCoords);
+	}
+
+	public static class State extends WorkAreaHighlightRenderer.HighlightRenderState {
+		final List<TabletopDisplay.Drawn> animals = new ArrayList<>();
 	}
 }

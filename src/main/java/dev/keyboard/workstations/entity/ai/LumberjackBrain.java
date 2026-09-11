@@ -14,23 +14,6 @@ import it.unimi.dsi.fastutil.longs.Long2LongMap;
 import it.unimi.dsi.fastutil.longs.Long2LongOpenHashMap;
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 import it.unimi.dsi.fastutil.longs.LongSet;
-import net.minecraft.block.SaplingBlock;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.ItemEntity;
-import net.minecraft.entity.ai.pathing.Path;
-import net.minecraft.inventory.SimpleInventory;
-import net.minecraft.item.BoneMealItem;
-import net.minecraft.item.Item;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
-import net.minecraft.registry.Registries;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.sound.SoundCategory;
-import net.minecraft.sound.SoundEvents;
-import net.minecraft.util.Hand;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.world.WorldEvents;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
@@ -38,6 +21,23 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.util.function.UnaryOperator;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.sounds.SoundSource;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.SimpleContainer;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.item.ItemEntity;
+import net.minecraft.world.item.BoneMealItem;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.level.block.LevelEvent;
+import net.minecraft.world.level.block.SaplingBlock;
+import net.minecraft.world.level.pathfinder.Path;
+import net.minecraft.world.phys.Vec3;
 
 /**
  * The lumberjack's whole decision loop, as one explicit state machine driven from
@@ -154,7 +154,7 @@ public class LumberjackBrain {
 	private double closest = Double.MAX_VALUE;
 
 	public void tick(LumberjackEntity lumberjack) {
-		if (!(lumberjack.getWorld() instanceof ServerWorld world)) {
+		if (!(lumberjack.level() instanceof ServerLevel world)) {
 			return;
 		}
 
@@ -170,15 +170,15 @@ public class LumberjackBrain {
 			return;
 		}
 
-		long now = world.getTime();
+		long now = world.getGameTime();
 		blockedPlots.long2LongEntrySet().removeIf(entry -> entry.getLongValue() <= now);
 		blockedDrops.int2LongEntrySet().removeIf(entry -> entry.getLongValue() <= now);
 
-		swimming = lumberjack.isTouchingWater() ? swimming + 1 : 0;
+		swimming = lumberjack.isInWater() ? swimming + 1 : 0;
 
-		if (swimming > SWIM_PATIENCE && lumberjack.getNavigation().isIdle()) {
+		if (swimming > SWIM_PATIENCE && lumberjack.getNavigation().isDone()) {
 			BlockPos post = area.getCenter();
-			lumberjack.getMoveControl().moveTo(post.getX() + 0.5, post.getY(), post.getZ() + 0.5, RETURN_SPEED);
+			lumberjack.getMoveControl().setWantedPosition(post.getX() + 0.5, post.getY(), post.getZ() + 0.5, RETURN_SPEED);
 		}
 
 		if (job != null) {
@@ -230,15 +230,15 @@ public class LumberjackBrain {
 		}
 
 		if (job == Job.PLANT && planting != null) {
-			text.append(' ').append(Registries.ITEM.getId(planting).getPath());
+			text.append(' ').append(BuiltInRegistries.ITEM.getKey(planting).getPath());
 		}
 
 		if (state == State.WALKING) {
 			text.append(String.format(Locale.ROOT, " %.1fm t%d", distanceToTarget(lumberjack), timeout));
-			Path path = lumberjack.getNavigation().getCurrentPath();
+			Path path = lumberjack.getNavigation().getPath();
 			text.append(path == null
 					? " nopath"
-					: String.format(Locale.ROOT, " n%d/%d", path.getCurrentNodeIndex(), path.getLength()));
+					: String.format(Locale.ROOT, " n%d/%d", path.getNextNodeIndex(), path.getNodeCount()));
 		}
 
 		if (swimming > 0) {
@@ -270,7 +270,7 @@ public class LumberjackBrain {
 		return text.toString();
 	}
 
-	private void runJob(LumberjackEntity lumberjack, ServerWorld world, LumberBlockEntity station) {
+	private void runJob(LumberjackEntity lumberjack, ServerLevel world, LumberBlockEntity station) {
 		if (!jobValid(world)) {
 			note = "target gone";
 			clearJob(lumberjack);
@@ -278,9 +278,9 @@ public class LumberjackBrain {
 		}
 
 		if (target != null) {
-			lumberjack.getLookControl().lookAt(target, 30.0F, 30.0F);
+			lumberjack.getLookControl().setLookAt(target, 30.0F, 30.0F);
 		} else if (targetPos != null) {
-			lumberjack.getLookControl().lookAt(Vec3d.ofCenter(targetPos));
+			lumberjack.getLookControl().setLookAt(Vec3.atCenterOf(targetPos));
 		}
 
 		if (actionCooldown > 0) {
@@ -334,7 +334,7 @@ public class LumberjackBrain {
 		}
 	}
 
-	private boolean jobValid(ServerWorld world) {
+	private boolean jobValid(ServerLevel world) {
 		if (job == Job.COLLECT) {
 			return target != null && target.isAlive() && !target.isRemoved();
 		}
@@ -360,7 +360,7 @@ public class LumberjackBrain {
 		};
 	}
 
-	private void perform(LumberjackEntity lumberjack, ServerWorld world, LumberBlockEntity station) {
+	private void perform(LumberjackEntity lumberjack, ServerLevel world, LumberBlockEntity station) {
 		Job current = job;
 
 		if (current == null) {
@@ -411,10 +411,10 @@ public class LumberjackBrain {
 		settling++;
 		BlockPos post = area.getCenter();
 
-		if (lumberjack.squaredDistanceTo(Vec3d.ofCenter(post)) <= POST_REACH_SQUARED) {
+		if (lumberjack.distanceToSqr(Vec3.atCenterOf(post)) <= POST_REACH_SQUARED) {
 			state = State.IDLE;
 
-			if (!lumberjack.getNavigation().isIdle()) {
+			if (!lumberjack.getNavigation().isDone()) {
 				lumberjack.getNavigation().stop();
 			}
 
@@ -424,7 +424,7 @@ public class LumberjackBrain {
 		if (settling < settleTicks(config)) {
 			state = State.WAITING;
 
-			if (!lumberjack.getNavigation().isIdle()) {
+			if (!lumberjack.getNavigation().isDone()) {
 				lumberjack.getNavigation().stop();
 			}
 
@@ -433,9 +433,9 @@ public class LumberjackBrain {
 
 		state = State.RETURNING;
 
-		if (lumberjack.getNavigation().isIdle()
-				&& !WorkerMovement.approach(lumberjack, Vec3d.ofCenter(post), RETURN_SPEED)) {
-			lumberjack.getNavigation().startMovingTo(post.getX() + 0.5, post.getY(), post.getZ() + 0.5, RETURN_SPEED);
+		if (lumberjack.getNavigation().isDone()
+				&& !WorkerMovement.approach(lumberjack, Vec3.atCenterOf(post), RETURN_SPEED)) {
+			lumberjack.getNavigation().moveTo(post.getX() + 0.5, post.getY(), post.getZ() + 0.5, RETURN_SPEED);
 		}
 	}
 
@@ -443,7 +443,7 @@ public class LumberjackBrain {
 		return Math.max(SETTLE_TICKS, config.workIntervalTicks * 2);
 	}
 
-	private boolean chooseJob(LumberjackEntity lumberjack, ServerWorld world, WorkArea area,
+	private boolean chooseJob(LumberjackEntity lumberjack, ServerLevel world, WorkArea area,
 			LumberBlockEntity station) {
 		LumberSettings config = station.getSettings();
 		note = "";
@@ -561,7 +561,7 @@ public class LumberjackBrain {
 		served.clear();
 	}
 
-	private boolean takeJobIn(LumberjackEntity lumberjack, ServerWorld world, WorkArea area,
+	private boolean takeJobIn(LumberjackEntity lumberjack, ServerLevel world, WorkArea area,
 			LumberBlockEntity station, LumberSettings config) {
 		pathPending = false;
 
@@ -577,12 +577,12 @@ public class LumberjackBrain {
 		};
 	}
 
-	private boolean takeChop(LumberjackEntity lumberjack, ServerWorld world, LumberBlockEntity station) {
+	private boolean takeChop(LumberjackEntity lumberjack, ServerLevel world, LumberBlockEntity station) {
 		List<BlockPos> stumps = new ArrayList<>();
 		List<Woods.Tree> trees = survey(world, station).trees();
 
 		for (Woods.Tree tree : trees) {
-			if (blockedPlots.get(tree.stump().asLong()) <= world.getTime()
+			if (blockedPlots.get(tree.stump().asLong()) <= world.getGameTime()
 					&& !served.contains(tree.stump().asLong())) {
 				stumps.add(tree.stump());
 			}
@@ -626,12 +626,12 @@ public class LumberjackBrain {
 	 * tree is walled in, which will not path, but leaves the usual unreachable handling to say so
 	 * rather than inventing a second way of giving up.
 	 */
-	private static BlockPos approachTo(ServerWorld world, BlockPos stump) {
+	private static BlockPos approachTo(ServerLevel world, BlockPos stump) {
 		BlockPos beside = Woods.standingSpotBeside(world, stump);
 		return beside == null ? stump : beside;
 	}
 
-	private boolean takePlant(LumberjackEntity lumberjack, ServerWorld world, LumberBlockEntity station,
+	private boolean takePlant(LumberjackEntity lumberjack, ServerLevel world, LumberBlockEntity station,
 			LumberSettings config) {
 		List<Item> palette = new ArrayList<>(Woods.palette(station.seedStores()));
 
@@ -683,13 +683,13 @@ public class LumberjackBrain {
 	 * and the spot is not free to try again either.
 	 */
 	@Nullable
-	private BlockPos plantSpot(LumberjackEntity lumberjack, ServerWorld world, LumberBlockEntity station,
+	private BlockPos plantSpot(LumberjackEntity lumberjack, ServerLevel world, LumberBlockEntity station,
 			Item sapling, SaplingBlock block) {
 		boolean square = Woods.needsSquare(sapling);
 		List<BlockPos> spots = new ArrayList<>();
 
 		for (BlockPos soil : survey(world, station).plantable()) {
-			if (blockedPlots.get(soil.asLong()) > world.getTime() || served.contains(soil.asLong())) {
+			if (blockedPlots.get(soil.asLong()) > world.getGameTime() || served.contains(soil.asLong())) {
 				continue;
 			}
 
@@ -706,7 +706,7 @@ public class LumberjackBrain {
 			spots.add(soil);
 		}
 
-		return nearestReachable(lumberjack, world, spots, BlockPos::up, 0);
+		return nearestReachable(lumberjack, world, spots, BlockPos::above, 0);
 	}
 
 	/** Whether the station can pay for every hole this planting would open at once. */
@@ -715,7 +715,7 @@ public class LumberjackBrain {
 				|| Stock.count(station.seedStores(), sapling) >= plots.size();
 	}
 
-	private boolean takeFertilize(LumberjackEntity lumberjack, ServerWorld world, LumberBlockEntity station) {
+	private boolean takeFertilize(LumberjackEntity lumberjack, ServerLevel world, LumberBlockEntity station) {
 		if (!Stock.holds(station.seedStores(), Items.BONE_MEAL)) {
 			why("no bone meal");
 			return false;
@@ -724,7 +724,7 @@ public class LumberjackBrain {
 		List<BlockPos> saplings = new ArrayList<>();
 
 		for (BlockPos sapling : survey(world, station).saplings()) {
-			if (blockedPlots.get(sapling.asLong()) <= world.getTime() && !served.contains(sapling.asLong())) {
+			if (blockedPlots.get(sapling.asLong()) <= world.getGameTime() && !served.contains(sapling.asLong())) {
 				saplings.add(sapling);
 			}
 		}
@@ -752,7 +752,7 @@ public class LumberjackBrain {
 	 * stride, and must not pause the phase. An unreachable drop is written off as usual so the
 	 * same one cannot stall every scan from here on.
 	 */
-	private boolean takeUnderfoot(LumberjackEntity lumberjack, ServerWorld world, WorkArea area) {
+	private boolean takeUnderfoot(LumberjackEntity lumberjack, ServerLevel world, WorkArea area) {
 		List<ItemEntity> nearby = WorkerPack.underfoot(lumberjack, world, area, lumberjack.getCarried());
 
 		if (nearby.isEmpty()) {
@@ -774,7 +774,7 @@ public class LumberjackBrain {
 		return true;
 	}
 
-	private boolean takeCollect(LumberjackEntity lumberjack, ServerWorld world, WorkArea area) {
+	private boolean takeCollect(LumberjackEntity lumberjack, ServerLevel world, WorkArea area) {
 		ItemEntity drop = nearestReachableDrop(lumberjack, world, area);
 
 		if (drop != null) {
@@ -802,7 +802,7 @@ public class LumberjackBrain {
 		return true;
 	}
 
-	private WoodsSurvey survey(ServerWorld world, LumberBlockEntity station) {
+	private WoodsSurvey survey(ServerLevel world, LumberBlockEntity station) {
 		if (scanSurvey == null) {
 			scanSurvey = station.surveyWoods(world);
 		}
@@ -811,23 +811,23 @@ public class LumberjackBrain {
 	}
 
 	@Nullable
-	private BlockPos nearestReachable(LumberjackEntity lumberjack, ServerWorld world, List<BlockPos> spots,
+	private BlockPos nearestReachable(LumberjackEntity lumberjack, ServerLevel world, List<BlockPos> spots,
 			UnaryOperator<BlockPos> stand, int slack) {
 		if (spots.isEmpty()) {
 			return null;
 		}
 
 		List<BlockPos> queue = new ArrayList<>(spots);
-		queue.sort(Comparator.comparingDouble(spot -> lumberjack.squaredDistanceTo(Vec3d.ofCenter(spot))));
+		queue.sort(Comparator.comparingDouble(spot -> lumberjack.distanceToSqr(Vec3.atCenterOf(spot))));
 
 		for (int index = 0; index < Math.min(queue.size(), MAX_PATH_CHECKS); index++) {
 			BlockPos spot = queue.get(index);
 
-			if (WorkerMovement.isFarOff(lumberjack, Vec3d.ofCenter(spot))) {
+			if (WorkerMovement.isFarOff(lumberjack, Vec3.atCenterOf(spot))) {
 				return spot;
 			}
 
-			Path path = lumberjack.getNavigation().findPathTo(stand.apply(spot), slack);
+			Path path = lumberjack.getNavigation().createPath(stand.apply(spot), slack);
 
 			if (path == null) {
 				why("no path yet");
@@ -835,11 +835,11 @@ public class LumberjackBrain {
 				return null;
 			}
 
-			if (path.reachesTarget()) {
+			if (path.canReach()) {
 				return spot;
 			}
 
-			blockedPlots.put(spot.asLong(), world.getTime() + BLOCKED_COOLDOWN);
+			blockedPlots.put(spot.asLong(), world.getGameTime() + BLOCKED_COOLDOWN);
 			why("unreachable");
 		}
 
@@ -847,13 +847,13 @@ public class LumberjackBrain {
 	}
 
 	@Nullable
-	private ItemEntity nearestReachableDrop(LumberjackEntity lumberjack, ServerWorld world, WorkArea area) {
+	private ItemEntity nearestReachableDrop(LumberjackEntity lumberjack, ServerLevel world, WorkArea area) {
 		return nearestReachableDrop(lumberjack, world, WorkerPack.looseIn(world, area, lumberjack.getCarried()));
 	}
 
 	@Nullable
-	private ItemEntity nearestReachableDrop(LumberjackEntity lumberjack, ServerWorld world, List<ItemEntity> candidates) {
-		long now = world.getTime();
+	private ItemEntity nearestReachableDrop(LumberjackEntity lumberjack, ServerLevel world, List<ItemEntity> candidates) {
+		long now = world.getGameTime();
 		List<ItemEntity> queue = new ArrayList<>();
 
 		for (ItemEntity drop : candidates) {
@@ -866,16 +866,16 @@ public class LumberjackBrain {
 			return null;
 		}
 
-		queue.sort(Comparator.comparingDouble(lumberjack::squaredDistanceTo));
+		queue.sort(Comparator.comparingDouble(lumberjack::distanceToSqr));
 
 		for (int index = 0; index < Math.min(queue.size(), MAX_PATH_CHECKS); index++) {
 			ItemEntity drop = queue.get(index);
 
-			if (WorkerMovement.isFarOff(lumberjack, drop.getPos())) {
+			if (WorkerMovement.isFarOff(lumberjack, drop.position())) {
 				return drop;
 			}
 
-			Path path = lumberjack.getNavigation().findPathTo(drop, 0);
+			Path path = lumberjack.getNavigation().createPath(drop, 0);
 
 			if (path == null) {
 				why("no path yet");
@@ -883,28 +883,28 @@ public class LumberjackBrain {
 				return null;
 			}
 
-			if (path.reachesTarget()) {
+			if (path.canReach()) {
 				return drop;
 			}
 
-			Path nearby = lumberjack.getNavigation().findPathTo(drop, COLLECT_PATH_DISTANCE);
+			Path nearby = lumberjack.getNavigation().createPath(drop, COLLECT_PATH_DISTANCE);
 
-			if (nearby != null && nearby.reachesTarget()) {
+			if (nearby != null && nearby.canReach()) {
 				return drop;
 			}
 
-			blockedDrops.put(drop.getId(), world.getTime() + BLOCKED_COOLDOWN);
+			blockedDrops.put(drop.getId(), world.getGameTime() + BLOCKED_COOLDOWN);
 			why("unreachable");
 		}
 
 		return null;
 	}
 
-	private void blockCurrentTarget(ServerWorld world) {
+	private void blockCurrentTarget(ServerLevel world) {
 		if (target != null) {
-			blockedDrops.put(target.getId(), world.getTime() + BLOCKED_COOLDOWN);
+			blockedDrops.put(target.getId(), world.getGameTime() + BLOCKED_COOLDOWN);
 		} else if (targetPos != null && job != Job.DEPOSIT) {
-			blockedPlots.put(targetPos.asLong(), world.getTime() + BLOCKED_COOLDOWN);
+			blockedPlots.put(targetPos.asLong(), world.getGameTime() + BLOCKED_COOLDOWN);
 		}
 	}
 
@@ -916,13 +916,13 @@ public class LumberjackBrain {
 	 * than walking off and back again. The job is only finished once the cursor has walked the
 	 * whole tree, which is also where the stump is recorded for replanting.
 	 */
-	private boolean chop(LumberjackEntity lumberjack, ServerWorld world, LumberBlockEntity station) {
+	private boolean chop(LumberjackEntity lumberjack, ServerLevel world, LumberBlockEntity station) {
 		if (felling == null) {
 			return true;
 		}
 
 		served.add(felling.stump().asLong());
-		lumberjack.swingHand(Hand.MAIN_HAND);
+		lumberjack.swing(InteractionHand.MAIN_HAND);
 
 		List<BlockPos> falling = felling.falling();
 		int broken = 0;
@@ -932,9 +932,9 @@ public class LumberjackBrain {
 
 			// A block already gone costs nothing and does not count against the swing, so a tree
 			// the player has been at is walked through rather than swung at empty air.
-			if (world.isChunkLoaded(block.getX() >> 4, block.getZ() >> 4)
+			if (world.hasChunk(block.getX() >> 4, block.getZ() >> 4)
 					&& Woods.isTreeBlock(world.getBlockState(block))) {
-				world.breakBlock(block, true, lumberjack);
+				world.destroyBlock(block, true, lumberjack);
 				broken++;
 			}
 		}
@@ -951,7 +951,7 @@ public class LumberjackBrain {
 		return true;
 	}
 
-	private boolean plant(LumberjackEntity lumberjack, ServerWorld world, LumberBlockEntity station) {
+	private boolean plant(LumberjackEntity lumberjack, ServerLevel world, LumberBlockEntity station) {
 		BlockPos soil = targetPos;
 		Item sapling = planting;
 
@@ -994,25 +994,25 @@ public class LumberjackBrain {
 			}
 		}
 
-		lumberjack.swingHand(Hand.MAIN_HAND);
+		lumberjack.swing(InteractionHand.MAIN_HAND);
 
 		for (BlockPos plot : plots) {
-			BlockPos at = plot.up();
+			BlockPos at = plot.above();
 
 			// Grass and the like are broken rather than overwritten, so whatever they drop is
 			// left for the lumberjack to pick up instead of vanishing under the sapling.
 			if (!world.getBlockState(at).isAir()) {
-				world.breakBlock(at, true, lumberjack);
+				world.destroyBlock(at, true, lumberjack);
 			}
 
-			world.setBlockState(at, block.getDefaultState());
+			world.setBlockAndUpdate(at, block.defaultBlockState());
 			// The rest of the square is spoken for, or its other corners would each be taken as a
 			// planting job of their own and find a sapling already standing there.
 			served.add(plot.asLong());
 			station.clearStump(plot);
 		}
 
-		world.playSound(null, soil.up(), SoundEvents.ITEM_CROP_PLANT, SoundCategory.BLOCKS, 1.0F, 1.0F);
+		world.playSound(null, soil.above(), SoundEvents.CROP_PLANTED, SoundSource.BLOCKS, 1.0F, 1.0F);
 		station.notePlanted(sapling);
 		station.clearStump(soil);
 		lumberjack.startWorkCooldown();
@@ -1026,12 +1026,12 @@ public class LumberjackBrain {
 	 * is no longer there to be had, which is the answer that stops three saplings going into the
 	 * ground around whatever is standing in the fourth corner.
 	 */
-	private static List<BlockPos> squarePlots(ServerWorld world, BlockPos soil, SaplingBlock block, WorkArea area) {
+	private static List<BlockPos> squarePlots(ServerLevel world, BlockPos soil, SaplingBlock block, WorkArea area) {
 		BlockPos corner = Woods.squareFrom(world, soil, block, area);
 		return corner == null ? List.of() : Woods.squareGaps(world, corner, block);
 	}
 
-	private static List<BlockPos> singlePlot(ServerWorld world, BlockPos soil, SaplingBlock block) {
+	private static List<BlockPos> singlePlot(ServerLevel world, BlockPos soil, SaplingBlock block) {
 		return Woods.canPlant(world, soil, block) ? List.of(soil) : List.of();
 	}
 
@@ -1040,7 +1040,7 @@ public class LumberjackBrain {
 	 * already rolls the chance and advances a stage, so a sapling is not forced into a tree on
 	 * the first tap, and a station that has run out simply stops trying.
 	 */
-	private boolean fertilize(LumberjackEntity lumberjack, ServerWorld world, LumberBlockEntity station) {
+	private boolean fertilize(LumberjackEntity lumberjack, ServerLevel world, LumberBlockEntity station) {
 		BlockPos sapling = targetPos;
 
 		if (sapling == null) {
@@ -1056,14 +1056,14 @@ public class LumberjackBrain {
 
 		ItemStack meal = new ItemStack(Items.BONE_MEAL);
 
-		if (!BoneMealItem.useOnFertilizable(meal, world, sapling)) {
+		if (!BoneMealItem.growCrop(meal, world, sapling)) {
 			note = "will not grow";
 			return true;
 		}
 
 		Stock.spend(station.seedStores(), Items.BONE_MEAL);
-		world.syncWorldEvent(WorldEvents.BONE_MEAL_USED, sapling, 0);
-		lumberjack.swingHand(Hand.MAIN_HAND);
+		world.levelEvent(LevelEvent.PARTICLES_AND_SOUND_PLANT_GROWTH, sapling, 0);
+		lumberjack.swing(InteractionHand.MAIN_HAND);
 		lumberjack.startWorkCooldown();
 		actionCooldown = SWING_INTERVAL;
 		phaseWorked = true;
@@ -1071,31 +1071,31 @@ public class LumberjackBrain {
 	}
 
 	private boolean collect(LumberjackEntity lumberjack) {
-		if (!(target instanceof ItemEntity item) || item.cannotPickup()) {
+		if (!(target instanceof ItemEntity item) || item.hasPickUpDelay()) {
 			return true;
 		}
 
-		ItemStack remainder = lumberjack.getCarried().addStack(item.getStack().copy());
+		ItemStack remainder = lumberjack.getCarried().addItem(item.getItem().copy());
 
 		if (remainder.isEmpty()) {
 			item.discard();
 		} else {
-			item.setStack(remainder);
+			item.setItem(remainder);
 		}
 
-		lumberjack.getWorld().playSound(null, lumberjack.getBlockPos(), SoundEvents.ENTITY_ITEM_PICKUP,
-				SoundCategory.NEUTRAL, 0.15F,
+		lumberjack.level().playSound(null, lumberjack.blockPosition(), SoundEvents.ITEM_PICKUP,
+				SoundSource.NEUTRAL, 0.15F,
 				(lumberjack.getRandom().nextFloat() - lumberjack.getRandom().nextFloat()) * 1.4F + 2.0F);
 		phaseWorked = true;
 		return true;
 	}
 
 	private boolean deposit(LumberjackEntity lumberjack, LumberBlockEntity station) {
-		SimpleInventory carried = lumberjack.getCarried();
+		SimpleContainer carried = lumberjack.getCarried();
 		boolean moved = false;
 
-		for (int slot = 0; slot < carried.size(); slot++) {
-			ItemStack stack = carried.getStack(slot);
+		for (int slot = 0; slot < carried.getContainerSize(); slot++) {
+			ItemStack stack = carried.getItem(slot);
 
 			if (stack.isEmpty()) {
 				continue;
@@ -1103,7 +1103,7 @@ public class LumberjackBrain {
 
 			int before = stack.getCount();
 			ItemStack left = store(station, stack);
-			carried.setStack(slot, left.isEmpty() ? ItemStack.EMPTY : left);
+			carried.setItem(slot, left.isEmpty() ? ItemStack.EMPTY : left);
 
 			if (left.getCount() != before) {
 				moved = true;
@@ -1111,7 +1111,7 @@ public class LumberjackBrain {
 		}
 
 		if (moved) {
-			lumberjack.swingHand(Hand.MAIN_HAND);
+			lumberjack.swing(InteractionHand.MAIN_HAND);
 		} else if (!carried.isEmpty()) {
 			note = "station full";
 			stationFull = true;
@@ -1134,7 +1134,7 @@ public class LumberjackBrain {
 
 	private boolean withinReach(LumberjackEntity lumberjack) {
 		if (job == Job.COLLECT) {
-			return target != null && lumberjack.squaredDistanceTo(target) <= COLLECT_REACH_SQUARED;
+			return target != null && lumberjack.distanceToSqr(target) <= COLLECT_REACH_SQUARED;
 		}
 
 		if (targetPos == null) {
@@ -1142,22 +1142,22 @@ public class LumberjackBrain {
 		}
 
 		double reach = job == Job.DEPOSIT ? STATION_REACH_SQUARED : TREE_REACH_SQUARED;
-		return lumberjack.squaredDistanceTo(Vec3d.ofCenter(targetPos)) <= reach;
+		return lumberjack.distanceToSqr(Vec3.atCenterOf(targetPos)) <= reach;
 	}
 
 	private void navigate(LumberjackEntity lumberjack) {
 		if (job == Job.COLLECT) {
-			if (target == null || WorkerMovement.approach(lumberjack, target.getPos(), WALK_SPEED)) {
+			if (target == null || WorkerMovement.approach(lumberjack, target.position(), WALK_SPEED)) {
 				return;
 			}
 
-			Path direct = lumberjack.getNavigation().findPathTo(target, 0);
-			Path path = direct != null && !direct.reachesTarget()
-					? lumberjack.getNavigation().findPathTo(target, COLLECT_PATH_DISTANCE)
+			Path direct = lumberjack.getNavigation().createPath(target, 0);
+			Path path = direct != null && !direct.canReach()
+					? lumberjack.getNavigation().createPath(target, COLLECT_PATH_DISTANCE)
 					: direct;
 
 			if (path != null) {
-				lumberjack.getNavigation().startMovingAlong(path, WALK_SPEED);
+				lumberjack.getNavigation().moveTo(path, WALK_SPEED);
 			}
 
 			return;
@@ -1167,41 +1167,41 @@ public class LumberjackBrain {
 			return;
 		}
 
-		if (WorkerMovement.approach(lumberjack, Vec3d.ofCenter(targetPos), WALK_SPEED)) {
+		if (WorkerMovement.approach(lumberjack, Vec3.atCenterOf(targetPos), WALK_SPEED)) {
 			return;
 		}
 
 		// Walked to the square picked out beside the trunk when the job was taken, not to the
 		// trunk, which the navigator would answer by aiming above the canopy.
 		if (job == Job.CHOP && standPos != null) {
-			Path path = lumberjack.getNavigation().findPathTo(standPos, 0);
+			Path path = lumberjack.getNavigation().createPath(standPos, 0);
 
 			if (path != null) {
-				lumberjack.getNavigation().startMovingAlong(path, WALK_SPEED);
+				lumberjack.getNavigation().moveTo(path, WALK_SPEED);
 			}
 
 			return;
 		}
 
 		if (job == Job.DEPOSIT || job == Job.FERTILIZE) {
-			lumberjack.getNavigation().startMovingTo(targetPos.getX() + 0.5, targetPos.getY(),
+			lumberjack.getNavigation().moveTo(targetPos.getX() + 0.5, targetPos.getY(),
 					targetPos.getZ() + 0.5, WALK_SPEED);
 			return;
 		}
 
-		BlockPos stand = targetPos.up();
-		Path path = lumberjack.getNavigation().findPathTo(stand, 0);
+		BlockPos stand = targetPos.above();
+		Path path = lumberjack.getNavigation().createPath(stand, 0);
 
 		if (path != null) {
-			lumberjack.getNavigation().startMovingAlong(path, WALK_SPEED);
+			lumberjack.getNavigation().moveTo(path, WALK_SPEED);
 		}
 	}
 
 	private double distanceToTarget(LumberjackEntity lumberjack) {
 		if (target != null) {
-			return Math.sqrt(lumberjack.squaredDistanceTo(target));
+			return Math.sqrt(lumberjack.distanceToSqr(target));
 		}
 
-		return targetPos == null ? 0.0 : Math.sqrt(lumberjack.squaredDistanceTo(Vec3d.ofCenter(targetPos)));
+		return targetPos == null ? 0.0 : Math.sqrt(lumberjack.distanceToSqr(Vec3.atCenterOf(targetPos)));
 	}
 }

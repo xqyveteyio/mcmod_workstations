@@ -6,20 +6,22 @@ import dev.keyboard.workstations.work.LumberSettings;
 import dev.keyboard.workstations.work.SeedStock;
 import dev.keyboard.workstations.work.WorkArea;
 import dev.keyboard.workstations.work.WoodsSurvey;
-import net.minecraft.block.Block;
-import net.minecraft.block.BlockState;
-import net.minecraft.entity.EntityType;
-import net.minecraft.item.Item;
-import net.minecraft.nbt.NbtCompound;
-import net.minecraft.registry.RegistryWrapper;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.text.Text;
-import net.minecraft.util.math.BlockPos;
-
 import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.List;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.HolderLookup;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.network.chat.Component;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.storage.ValueInput;
+import net.minecraft.world.level.storage.ValueOutput;
 
 /**
  * The lumber station: storage for saplings going in and wood coming out, the owner of one
@@ -52,7 +54,7 @@ public class LumberBlockEntity extends WorkStationBlockEntity<LumberjackEntity, 
 
 	@Override
 	public WorkArea getWorkArea() {
-		return WorkArea.of(pos, getCachedState().get(LumberBlock.FACING),
+		return WorkArea.of(worldPosition, getBlockState().getValue(LumberBlock.FACING),
 				settings.workAlong, settings.workAcross, settings.workAbove, settings.workBelow);
 	}
 
@@ -72,8 +74,8 @@ public class LumberBlockEntity extends WorkStationBlockEntity<LumberjackEntity, 
 	}
 
 	@Override
-	protected Text getContainerName() {
-		return Text.translatable("container.keyboard_workstations.lumber");
+	protected Component getDefaultName() {
+		return Component.translatable("container.keyboard_workstations.lumber");
 	}
 
 	/**
@@ -94,7 +96,7 @@ public class LumberBlockEntity extends WorkStationBlockEntity<LumberjackEntity, 
 	}
 
 	/** One look at the wood, for the lumberjack to pick work from and for placement to count trees. */
-	public WoodsSurvey surveyWoods(ServerWorld world) {
+	public WoodsSurvey surveyWoods(ServerLevel world) {
 		return WoodsSurvey.of(world, getWorkArea(), stumps, settings.autoPlanting, settings.breakLeaves);
 	}
 
@@ -111,13 +113,13 @@ public class LumberBlockEntity extends WorkStationBlockEntity<LumberjackEntity, 
 			stumps.remove(stumps.iterator().next());
 		}
 
-		stumps.add(stump.toImmutable());
+		stumps.add(stump.immutable());
 		syncStumps();
 	}
 
 	/** The hole has been filled, or the ground is no longer plantable, so it drops off the books. */
 	public void clearStump(BlockPos soil) {
-		if (stumps.remove(soil) || stumps.remove(soil.up())) {
+		if (stumps.remove(soil) || stumps.remove(soil.above())) {
 			syncStumps();
 		}
 	}
@@ -127,10 +129,10 @@ public class LumberBlockEntity extends WorkStationBlockEntity<LumberjackEntity, 
 	 * a wood that changed without telling the client would be shown marking the wrong ground.
 	 */
 	private void syncStumps() {
-		markDirty();
+		setChanged();
 
-		if (world != null) {
-			world.updateListeners(pos, getCachedState(), getCachedState(), Block.NOTIFY_LISTENERS);
+		if (level != null) {
+			level.sendBlockUpdated(worldPosition, getBlockState(), getBlockState(), Block.UPDATE_CLIENTS);
 		}
 	}
 
@@ -140,50 +142,35 @@ public class LumberBlockEntity extends WorkStationBlockEntity<LumberjackEntity, 
 
 	public void notePlanted(Item sapling) {
 		stock.note(sapling);
-		markDirty();
+		setChanged();
 	}
 
 	public void clearPlantedTally() {
 		if (stock.clear()) {
-			markDirty();
+			setChanged();
 		}
 	}
 
 	/** The stumps ride along to the client, which needs them to mark the holes in the highlight. */
 	@Override
-	public NbtCompound toInitialChunkDataNbt(RegistryWrapper.WrapperLookup registryLookup) {
-		NbtCompound nbt = super.toInitialChunkDataNbt(registryLookup);
-		nbt.putLongArray(STUMPS_KEY, packedStumps());
+	public CompoundTag getUpdateTag(HolderLookup.Provider registryLookup) {
+		CompoundTag nbt = super.getUpdateTag(registryLookup);
+		nbt.store(STUMPS_KEY, BlockPos.CODEC.listOf(), List.copyOf(stumps));
 		return nbt;
 	}
 
-	private long[] packedStumps() {
-		long[] packed = new long[stumps.size()];
-		int index = 0;
-
-		for (BlockPos stump : stumps) {
-			packed[index++] = stump.asLong();
-		}
-
-		return packed;
+	@Override
+	protected void saveAdditional(ValueOutput output) {
+		super.saveAdditional(output);
+		output.store(STUMPS_KEY, BlockPos.CODEC.listOf(), List.copyOf(stumps));
+		stock.save(output);
 	}
 
 	@Override
-	protected void writeNbt(NbtCompound nbt, RegistryWrapper.WrapperLookup registryLookup) {
-		super.writeNbt(nbt, registryLookup);
-		nbt.putLongArray(STUMPS_KEY, packedStumps());
-		stock.writeNbt(nbt);
-	}
-
-	@Override
-	protected void readNbt(NbtCompound nbt, RegistryWrapper.WrapperLookup registryLookup) {
-		super.readNbt(nbt, registryLookup);
+	protected void loadAdditional(ValueInput input) {
+		super.loadAdditional(input);
 		stumps.clear();
-
-		for (long packed : nbt.getLongArray(STUMPS_KEY)) {
-			stumps.add(BlockPos.fromLong(packed));
-		}
-
-		stock.readNbt(nbt);
+		input.read(STUMPS_KEY, BlockPos.CODEC.listOf()).ifPresent(stumps::addAll);
+		stock.load(input);
 	}
 }
