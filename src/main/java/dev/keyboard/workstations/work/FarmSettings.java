@@ -20,6 +20,7 @@ public final class FarmSettings implements WorkerSettings<FarmSettings> {
 	public boolean enableHarvesting;
 	public boolean harvestGourds;
 	public boolean harvestMushrooms;
+	public boolean forceGrowing;
 	public boolean openFenceGates;
 	public boolean shoveBlockers;
 	public boolean showWorkerState;
@@ -51,6 +52,7 @@ public final class FarmSettings implements WorkerSettings<FarmSettings> {
 			SettingOption.flag(FIELD, "enable_harvesting", s -> s.enableHarvesting, (s, v) -> s.enableHarvesting = v),
 			SettingOption.flag(FIELD, "harvest_gourds", s -> s.harvestGourds, (s, v) -> s.harvestGourds = v),
 			SettingOption.flag(FIELD, "harvest_mushrooms", s -> s.harvestMushrooms, (s, v) -> s.harvestMushrooms = v),
+			SettingOption.flag(FIELD, "force_growing", s -> s.forceGrowing, (s, v) -> s.forceGrowing = v),
 			SettingOption.range(FIELD, "farm_interval_ticks", 1, 200, s -> s.farmIntervalTicks, (s, v) -> s.farmIntervalTicks = v),
 
 			SettingOption.range(AREA, "work_along", 1, 64, s -> s.workAlong, (s, v) -> s.workAlong = v),
@@ -74,6 +76,7 @@ public final class FarmSettings implements WorkerSettings<FarmSettings> {
 		enableHarvesting = config.enableHarvesting;
 		harvestGourds = config.harvestGourds;
 		harvestMushrooms = config.harvestMushrooms;
+		forceGrowing = config.forceGrowing;
 		openFenceGates = config.openFenceGates;
 		shoveBlockers = config.shoveBlockers;
 		showWorkerState = config.showWorkerState;

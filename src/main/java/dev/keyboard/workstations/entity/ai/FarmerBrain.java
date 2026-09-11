@@ -23,8 +23,10 @@ import net.minecraft.entity.ItemEntity;
 import net.minecraft.entity.ai.pathing.Path;
 import net.minecraft.inventory.Inventory;
 import net.minecraft.inventory.SimpleInventory;
+import net.minecraft.item.BoneMealItem;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
+import net.minecraft.item.Items;
 import net.minecraft.util.registry.Registry;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.sound.SoundCategory;
@@ -72,6 +74,8 @@ public class FarmerBrain {
 		TILL,
 		/** Every bare plot, sown with whatever the mix calls for next. */
 		SOW,
+		/** Bone meal on crops that are not yet ripe, when the station has been set to force them. */
+		FERTILIZE,
 		/** Every crop that has finished growing. */
 		HARVEST,
 		/** Every drop on the ground, then what was gathered emptied into the station. */
@@ -82,6 +86,7 @@ public class FarmerBrain {
 	public enum Job {
 		TILL,
 		SOW,
+		FERTILIZE,
 		HARVEST,
 		/** A melon, a pumpkin or a mushroom: produce that grew beside the plots rather than on one. */
 		GATHER,
@@ -91,10 +96,11 @@ public class FarmerBrain {
 
 	/**
 	 * The order phases are worked through. Tilling comes before sowing so a plot put right this
-	 * round is sown in the same round rather than the next one, and harvesting comes before the
+	 * round is sown in the same round rather than the next one, fertilizing comes after sowing so
+	 * a seed put down this pass can be forced on the next swing, and harvesting comes before the
 	 * sweep that clears up after it.
 	 */
-	private static final Phase[] ROTATION = {Phase.TILL, Phase.SOW, Phase.HARVEST, Phase.COLLECT};
+	private static final Phase[] ROTATION = {Phase.TILL, Phase.SOW, Phase.FERTILIZE, Phase.HARVEST, Phase.COLLECT};
 
 	/**
 	 * How near a plot counts as being at it, squared. Two and a half blocks: enough to work the
@@ -407,6 +413,7 @@ public class FarmerBrain {
 			case DEPOSIT -> true;
 			case TILL -> Crops.isTillable(world.getBlockState(targetPos)) && Crops.isClearAbove(world, targetPos);
 			case SOW -> Crops.isFarmland(world.getBlockState(targetPos)) && Crops.isClearAbove(world, targetPos);
+			case FERTILIZE -> Crops.isGrowing(world, targetPos);
 			case HARVEST -> Crops.isRipe(world, targetPos);
 			case GATHER -> Crops.isPickable(world, targetPos, config.harvestGourds, config.harvestMushrooms);
 			default -> false;
@@ -423,6 +430,7 @@ public class FarmerBrain {
 		boolean done = switch (current) {
 			case TILL -> till(farmer, world);
 			case SOW -> sow(farmer, world, station);
+			case FERTILIZE -> fertilize(farmer, world, station);
 			case HARVEST -> harvest(farmer, world);
 			case GATHER -> gather(farmer, world);
 			case COLLECT -> collect(farmer);
@@ -444,7 +452,7 @@ public class FarmerBrain {
 		}
 
 		return switch (job) {
-			case TILL, SOW, HARVEST, GATHER -> farmer.canWorkNow();
+			case TILL, SOW, FERTILIZE, HARVEST, GATHER -> farmer.canWorkNow();
 			default -> true;
 		};
 	}
@@ -603,6 +611,7 @@ public class FarmerBrain {
 		return switch (phase) {
 			case TILL -> config.enableTilling;
 			case SOW -> config.enableSowing;
+			case FERTILIZE -> config.forceGrowing;
 			// Three switches feed this one phase, and any of them is reason enough to run it.
 			case HARVEST -> config.enableHarvesting || config.harvestGourds || config.harvestMushrooms;
 			case COLLECT -> true;
@@ -641,6 +650,7 @@ public class FarmerBrain {
 		return switch (phase) {
 			case TILL -> takePlotJob(farmer, world, Job.TILL, survey(world, station).tillable());
 			case SOW -> takeSow(farmer, world, station, config);
+			case FERTILIZE -> takeFertilize(farmer, world, station);
 			case HARVEST -> takeHarvest(farmer, world, area, station, config);
 			case COLLECT -> takeCollect(farmer, world, area);
 		};
@@ -722,6 +732,19 @@ public class FarmerBrain {
 		targetPos = plot;
 		sowing = seed;
 		return true;
+	}
+
+	/**
+	 * Bone meal needs to be in stock before a walk is worth taking, the same gate sowing uses for
+	 * seeds. A station that has run out simply skips the phase.
+	 */
+	private boolean takeFertilize(FarmerEntity farmer, ServerWorld world, FarmBlockEntity station) {
+		if (!Stock.holds(station.seedStores(), Items.BONE_MEAL)) {
+			note = "no bone meal";
+			return false;
+		}
+
+		return takePlotJob(farmer, world, Job.FERTILIZE, survey(world, station).growing());
 	}
 
 	/**
@@ -1003,6 +1026,42 @@ public class FarmerBrain {
 		// Recorded whether or not the seed was paid for, because the tally is what turns the mix's
 		// weights into real ratios and that has nothing to do with who owns the seed.
 		station.notePlanted(seed);
+		farmer.startWorkCooldown();
+		actionCooldown = SWING_INTERVAL;
+		phaseWorked = true;
+		return true;
+	}
+
+	/**
+	 * One go of vanilla bone meal, spent from the station's own stock. {@link BoneMealItem}
+	 * already rolls the chance and advances a stage, so a crop is not forced ripe on the first
+	 * tap, and a station that has run out simply stops trying.
+	 */
+	private boolean fertilize(FarmerEntity farmer, ServerWorld world, FarmBlockEntity station) {
+		BlockPos plot = targetPos;
+
+		if (plot == null) {
+			return true;
+		}
+
+		served.add(plot.asLong());
+		BlockPos crop = plot.up();
+
+		if (!Stock.holds(station.seedStores(), Items.BONE_MEAL)) {
+			note = "no bone meal";
+			return true;
+		}
+
+		ItemStack meal = new ItemStack(Items.BONE_MEAL);
+
+		if (!BoneMealItem.useOnFertilizable(meal, world, crop)) {
+			note = "will not grow";
+			return true;
+		}
+
+		Stock.spend(station.seedStores(), Items.BONE_MEAL);
+		world.syncWorldEvent(null, 2005, crop, 0);
+		farmer.swingHand(Hand.MAIN_HAND);
 		farmer.startWorkCooldown();
 		actionCooldown = SWING_INTERVAL;
 		phaseWorked = true;

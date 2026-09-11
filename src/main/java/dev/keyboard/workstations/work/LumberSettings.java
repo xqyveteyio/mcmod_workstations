@@ -18,7 +18,6 @@ import java.util.List;
  */
 public final class LumberSettings implements WorkerSettings<LumberSettings> {
 	public boolean enableChopping;
-	public boolean breakLeaves;
 	public boolean enableReplanting;
 	public boolean autoPlanting;
 	public boolean forceGrowing;
@@ -49,7 +48,6 @@ public final class LumberSettings implements WorkerSettings<LumberSettings> {
 
 	public static final List<SettingOption<LumberSettings>> OPTIONS = List.of(
 			SettingOption.flag(WOODS, "enable_chopping", s -> s.enableChopping, (s, v) -> s.enableChopping = v),
-			SettingOption.flag(WOODS, "break_leaves", s -> s.breakLeaves, (s, v) -> s.breakLeaves = v),
 			SettingOption.flag(WOODS, "enable_replanting", s -> s.enableReplanting, (s, v) -> s.enableReplanting = v),
 			SettingOption.flag(WOODS, "auto_planting", s -> s.autoPlanting, (s, v) -> s.autoPlanting = v),
 			SettingOption.flag(WOODS, "force_growing", s -> s.forceGrowing, (s, v) -> s.forceGrowing = v),
@@ -72,7 +70,6 @@ public final class LumberSettings implements WorkerSettings<LumberSettings> {
 
 	public LumberSettings(ModConfig config) {
 		enableChopping = config.enableChopping;
-		breakLeaves = config.breakLeaves;
 		enableReplanting = config.enableReplanting;
 		autoPlanting = config.autoPlanting;
 		forceGrowing = config.forceGrowing;

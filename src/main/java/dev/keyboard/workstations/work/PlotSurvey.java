@@ -18,6 +18,7 @@ import java.util.List;
 public final class PlotSurvey {
 	private final List<BlockPos> tillable = new ArrayList<>();
 	private final List<BlockPos> bare = new ArrayList<>();
+	private final List<BlockPos> growing = new ArrayList<>();
 	private final List<BlockPos> ripe = new ArrayList<>();
 	private final List<BlockPos> lost = new ArrayList<>();
 
@@ -46,8 +47,8 @@ public final class PlotSurvey {
 				continue;
 			}
 
-			// Something is growing but is not done yet, so there is nothing to do here at all.
-			if (Crops.growingOn(world, plot) != null) {
+			if (Crops.isGrowing(world, plot)) {
+				survey.growing.add(plot);
 				continue;
 			}
 
@@ -73,6 +74,11 @@ public final class PlotSurvey {
 	/** Farmland standing empty, waiting for a seed. */
 	public List<BlockPos> bare() {
 		return bare;
+	}
+
+	/** Plots with a crop that is not yet ripe, which is what bone meal is aimed at. */
+	public List<BlockPos> growing() {
+		return growing;
 	}
 
 	/** Plots whose crop has finished growing. */

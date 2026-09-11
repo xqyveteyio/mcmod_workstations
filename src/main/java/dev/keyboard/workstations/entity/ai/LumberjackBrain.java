@@ -909,7 +909,7 @@ public class LumberjackBrain {
 
 	/**
 	 * Breaks the next batch of the tree being felled, in the order {@link Woods.Tree#falling}
-	 * gives: canopy first when the station is set to take it, then the trunk.
+	 * gives: the trunk first, then the canopy.
 	 *
 	 * <p>Returning false keeps the job running so the next swing continues the same tree rather
 	 * than walking off and back again. The job is only finished once the cursor has walked the
