@@ -10,18 +10,14 @@ import net.minecraft.block.ShapeContext;
 import net.minecraft.block.entity.BlockEntity;
 import net.minecraft.block.entity.BlockEntityTicker;
 import net.minecraft.block.entity.BlockEntityType;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.entity.ai.pathing.NavigationType;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.item.ItemPlacementContext;
-import net.minecraft.item.ItemStack;
 import net.minecraft.screen.NamedScreenHandlerFactory;
 import net.minecraft.screen.ScreenHandler;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.state.StateManager;
 import net.minecraft.state.property.DirectionProperty;
 import net.minecraft.state.property.Properties;
-import net.minecraft.text.Text;
 import net.minecraft.util.ActionResult;
 import net.minecraft.util.BlockMirror;
 import net.minecraft.util.BlockRotation;
@@ -29,38 +25,36 @@ import net.minecraft.util.ItemScatterer;
 import net.minecraft.util.hit.BlockHitResult;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Direction;
+import net.minecraft.util.math.random.Random;
 import net.minecraft.util.shape.VoxelShape;
-import net.minecraft.util.shape.VoxelShapes;
 import net.minecraft.world.BlockView;
 import net.minecraft.world.World;
 import org.jetbrains.annotations.Nullable;
 
-public class RanchBlock extends BlockWithEntity {
-	public static final MapCodec<RanchBlock> CODEC = createCodec(RanchBlock::new);
+/**
+ * A chest of feed for the ranch station beside it to draw from, so the feed does not have to live
+ * on the same shelves the wool and meat come back onto.
+ *
+ * <p>An ordinary chest to look at and to open, drawn from vanilla's own chest model, but not a
+ * {@code ChestBlock} underneath: two of these never join into one double chest. That is not a
+ * limitation to work around. A station sweeps its work area and takes on every box it finds, and a
+ * container spread across two positions would turn up twice in that sweep, so the joining is the
+ * part deliberately left out.
+ */
+public class FeedBarrelBlock extends BlockWithEntity {
+	public static final MapCodec<FeedBarrelBlock> CODEC = createCodec(FeedBarrelBlock::new);
 	public static final DirectionProperty FACING = Properties.HORIZONTAL_FACING;
-	/**
-	 * Matches the table model: legs at the corners, the top they carry, and the miniature fence
-	 * ringing it. The fence is four walls rather than one lid, so the pen holding the display
-	 * animals stays as open as it looks.
-	 */
-	private static final VoxelShape SHAPE = VoxelShapes.union(
-			Block.createCuboidShape(0.0, 0.0, 0.0, 2.0, 10.0, 2.0),
-			Block.createCuboidShape(14.0, 0.0, 0.0, 16.0, 10.0, 2.0),
-			Block.createCuboidShape(0.0, 0.0, 14.0, 2.0, 10.0, 16.0),
-			Block.createCuboidShape(14.0, 0.0, 14.0, 16.0, 10.0, 16.0),
-			Block.createCuboidShape(0.0, 10.0, 0.0, 16.0, 12.0, 16.0),
-			Block.createCuboidShape(0.0, 12.0, 0.0, 16.0, 16.0, 1.0),
-			Block.createCuboidShape(0.0, 12.0, 15.0, 16.0, 16.0, 16.0),
-			Block.createCuboidShape(0.0, 12.0, 1.0, 1.0, 16.0, 15.0),
-			Block.createCuboidShape(15.0, 12.0, 1.0, 16.0, 16.0, 15.0));
 
-	public RanchBlock(Settings settings) {
+	/** A chest's own outline: a hair inside the block on every side but the bottom. */
+	private static final VoxelShape SHAPE = Block.createCuboidShape(1.0, 0.0, 1.0, 15.0, 14.0, 15.0);
+
+	public FeedBarrelBlock(Settings settings) {
 		super(settings);
 		setDefaultState(getStateManager().getDefaultState().with(FACING, Direction.NORTH));
 	}
 
 	@Override
-	protected MapCodec<? extends RanchBlock> getCodec() {
+	protected MapCodec<? extends FeedBarrelBlock> getCodec() {
 		return CODEC;
 	}
 
@@ -91,65 +85,36 @@ public class RanchBlock extends BlockWithEntity {
 	}
 
 	/**
-	 * Kept out of every path the game plans. Vanilla decides a block may be walked through from
-	 * whether its collision box fills the cube, and a table standing on legs does not fill it, so
-	 * without this the station reads as open ground: the rancher coming home to unload is routed
-	 * straight through its own station and then stands wedged against the tabletop, which is solid
-	 * and is the one part of the shape the path never accounted for.
+	 * The block itself is drawn by nothing: its whole body is the chest model, which the block
+	 * entity's renderer puts up. All the block model behind it carries is the texture to break into
+	 * particles.
 	 */
 	@Override
-	protected boolean canPathfindThrough(BlockState state, NavigationType type) {
-		return false;
-	}
-
-	@Override
 	public BlockRenderType getRenderType(BlockState state) {
-		return BlockRenderType.MODEL;
+		return BlockRenderType.ENTITYBLOCK_ANIMATED;
 	}
 
 	@Nullable
 	@Override
 	public BlockEntity createBlockEntity(BlockPos pos, BlockState state) {
-		return new RanchBlockEntity(pos, state);
+		return new FeedBarrelBlockEntity(pos, state);
 	}
 
+	/** Client side only: the lid's angle is the one thing that has to be kept moving every tick. */
 	@Nullable
 	@Override
 	public <T extends BlockEntity> BlockEntityTicker<T> getTicker(World world, BlockState state, BlockEntityType<T> type) {
-		if (world.isClient) {
+		if (!world.isClient) {
 			return null;
 		}
 
-		return validateTicker(type, WorkstationsMod.RANCH_BLOCK_ENTITY, WorkStationBlockEntity::serverTick);
-	}
-
-	@Override
-	public void onPlaced(World world, BlockPos pos, BlockState state, @Nullable LivingEntity placer, ItemStack itemStack) {
-		super.onPlaced(world, pos, state, placer, itemStack);
-
-		if (!(world instanceof ServerWorld serverWorld)
-				|| !(world.getBlockEntity(pos) instanceof RanchBlockEntity station)) {
-			return;
-		}
-
-		// Summoned here rather than waiting on the tick timer, so placing the block visibly does something.
-		station.summonWorker(serverWorld);
-
-		if (placer instanceof PlayerEntity player) {
-			player.sendMessage(Text.translatable("message.keyboard_workstations.station_placed",
-					station.getSettings().workAlong, station.getSettings().workAcross,
-					station.getSettings().workAbove, station.getSettings().workBelow), true);
-		}
+		return validateTicker(type, WorkstationsMod.FEED_BARREL_BLOCK_ENTITY, FeedBarrelBlockEntity::clientTick);
 	}
 
 	@Override
 	protected ActionResult onUse(BlockState state, World world, BlockPos pos, PlayerEntity player, BlockHitResult hit) {
 		if (world.isClient) {
 			return ActionResult.SUCCESS;
-		}
-
-		if (!(world.getBlockEntity(pos) instanceof RanchBlockEntity station)) {
-			return ActionResult.PASS;
 		}
 
 		NamedScreenHandlerFactory factory = state.createScreenHandlerFactory(world, pos);
@@ -161,14 +126,18 @@ public class RanchBlock extends BlockWithEntity {
 		return ActionResult.CONSUME;
 	}
 
+	/** Recounts who has the box open, so a lid left up by a player who logged out comes back down. */
+	@Override
+	public void scheduledTick(BlockState state, ServerWorld world, BlockPos pos, Random random) {
+		if (world.getBlockEntity(pos) instanceof FeedBarrelBlockEntity box) {
+			box.recountViewers();
+		}
+	}
+
 	@Override
 	public void onStateReplaced(BlockState state, World world, BlockPos pos, BlockState newState, boolean moved) {
-		if (!state.isOf(newState.getBlock()) && world.getBlockEntity(pos) instanceof RanchBlockEntity station) {
-			if (world instanceof ServerWorld serverWorld) {
-				station.dismissWorker(serverWorld);
-			}
-
-			ItemScatterer.spawn(world, pos, station);
+		if (!state.isOf(newState.getBlock()) && world.getBlockEntity(pos) instanceof FeedBarrelBlockEntity box) {
+			ItemScatterer.spawn(world, pos, box);
 			world.updateComparators(pos, this);
 		}
 

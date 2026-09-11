@@ -2,13 +2,18 @@ package dev.keyboard.workstations.network;
 
 import dev.keyboard.workstations.WorkstationsMod;
 import dev.keyboard.workstations.block.FarmBlockEntity;
+import dev.keyboard.workstations.block.LumberBlockEntity;
 import dev.keyboard.workstations.block.RanchBlockEntity;
 import dev.keyboard.workstations.block.WorkStationBlockEntity;
 import dev.keyboard.workstations.work.Crops;
 import dev.keyboard.workstations.work.FarmSettings;
+import dev.keyboard.workstations.work.LumberSettings;
 import dev.keyboard.workstations.work.StationSettings;
+import dev.keyboard.workstations.work.Woods;
 import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
+import net.minecraft.block.entity.BlockEntity;
+import net.minecraft.item.Item;
 import net.minecraft.nbt.NbtCompound;
 import net.minecraft.network.RegistryByteBuf;
 import net.minecraft.network.codec.PacketCodec;
@@ -25,7 +30,7 @@ import org.jetbrains.annotations.Nullable;
 import java.util.List;
 
 /**
- * Talk between a station and the settings screen, for both kinds of station.
+ * Talk between a station and the settings screen, for every kind of station.
  *
  * <p>The screen is opened from the server rather than straight from the block's use handler, which
  * keeps every client only class out of the block classes. A dedicated server loading a screen class
@@ -120,6 +125,10 @@ public final class StationNetworking {
 				FarmSettings incoming = new FarmSettings();
 				incoming.readNbt(nbt);
 				farm.applySettings(incoming);
+			} else if (station instanceof LumberBlockEntity lumber) {
+				LumberSettings incoming = new LumberSettings();
+				incoming.readNbt(nbt);
+				lumber.applySettings(incoming);
 			}
 		});
 
@@ -159,10 +168,27 @@ public final class StationNetworking {
 	 * and the ratio rows are built from exactly those contents. Ranches send an empty list.
 	 */
 	public static void openScreen(ServerPlayerEntity player, BlockPos pos) {
-		List<Identifier> palette = player.getWorld().getBlockEntity(pos) instanceof FarmBlockEntity farm
-				? Crops.palette(farm.seedStores()).stream().map(Registries.ITEM::getId).toList()
-				: List.of();
+		List<Identifier> palette = paletteAt(player.getWorld().getBlockEntity(pos)).stream()
+				.map(Registries.ITEM::getId)
+				.toList();
 		ServerPlayNetworking.send(player, new OpenScreenPayload(pos, palette));
+	}
+
+	/**
+	 * The mix rows a planting station's screen is built from. A farm and a lumber station both
+	 * send their palette this way because neither sends its contents to the client; ranches send
+	 * an empty list.
+	 */
+	private static List<Item> paletteAt(@Nullable BlockEntity block) {
+		if (block instanceof FarmBlockEntity farm) {
+			return Crops.palette(farm.seedStores());
+		}
+
+		if (block instanceof LumberBlockEntity lumber) {
+			return Woods.palette(lumber.seedStores());
+		}
+
+		return List.of();
 	}
 
 	/**

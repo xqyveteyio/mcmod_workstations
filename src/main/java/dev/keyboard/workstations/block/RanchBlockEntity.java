@@ -7,12 +7,16 @@ import dev.keyboard.workstations.work.StationSettings;
 import dev.keyboard.workstations.work.WorkArea;
 import net.minecraft.block.BlockState;
 import net.minecraft.entity.EntityType;
+import net.minecraft.inventory.Inventory;
 import net.minecraft.nbt.NbtCompound;
 import net.minecraft.nbt.NbtElement;
 import net.minecraft.registry.RegistryWrapper;
 import net.minecraft.text.Text;
 import net.minecraft.util.math.BlockPos;
 import org.jetbrains.annotations.Nullable;
+
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * The ranch station: storage for feed going in and produce coming out, plus the owner of one
@@ -27,6 +31,9 @@ public class RanchBlockEntity extends WorkStationBlockEntity<RancherEntity, Stat
 	/** Milk barrels standing anywhere in the work area, looked up afresh now and then. */
 	private final AreaContainers<MilkBarrelBlockEntity> barrels =
 			new AreaContainers<>(MilkBarrelBlockEntity.class);
+	/** Feed boxes standing anywhere in the work area, looked up the same way. */
+	private final AreaContainers<FeedBarrelBlockEntity> feedBarrels =
+			new AreaContainers<>(FeedBarrelBlockEntity.class);
 
 	public RanchBlockEntity(BlockPos pos, BlockState state) {
 		super(WorkstationsMod.RANCH_BLOCK_ENTITY, pos, state);
@@ -50,6 +57,30 @@ public class RanchBlockEntity extends WorkStationBlockEntity<RancherEntity, Stat
 		return null;
 	}
 
+	/**
+	 * The feed boxes anywhere in this station's work area, nearest first.
+	 *
+	 * <p>Separate from {@link #feedStores()} because the box is where feed is meant to live
+	 * and the station is only what catches what was left on its shelves by hand.
+	 */
+	public List<Inventory> feedBoxes() {
+		return List.copyOf(feedBarrels.in(world, getWorkArea()));
+	}
+
+	/**
+	 * Everywhere this ranch's feed might be, the place to reach for first listed first.
+	 *
+	 * <p>Boxes come before the station's own shelves, so stocking a box is enough and the
+	 * station stays clear for the produce coming the other way. The station is last rather than
+	 * absent so feed left on its shelves by hand is still used, and with no box in the area
+	 * the station is the only store there is and everything works as it did before boxes existed.
+	 */
+	public List<Inventory> feedStores() {
+		List<Inventory> stores = new ArrayList<>(feedBoxes());
+		stores.add(this);
+		return stores;
+	}
+
 	@Override
 	public StationSettings getSettings() {
 		return settings;
@@ -57,7 +88,8 @@ public class RanchBlockEntity extends WorkStationBlockEntity<RancherEntity, Stat
 
 	@Override
 	public WorkArea getWorkArea() {
-		return new WorkArea(pos, settings.workRadius, settings.workHeight);
+		return WorkArea.of(pos, getCachedState().get(RanchBlock.FACING),
+				settings.workAlong, settings.workAcross, settings.workAbove, settings.workBelow);
 	}
 
 	@Override
@@ -89,8 +121,10 @@ public class RanchBlockEntity extends WorkStationBlockEntity<RancherEntity, Stat
 		// old keys back in is not dragged back to them.
 		if (!nbt.contains(SETTINGS_KEY, NbtElement.COMPOUND_TYPE)
 				&& nbt.contains(LEGACY_RADIUS_KEY, NbtElement.INT_TYPE)) {
-			settings.workRadius = nbt.getInt(LEGACY_RADIUS_KEY);
-			settings.workHeight = nbt.getInt(LEGACY_HEIGHT_KEY);
+			settings.workAlong = nbt.getInt(LEGACY_RADIUS_KEY);
+			settings.workAcross = nbt.getInt(LEGACY_RADIUS_KEY);
+			settings.workAbove = nbt.getInt(LEGACY_HEIGHT_KEY);
+			settings.workBelow = nbt.getInt(LEGACY_HEIGHT_KEY);
 			settings.clamp();
 		}
 	}

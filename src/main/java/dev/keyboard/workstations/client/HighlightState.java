@@ -41,7 +41,9 @@ public final class HighlightState {
 	}
 
 	private static boolean isStation(ItemStack stack) {
-		return stack.isOf(WorkstationsMod.RANCH_ITEM) || stack.isOf(WorkstationsMod.FARM_ITEM);
+		return stack.isOf(WorkstationsMod.RANCH_ITEM)
+				|| stack.isOf(WorkstationsMod.FARM_ITEM)
+				|| stack.isOf(WorkstationsMod.LUMBER_ITEM);
 	}
 
 	private static boolean isForced() {

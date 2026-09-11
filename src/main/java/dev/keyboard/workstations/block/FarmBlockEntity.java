@@ -2,30 +2,24 @@ package dev.keyboard.workstations.block;
 
 import dev.keyboard.workstations.WorkstationsMod;
 import dev.keyboard.workstations.entity.FarmerEntity;
-import dev.keyboard.workstations.work.AreaContainers;
 import dev.keyboard.workstations.work.Crops;
 import dev.keyboard.workstations.work.FarmSettings;
 import dev.keyboard.workstations.work.PlotSurvey;
+import dev.keyboard.workstations.work.SeedStock;
 import dev.keyboard.workstations.work.WorkArea;
 import net.minecraft.block.Block;
 import net.minecraft.block.BlockState;
 import net.minecraft.entity.EntityType;
-import net.minecraft.inventory.Inventory;
 import net.minecraft.item.Item;
 import net.minecraft.nbt.NbtCompound;
-import net.minecraft.nbt.NbtElement;
-import net.minecraft.nbt.NbtList;
-import net.minecraft.registry.Registries;
 import net.minecraft.registry.RegistryWrapper;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.text.Text;
-import net.minecraft.util.Identifier;
 import net.minecraft.util.math.BlockPos;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
-import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -55,17 +49,12 @@ public class FarmBlockEntity extends WorkStationBlockEntity<FarmerEntity, FarmSe
 
 	private static final String PLOTS_KEY = "Plots";
 	private static final String SURVEYED_KEY = "Surveyed";
-	private static final String PLANTED_KEY = "Planted";
-	private static final String SEED_KEY = "Seed";
-	private static final String COUNT_KEY = "Count";
 
 	private final FarmSettings settings = new FarmSettings();
-	/** Seed boxes standing anywhere in the work area, looked up afresh now and then. */
-	private final AreaContainers<SeedBoxBlockEntity> boxes = new AreaContainers<>(SeedBoxBlockEntity.class);
+	/** Seed boxes in the area and the tally of what has been sown, shared with the lumber station. */
+	private final SeedStock stock = new SeedStock();
 	/** Insertion ordered so the farmer works a field in a stable, roughly nearest first order. */
 	private final Set<BlockPos> plots = new LinkedHashSet<>();
-	/** Plots given to each seed so far, which is what turns the mix's weights into real ratios. */
-	private final Map<Item, Integer> planted = new HashMap<>();
 	/** Whether the one off survey has been taken, so a reloaded station does not retake it. */
 	private boolean surveyed;
 
@@ -80,7 +69,8 @@ public class FarmBlockEntity extends WorkStationBlockEntity<FarmerEntity, FarmSe
 
 	@Override
 	public WorkArea getWorkArea() {
-		return new WorkArea(pos, settings.workRadius, settings.workHeight);
+		return WorkArea.of(pos, getCachedState().get(FarmBlock.FACING),
+				settings.workAlong, settings.workAcross, settings.workAbove, settings.workBelow);
 	}
 
 	@Override
@@ -141,18 +131,20 @@ public class FarmBlockEntity extends WorkStationBlockEntity<FarmerEntity, FarmSe
 	public int registerPlots(ServerWorld world) {
 		WorkArea area = getWorkArea();
 		BlockPos center = area.getCenter();
-		int radius = area.getRadius();
-		int height = area.getHeight();
+		int xRadius = area.getXRadius();
+		int zRadius = area.getZRadius();
+		int above = area.getAbove();
+		int below = area.getBelow();
 		List<BlockPos> found = new ArrayList<>();
 		BlockPos.Mutable cursor = new BlockPos.Mutable();
 
-		for (int dx = -radius; dx <= radius; dx++) {
-			for (int dz = -radius; dz <= radius; dz++) {
+		for (int dx = -xRadius; dx <= xRadius; dx++) {
+			for (int dz = -zRadius; dz <= zRadius; dz++) {
 				if (!world.isChunkLoaded((center.getX() + dx) >> 4, (center.getZ() + dz) >> 4)) {
 					continue;
 				}
 
-				for (int dy = -height; dy <= height; dy++) {
+				for (int dy = -below; dy <= above; dy++) {
 					cursor.set(center.getX() + dx, center.getY() + dy, center.getZ() + dz);
 
 					if (Crops.isFarmland(world.getBlockState(cursor))) {
@@ -210,39 +202,13 @@ public class FarmBlockEntity extends WorkStationBlockEntity<FarmerEntity, FarmSe
 		return Collections.unmodifiableSet(plots);
 	}
 
-	/**
-	 * The seed boxes anywhere in this station's work area, nearest first.
-	 *
-	 * <p>Separate from {@link #seedStores()} because the boxes are where seed is meant to end up
-	 * and the station is only what catches the overflow, a distinction that matters when deciding
-	 * how much of something belongs in a box in the first place.
-	 */
-	public List<Inventory> seedBoxes() {
-		return List.copyOf(boxes.in(world, getWorkArea()));
-	}
-
-	/**
-	 * Everywhere this station's seed might be, the place to reach for first listed first.
-	 *
-	 * <p>Seed boxes come before the station's own shelves: seed is taken out of a box while one
-	 * holds any, which is what keeps the station's own space clear for the produce coming the other
-	 * way. The station is last rather than absent so seed left on its shelves by hand is still
-	 * sown, and with no box in the area the station is the only store there is and everything works
-	 * as it did before boxes existed.
-	 */
-	public List<Inventory> seedStores() {
-		List<Inventory> stores = new ArrayList<>(seedBoxes());
-		stores.add(this);
-		return stores;
-	}
-
 	/** How many plots each seed holds, for the mix to divide the next one out by. */
 	public Map<Item, Integer> getPlantedTally() {
-		return Collections.unmodifiableMap(planted);
+		return stock.tally();
 	}
 
 	public void notePlanted(Item seed) {
-		planted.merge(seed, 1, Integer::sum);
+		stock.note(seed);
 		markDirty();
 	}
 
@@ -251,8 +217,7 @@ public class FarmBlockEntity extends WorkStationBlockEntity<FarmerEntity, FarmSe
 	 * than being fought by every plot sown under the old ones.
 	 */
 	public void clearPlantedTally() {
-		if (!planted.isEmpty()) {
-			planted.clear();
+		if (stock.clear()) {
 			markDirty();
 		}
 	}
@@ -281,17 +246,7 @@ public class FarmBlockEntity extends WorkStationBlockEntity<FarmerEntity, FarmSe
 		super.writeNbt(nbt, registryLookup);
 		nbt.putLongArray(PLOTS_KEY, packedPlots());
 		nbt.putBoolean(SURVEYED_KEY, surveyed);
-
-		NbtList tally = new NbtList();
-
-		for (Map.Entry<Item, Integer> entry : planted.entrySet()) {
-			NbtCompound row = new NbtCompound();
-			row.putString(SEED_KEY, Registries.ITEM.getId(entry.getKey()).toString());
-			row.putInt(COUNT_KEY, entry.getValue());
-			tally.add(row);
-		}
-
-		nbt.put(PLANTED_KEY, tally);
+		stock.writeNbt(nbt);
 	}
 
 	@Override
@@ -304,16 +259,6 @@ public class FarmBlockEntity extends WorkStationBlockEntity<FarmerEntity, FarmSe
 		}
 
 		surveyed = nbt.getBoolean(SURVEYED_KEY);
-		planted.clear();
-		NbtList tally = nbt.getList(PLANTED_KEY, NbtElement.COMPOUND_TYPE);
-
-		for (int index = 0; index < tally.size(); index++) {
-			NbtCompound row = tally.getCompound(index);
-			Identifier id = Identifier.tryParse(row.getString(SEED_KEY));
-
-			if (id != null && Registries.ITEM.containsId(id)) {
-				planted.put(Registries.ITEM.get(id), row.getInt(COUNT_KEY));
-			}
-		}
+		stock.readNbt(nbt);
 	}
 }

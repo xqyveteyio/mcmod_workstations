@@ -11,12 +11,12 @@ import net.minecraft.item.ItemStack;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * The seed box in hand, in the inventory and on the ground, drawn as the same shut chest.
+ * The feed box in hand, in the inventory and on the ground, drawn as the same shut chest.
  *
  * <p>The item model is {@code builtin/entity}, carrying no geometry of its own, the way vanilla's
  * chest item does.
  */
-public class SeedBoxItemRenderer implements BuiltinItemRendererRegistry.DynamicItemRenderer {
+public class FeedBarrelItemRenderer implements BuiltinItemRendererRegistry.DynamicItemRenderer {
 	/**
 	 * Built on first use rather than in the constructor: the chest model is only there to borrow
 	 * once resources have been loaded, which is later than client startup.
@@ -30,10 +30,10 @@ public class SeedBoxItemRenderer implements BuiltinItemRendererRegistry.DynamicI
 		if (model == null) {
 			model = new SeedBoxModel(MinecraftClient.getInstance()
 					.getEntityModelLoader().getModelPart(EntityModelLayers.CHEST),
-					WorkstationsMod.id("textures/entity/seed_box.png"));
+					WorkstationsMod.id("textures/entity/feed_barrel.png"));
 		}
 
-		model.render(WorkstationsMod.SEED_BOX_BLOCK.getDefaultState(), 0.0F,
+		model.render(WorkstationsMod.FEED_BARREL_BLOCK.getDefaultState(), 0.0F,
 				matrices, vertexConsumers, light, overlay);
 	}
 }

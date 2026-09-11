@@ -35,32 +35,32 @@ import net.minecraft.world.BlockView;
 import net.minecraft.world.World;
 import org.jetbrains.annotations.Nullable;
 
-public class RanchBlock extends BlockWithEntity {
-	public static final MapCodec<RanchBlock> CODEC = createCodec(RanchBlock::new);
+/**
+ * The lumber station. Same idea as the farm station and the same handling: normal use opens the
+ * container, sneak and use opens the settings screen, and breaking it takes the lumberjack with it.
+ */
+public class LumberBlock extends BlockWithEntity {
+	public static final MapCodec<LumberBlock> CODEC = createCodec(LumberBlock::new);
 	public static final DirectionProperty FACING = Properties.HORIZONTAL_FACING;
 	/**
-	 * Matches the table model: legs at the corners, the top they carry, and the miniature fence
-	 * ringing it. The fence is four walls rather than one lid, so the pen holding the display
-	 * animals stays as open as it looks.
+	 * Legs at the corners carrying a bench, which is the whole of the block. The axe above it is
+	 * left out on purpose: it hangs and turns the way a dropped item does, and there is no
+	 * catching hold of one of those either.
 	 */
 	private static final VoxelShape SHAPE = VoxelShapes.union(
 			Block.createCuboidShape(0.0, 0.0, 0.0, 2.0, 10.0, 2.0),
 			Block.createCuboidShape(14.0, 0.0, 0.0, 16.0, 10.0, 2.0),
 			Block.createCuboidShape(0.0, 0.0, 14.0, 2.0, 10.0, 16.0),
 			Block.createCuboidShape(14.0, 0.0, 14.0, 16.0, 10.0, 16.0),
-			Block.createCuboidShape(0.0, 10.0, 0.0, 16.0, 12.0, 16.0),
-			Block.createCuboidShape(0.0, 12.0, 0.0, 16.0, 16.0, 1.0),
-			Block.createCuboidShape(0.0, 12.0, 15.0, 16.0, 16.0, 16.0),
-			Block.createCuboidShape(0.0, 12.0, 1.0, 1.0, 16.0, 15.0),
-			Block.createCuboidShape(15.0, 12.0, 1.0, 16.0, 16.0, 15.0));
+			Block.createCuboidShape(0.0, 10.0, 0.0, 16.0, 12.0, 16.0));
 
-	public RanchBlock(Settings settings) {
+	public LumberBlock(Settings settings) {
 		super(settings);
 		setDefaultState(getStateManager().getDefaultState().with(FACING, Direction.NORTH));
 	}
 
 	@Override
-	protected MapCodec<? extends RanchBlock> getCodec() {
+	protected MapCodec<? extends LumberBlock> getCodec() {
 		return CODEC;
 	}
 
@@ -90,13 +90,7 @@ public class RanchBlock extends BlockWithEntity {
 		return SHAPE;
 	}
 
-	/**
-	 * Kept out of every path the game plans. Vanilla decides a block may be walked through from
-	 * whether its collision box fills the cube, and a table standing on legs does not fill it, so
-	 * without this the station reads as open ground: the rancher coming home to unload is routed
-	 * straight through its own station and then stands wedged against the tabletop, which is solid
-	 * and is the one part of the shape the path never accounted for.
-	 */
+	/** Kept out of planned paths for the reason {@link RanchBlock} spells out: legs are not a cube. */
 	@Override
 	protected boolean canPathfindThrough(BlockState state, NavigationType type) {
 		return false;
@@ -110,7 +104,7 @@ public class RanchBlock extends BlockWithEntity {
 	@Nullable
 	@Override
 	public BlockEntity createBlockEntity(BlockPos pos, BlockState state) {
-		return new RanchBlockEntity(pos, state);
+		return new LumberBlockEntity(pos, state);
 	}
 
 	@Nullable
@@ -120,7 +114,7 @@ public class RanchBlock extends BlockWithEntity {
 			return null;
 		}
 
-		return validateTicker(type, WorkstationsMod.RANCH_BLOCK_ENTITY, WorkStationBlockEntity::serverTick);
+		return validateTicker(type, WorkstationsMod.LUMBER_BLOCK_ENTITY, WorkStationBlockEntity::serverTick);
 	}
 
 	@Override
@@ -128,17 +122,17 @@ public class RanchBlock extends BlockWithEntity {
 		super.onPlaced(world, pos, state, placer, itemStack);
 
 		if (!(world instanceof ServerWorld serverWorld)
-				|| !(world.getBlockEntity(pos) instanceof RanchBlockEntity station)) {
+				|| !(world.getBlockEntity(pos) instanceof LumberBlockEntity station)) {
 			return;
 		}
 
-		// Summoned here rather than waiting on the tick timer, so placing the block visibly does something.
+		// Both done here rather than left to the tick timer, so placing the block visibly does
+		// something and the player is told straight away how much wood it found.
+		int trees = station.surveyWoods(serverWorld).trees().size();
 		station.summonWorker(serverWorld);
 
 		if (placer instanceof PlayerEntity player) {
-			player.sendMessage(Text.translatable("message.keyboard_workstations.station_placed",
-					station.getSettings().workAlong, station.getSettings().workAcross,
-					station.getSettings().workAbove, station.getSettings().workBelow), true);
+			player.sendMessage(Text.translatable("message.keyboard_workstations.lumber_placed", trees), true);
 		}
 	}
 
@@ -148,7 +142,7 @@ public class RanchBlock extends BlockWithEntity {
 			return ActionResult.SUCCESS;
 		}
 
-		if (!(world.getBlockEntity(pos) instanceof RanchBlockEntity station)) {
+		if (!(world.getBlockEntity(pos) instanceof LumberBlockEntity)) {
 			return ActionResult.PASS;
 		}
 
@@ -163,7 +157,7 @@ public class RanchBlock extends BlockWithEntity {
 
 	@Override
 	public void onStateReplaced(BlockState state, World world, BlockPos pos, BlockState newState, boolean moved) {
-		if (!state.isOf(newState.getBlock()) && world.getBlockEntity(pos) instanceof RanchBlockEntity station) {
+		if (!state.isOf(newState.getBlock()) && world.getBlockEntity(pos) instanceof LumberBlockEntity station) {
 			if (world instanceof ServerWorld serverWorld) {
 				station.dismissWorker(serverWorld);
 			}

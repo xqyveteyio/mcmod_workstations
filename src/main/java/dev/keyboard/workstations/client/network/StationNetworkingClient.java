@@ -1,14 +1,17 @@
 package dev.keyboard.workstations.client.network;
 
 import dev.keyboard.workstations.block.FarmBlockEntity;
+import dev.keyboard.workstations.block.LumberBlockEntity;
 import dev.keyboard.workstations.block.RanchBlockEntity;
 import dev.keyboard.workstations.client.screen.FarmSettingsScreen;
+import dev.keyboard.workstations.client.screen.LumberSettingsScreen;
 import dev.keyboard.workstations.client.screen.StationSettingsScreen;
 import dev.keyboard.workstations.network.StationNetworking.OpenScreenPayload;
 import dev.keyboard.workstations.network.StationNetworking.RecallWorkerPayload;
 import dev.keyboard.workstations.network.StationNetworking.RescanPlotsPayload;
 import dev.keyboard.workstations.network.StationNetworking.SaveSettingsPayload;
 import dev.keyboard.workstations.work.FarmSettings;
+import dev.keyboard.workstations.work.LumberSettings;
 import dev.keyboard.workstations.work.StationSettings;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.client.MinecraftClient;
@@ -46,6 +49,8 @@ public final class StationNetworkingClient {
 
 		if (world.getBlockEntity(pos) instanceof FarmBlockEntity farm) {
 			client.setScreen(new FarmSettingsScreen(pos, farm.getSettings().copy(), items(palette)));
+		} else if (world.getBlockEntity(pos) instanceof LumberBlockEntity lumber) {
+			client.setScreen(new LumberSettingsScreen(pos, lumber.getSettings().copy(), items(palette)));
 		} else if (world.getBlockEntity(pos) instanceof RanchBlockEntity ranch) {
 			client.setScreen(new StationSettingsScreen(pos, ranch.getSettings().copy()));
 		}
@@ -71,6 +76,12 @@ public final class StationNetworkingClient {
 	}
 
 	public static void saveFarmSettings(BlockPos pos, FarmSettings settings) {
+		NbtCompound nbt = new NbtCompound();
+		settings.writeNbt(nbt);
+		ClientPlayNetworking.send(new SaveSettingsPayload(pos, nbt));
+	}
+
+	public static void saveLumberSettings(BlockPos pos, LumberSettings settings) {
 		NbtCompound nbt = new NbtCompound();
 		settings.writeNbt(nbt);
 		ClientPlayNetworking.send(new SaveSettingsPayload(pos, nbt));
