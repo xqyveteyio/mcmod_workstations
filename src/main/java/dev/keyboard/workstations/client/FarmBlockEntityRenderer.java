@@ -1,5 +1,7 @@
 package dev.keyboard.workstations.client;
 
+import dev.keyboard.workstations.Mc;
+
 import dev.keyboard.workstations.block.FarmBlockEntity;
 import dev.keyboard.workstations.work.Crops;
 import net.minecraft.block.BlockState;
@@ -107,7 +109,7 @@ public class FarmBlockEntityRenderer
 		//?} else {
 		/* Matrix4f matrix = matrices.peek().getModel(); */
 		//?}
-		BlockPos origin = station.getPos();
+		BlockPos origin = Mc.pos(station);
 
 		for (BlockPos plot : station.getPlots()) {
 			// The register is only as fresh as the last packet, so a plot dug up a moment ago may

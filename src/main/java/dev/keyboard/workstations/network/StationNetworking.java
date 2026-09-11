@@ -187,7 +187,7 @@ public final class StationNetworking {
 			return;
 		}
 
-		player.sendMessage(Mc.translatable(switch (station.recallWorker(world)) {
+		Mc.tell(player, Mc.translatable(switch (station.recallWorker(world)) {
 			case SUMMONED -> "message.keyboard_workstations.worker_summoned";
 			case MOVED -> "message.keyboard_workstations.worker_recalled";
 			case NO_ROOM -> "message.keyboard_workstations.worker_no_room";
@@ -200,7 +200,7 @@ public final class StationNetworking {
 			return;
 		}
 
-		player.sendMessage(Mc.translatable("message.keyboard_workstations.plots_registered",
+		Mc.tell(player, Mc.translatable("message.keyboard_workstations.plots_registered",
 				farm.registerPlots(world)), true);
 	}
 

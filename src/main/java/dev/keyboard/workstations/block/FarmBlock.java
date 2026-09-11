@@ -62,7 +62,7 @@ public class FarmBlock extends BlockWithEntity {
 
 	public FarmBlock(AbstractBlock.Settings settings) {
 		super(settings);
-		setDefaultState(getStateManager().getDefaultState().with(FACING, Direction.NORTH));
+		setDefaultState(getDefaultState().with(FACING, Direction.NORTH));
 	}
 
 	//? if >=1.21 {
@@ -157,7 +157,7 @@ public class FarmBlock extends BlockWithEntity {
 		station.summonWorker(serverWorld);
 
 		if (placer instanceof PlayerEntity player) {
-			player.sendMessage(Mc.translatable("message.keyboard_workstations.farm_placed", plots), true);
+			Mc.tell(player, Mc.translatable("message.keyboard_workstations.farm_placed", plots), true);
 		}
 	}
 

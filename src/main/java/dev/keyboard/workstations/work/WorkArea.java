@@ -1,5 +1,7 @@
 package dev.keyboard.workstations.work;
 
+import dev.keyboard.workstations.Mc;
+
 import net.minecraft.entity.Entity;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Box;
@@ -67,7 +69,7 @@ public final class WorkArea {
 	}
 
 	public boolean contains(Entity entity) {
-		return contains(entity.getPos());
+		return contains(Mc.vec(entity));
 	}
 
 	/**

@@ -66,7 +66,7 @@ public class RanchBlock extends BlockWithEntity {
 
 	public RanchBlock(AbstractBlock.Settings settings) {
 		super(settings);
-		setDefaultState(getStateManager().getDefaultState().with(FACING, Direction.NORTH));
+		setDefaultState(getDefaultState().with(FACING, Direction.NORTH));
 	}
 
 	//? if >=1.21 {
@@ -165,7 +165,7 @@ public class RanchBlock extends BlockWithEntity {
 		station.summonWorker(serverWorld);
 
 		if (placer instanceof PlayerEntity player) {
-			player.sendMessage(Mc.translatable("message.keyboard_workstations.station_placed",
+			Mc.tell(player, Mc.translatable("message.keyboard_workstations.station_placed",
 					station.getSettings().workAlong, station.getSettings().workAcross,
 					station.getSettings().workAbove, station.getSettings().workBelow), true);
 		}

@@ -1,5 +1,7 @@
 package dev.keyboard.workstations.client;
 
+import dev.keyboard.workstations.Mc;
+
 import dev.keyboard.workstations.block.WorkStationBlockEntity;
 import dev.keyboard.workstations.work.WorkArea;
 import net.minecraft.client.render.RenderLayer;
@@ -70,7 +72,7 @@ public class WorkAreaHighlightRenderer<T extends WorkStationBlockEntity<?, ?>>
 		}
 
 		WorkArea area = blockEntity.getWorkArea();
-		BlockPos origin = blockEntity.getPos();
+		BlockPos origin = Mc.pos(blockEntity);
 		Box box = area.getBox();
 
 		// The block entity is drawn at its own position, so everything shifts into local space.

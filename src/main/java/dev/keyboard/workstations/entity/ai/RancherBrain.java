@@ -488,7 +488,7 @@ public class RancherBrain {
 			// so this check must use the same wider box, or a drop just outside would be taken
 			// and then immediately written off as gone.
 			return target != null && target.isAlive() && !Mc.removed(target)
-					&& WorkerPack.dropBox(area).contains(target.getPos());
+					&& WorkerPack.dropBox(area).contains(Mc.vec(target));
 		}
 
 		return target != null && target.isAlive() && !Mc.removed(target) && area.contains(target);
@@ -942,7 +942,7 @@ public class RancherBrain {
 			// there is nothing worth asking. Such a candidate is accepted and walked at in stages;
 			// if it does turn out to be unreachable, the stall detector writes it off once the
 			// rancher is near enough for a refusal to actually mean something.
-			if (WorkerMovement.isFarOff(rancher, candidate.getPos())) {
+			if (WorkerMovement.isFarOff(rancher, Mc.vec(candidate))) {
 				return candidate;
 			}
 
@@ -1233,7 +1233,7 @@ public class RancherBrain {
 			return;
 		}
 
-		if (target == null || WorkerMovement.approach(rancher, target.getPos(), WALK_SPEED)) {
+		if (target == null || WorkerMovement.approach(rancher, Mc.vec(target), WALK_SPEED)) {
 			return;
 		}
 
@@ -1301,7 +1301,7 @@ public class RancherBrain {
 					world.random.nextFloat() * 0.2F + 0.9F);
 		}
 
-		Vec3d center = animal.getPos().add(0.0, animal.getHeight() * 0.5, 0.0);
+		Vec3d center = Mc.vec(animal).add(0.0, animal.getHeight() * 0.5, 0.0);
 		world.spawnParticles(ParticleTypes.HAPPY_VILLAGER, center.x, center.y, center.z, 4, 0.3, 0.3, 0.3, 0.0);
 	}
 

@@ -143,6 +143,16 @@ public class LumberjackEntity extends PathAwareEntity implements StationWorker, 
 	 * <p>Damage types that bypass invulnerability still land, which keeps {@code /kill} working.
 	 */
 	@Override
+	//? if >=26.1 {
+	/* public boolean isInvulnerableTo(net.minecraft.server.level.ServerLevel world, DamageSource source) {
+		if (super.isInvulnerableTo(world, source)) {
+			return true;
+		}
+
+		return ModConfig.get().invulnerable && !source.isIn(DamageTypeTags.BYPASSES_INVULNERABILITY);
+	}
+	*/
+	//?} else {
 	public boolean isInvulnerableTo(DamageSource source) {
 		if (super.isInvulnerableTo(source)) {
 			return true;
@@ -154,6 +164,7 @@ public class LumberjackEntity extends PathAwareEntity implements StationWorker, 
 		/* return ModConfig.get().invulnerable && !source.isOutOfWorld(); */
 		//?}
 	}
+	//?}
 
 	/**
 	 * Nothing shoves a lumberjack. It shoves.
@@ -196,9 +207,20 @@ public class LumberjackEntity extends PathAwareEntity implements StationWorker, 
 	}
 
 	@Override
+	//? if >=26.1 {
+	/* protected void customServerAiStep(net.minecraft.server.level.ServerLevel world) {
+		super.customServerAiStep(world);
+		workTick();
+	}
+	*/
+	//?} else {
 	protected void mobTick() {
 		super.mobTick();
+		workTick();
+	}
+	//?}
 
+	private void workTick() {
 		// Setting tracked data it already holds costs nothing, so this needs no change detection.
 		// Kept up before the entrance is checked, so the lumberjack is dressed on the way down.
 		dataTracker.set(SKIN, getSettings().workerSkin);
@@ -265,10 +287,18 @@ public class LumberjackEntity extends PathAwareEntity implements StationWorker, 
 	 * worker is neither, so without this the arm goes up on the first job and stays there.
 	 */
 	@Override
+	//? if >=26.1 {
+	/* public void aiStep() {
+		updateSwingTime();
+		super.aiStep();
+	}
+	*/
+	//?} else {
 	public void tickMovement() {
 		tickHandSwing();
 		super.tickMovement();
 	}
+	//?}
 
 	@Override
 	public void arriveBy(WorkerEntrance.Style style) {
@@ -276,11 +306,20 @@ public class LumberjackEntity extends PathAwareEntity implements StationWorker, 
 	}
 
 	@Override
+	//? if >=26.1 {
+	/* public void handleEntityEvent(byte status) {
+		if (!entrance.handleStatus(this, status)) {
+			super.handleEntityEvent(status);
+		}
+	}
+	*/
+	//?} else {
 	public void handleStatus(byte status) {
 		if (!entrance.handleStatus(this, status)) {
 			super.handleStatus(status);
 		}
 	}
+	//?}
 
 	/** How the lumberjack is arriving or leaving, which is the renderer's business as well as its own. */
 	public WorkerEntrance getEntrance() {
@@ -309,10 +348,18 @@ public class LumberjackEntity extends PathAwareEntity implements StationWorker, 
 	 * means the landing is never reported to the block at all.
 	 */
 	@Override
+	//? if >=26.1 {
+	/* protected void checkFallDamage(double heightDifference, boolean onGround, BlockState state, BlockPos landedPosition) {
+		fallDistance = 0.0F;
+		super.checkFallDamage(heightDifference, onGround, state, landedPosition);
+	}
+	*/
+	//?} else {
 	protected void fall(double heightDifference, boolean onGround, BlockState state, BlockPos landedPosition) {
 		fallDistance = 0.0F;
 		super.fall(heightDifference, onGround, state, landedPosition);
 	}
+	//?}
 
 	/** A lumberjack that dies in a gateway must not leave the wood standing open behind it. */
 	@Override
@@ -439,10 +486,18 @@ public class LumberjackEntity extends PathAwareEntity implements StationWorker, 
 	}
 
 	@Override
+	//? if >=26.1 {
+	/* protected void dropEquipment(net.minecraft.server.level.ServerLevel world) {
+		super.dropEquipment(world);
+		ItemScatterer.spawn(world, this, carried);
+	}
+	*/
+	//?} else {
 	protected void dropInventory() {
 		super.dropInventory();
 		ItemScatterer.spawn(Mc.world(this), this, carried);
 	}
+	//?}
 
 	@Nullable
 	@Override

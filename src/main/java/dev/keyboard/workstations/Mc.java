@@ -92,7 +92,7 @@ public final class Mc {
 
 	public static net.minecraft.util.math.BlockPos pos(net.minecraft.block.entity.BlockEntity blockEntity) {
 		//? if >=26.1 {
-		/* return blockEntity.getBlockPos(); */
+		/* return blockEntity.worldPosition; */
 		//?} else {
 		return blockEntity.getPos();
 		//?}
@@ -341,6 +341,30 @@ public final class Mc {
 		//?}
 	}
 
+	public static net.minecraft.util.math.Vec3d vec(Entity entity) {
+		//? if >=26.1 {
+		/* return entity.position(); */
+		//?} else {
+		return entity.getPos();
+		//?}
+	}
+
+	public static Entity byUuid(net.minecraft.server.world.ServerWorld world, java.util.UUID id) {
+		//? if >=26.1 {
+		/* return world.getEntityInAnyDimension(id); */
+		//?} else {
+		return world.getEntity(id);
+		//?}
+	}
+
+	public static <T extends Entity> T create(net.minecraft.entity.EntityType<T> type, net.minecraft.world.World world) {
+		//? if >=26.1 {
+		/* return type.create(world, net.minecraft.world.entity.EntitySpawnReason.MOB_SUMMONED); */
+		//?} else {
+		return type.create(world);
+		//?}
+	}
+
 	public static void tell(net.minecraft.entity.player.PlayerEntity player, Text text, boolean overlay) {
 		//? if >=26.1 {
 		/* if (overlay) {
@@ -362,7 +386,9 @@ public final class Mc {
 	}
 
 	public static int boxMinX(net.minecraft.util.math.BlockBox box) {
-		//? if >=1.17 {
+		//? if >=26.1 {
+		/* return box.minX(); */
+		//?} elif >=1.17 {
 		return box.getMinX();
 		//?} else {
 		/* return box.minX; */
@@ -370,7 +396,9 @@ public final class Mc {
 	}
 
 	public static int boxMinY(net.minecraft.util.math.BlockBox box) {
-		//? if >=1.17 {
+		//? if >=26.1 {
+		/* return box.minY(); */
+		//?} elif >=1.17 {
 		return box.getMinY();
 		//?} else {
 		/* return box.minY; */
@@ -378,7 +406,9 @@ public final class Mc {
 	}
 
 	public static int boxMinZ(net.minecraft.util.math.BlockBox box) {
-		//? if >=1.17 {
+		//? if >=26.1 {
+		/* return box.minZ(); */
+		//?} elif >=1.17 {
 		return box.getMinZ();
 		//?} else {
 		/* return box.minZ; */
@@ -386,7 +416,9 @@ public final class Mc {
 	}
 
 	public static int boxMaxX(net.minecraft.util.math.BlockBox box) {
-		//? if >=1.17 {
+		//? if >=26.1 {
+		/* return box.maxX(); */
+		//?} elif >=1.17 {
 		return box.getMaxX();
 		//?} else {
 		/* return box.maxX; */
@@ -394,7 +426,9 @@ public final class Mc {
 	}
 
 	public static int boxMaxY(net.minecraft.util.math.BlockBox box) {
-		//? if >=1.17 {
+		//? if >=26.1 {
+		/* return box.maxY(); */
+		//?} elif >=1.17 {
 		return box.getMaxY();
 		//?} else {
 		/* return box.maxY; */
@@ -402,7 +436,9 @@ public final class Mc {
 	}
 
 	public static int boxMaxZ(net.minecraft.util.math.BlockBox box) {
-		//? if >=1.17 {
+		//? if >=26.1 {
+		/* return box.maxZ(); */
+		//?} elif >=1.17 {
 		return box.getMaxZ();
 		//?} else {
 		/* return box.maxZ; */

@@ -66,7 +66,7 @@ public class LumberBlock extends BlockWithEntity {
 
 	public LumberBlock(AbstractBlock.Settings settings) {
 		super(settings);
-		setDefaultState(getStateManager().getDefaultState().with(FACING, Direction.NORTH));
+		setDefaultState(getDefaultState().with(FACING, Direction.NORTH));
 	}
 
 	//? if >=1.21 {
@@ -161,7 +161,7 @@ public class LumberBlock extends BlockWithEntity {
 		station.summonWorker(serverWorld);
 
 		if (placer instanceof PlayerEntity player) {
-			player.sendMessage(Mc.translatable("message.keyboard_workstations.lumber_placed", trees), true);
+			Mc.tell(player, Mc.translatable("message.keyboard_workstations.lumber_placed", trees), true);
 		}
 	}
 

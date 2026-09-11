@@ -874,7 +874,7 @@ public class LumberjackBrain {
 		for (int index = 0; index < Math.min(queue.size(), MAX_PATH_CHECKS); index++) {
 			ItemEntity drop = queue.get(index);
 
-			if (WorkerMovement.isFarOff(lumberjack, drop.getPos())) {
+			if (WorkerMovement.isFarOff(lumberjack, Mc.vec(drop))) {
 				return drop;
 			}
 
@@ -1154,7 +1154,7 @@ public class LumberjackBrain {
 
 	private void navigate(LumberjackEntity lumberjack) {
 		if (job == Job.COLLECT) {
-			if (target == null || WorkerMovement.approach(lumberjack, target.getPos(), WALK_SPEED)) {
+			if (target == null || WorkerMovement.approach(lumberjack, Mc.vec(target), WALK_SPEED)) {
 				return;
 			}
 

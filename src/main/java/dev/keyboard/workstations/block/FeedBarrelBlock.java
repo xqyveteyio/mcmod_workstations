@@ -64,7 +64,7 @@ public class FeedBarrelBlock extends BlockWithEntity {
 
 	public FeedBarrelBlock(AbstractBlock.Settings settings) {
 		super(settings);
-		setDefaultState(getStateManager().getDefaultState().with(FACING, Direction.NORTH));
+		setDefaultState(getDefaultState().with(FACING, Direction.NORTH));
 	}
 
 	//? if >=1.21 {

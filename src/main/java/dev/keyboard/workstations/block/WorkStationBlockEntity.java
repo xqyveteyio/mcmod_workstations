@@ -162,7 +162,7 @@ public abstract class WorkStationBlockEntity<W extends MobEntity & StationWorker
 
 		if (worker != null) {
 			// Refreshed every tick so a worker restored from disk finds its way home again.
-			worker.setStation(pos);
+			worker.setStation(Mc.pos(station));
 			station.respawnTimer = station.respawnTicks();
 			station.tickWithWorker(serverWorld, worker);
 			return;
@@ -183,8 +183,8 @@ public abstract class WorkStationBlockEntity<W extends MobEntity & StationWorker
 		getSettings().copyFrom(incoming);
 		markDirty();
 
-		if (world != null) {
-			world.updateListeners(pos, getCachedState(), getCachedState(), Mc.NOTIFY_LISTENERS);
+		if (Mc.world(this) != null) {
+			Mc.world(this).updateListeners(Mc.pos(this), Mc.cached(this), Mc.cached(this), Mc.NOTIFY_LISTENERS);
 		}
 	}
 
@@ -201,7 +201,7 @@ public abstract class WorkStationBlockEntity<W extends MobEntity & StationWorker
 	@Nullable
 	public W getWorker(ServerWorld world) {
 		if (workerUuid != null) {
-			Entity entity = world.getEntity(workerUuid);
+			Entity entity = Mc.byUuid(world, workerUuid);
 
 			if (workerClass().isInstance(entity) && entity.isAlive()) {
 				return workerClass().cast(entity);
@@ -216,7 +216,7 @@ public abstract class WorkStationBlockEntity<W extends MobEntity & StationWorker
 		// No one is on the books, so take on a worker already standing in the area before
 		// summoning a new one.
 		List<W> strays = world.getEntitiesByClass(workerClass(), getWorkArea().getBox().expand(4.0),
-				worker -> worker.isAlive() && pos.equals(worker.getStationPos()));
+				worker -> worker.isAlive() && Mc.pos(this).equals(worker.getStationPos()));
 
 		if (!strays.isEmpty()) {
 			adopt(strays.get(0));
@@ -241,7 +241,7 @@ public abstract class WorkStationBlockEntity<W extends MobEntity & StationWorker
 			return;
 		}
 
-		W worker = workerType().create(world);
+		W worker = Mc.create(workerType(), world);
 
 		if (worker == null) {
 			return;
@@ -254,7 +254,7 @@ public abstract class WorkStationBlockEntity<W extends MobEntity & StationWorker
 
 		worker.refreshPositionAndAngles(spawnPos.getX() + 0.5, startY, spawnPos.getZ() + 0.5,
 				world.random.nextFloat() * 360.0F, 0.0F);
-		worker.setStation(pos);
+		worker.setStation(Mc.pos(this));
 		worker.arriveBy(style);
 
 		if (world.spawnEntity(worker)) {
@@ -323,7 +323,7 @@ public abstract class WorkStationBlockEntity<W extends MobEntity & StationWorker
 	@Nullable
 	private BlockPos findSpawnPos(ServerWorld world) {
 		for (Direction direction : Direction.Type.HORIZONTAL) {
-			BlockPos candidate = pos.offset(direction);
+			BlockPos candidate = Mc.pos(this).offset(direction);
 
 			if (hasHeadroom(world, candidate)) {
 				return candidate;
@@ -331,14 +331,14 @@ public abstract class WorkStationBlockEntity<W extends MobEntity & StationWorker
 		}
 
 		for (Direction direction : Direction.Type.HORIZONTAL) {
-			BlockPos candidate = pos.offset(direction).up();
+			BlockPos candidate = Mc.pos(this).offset(direction).up();
 
 			if (hasHeadroom(world, candidate)) {
 				return candidate;
 			}
 		}
 
-		return hasHeadroom(world, pos.up()) ? pos.up() : null;
+		return hasHeadroom(world, Mc.pos(this).up()) ? Mc.pos(this).up() : null;
 	}
 
 	private static boolean hasHeadroom(ServerWorld world, BlockPos pos) {

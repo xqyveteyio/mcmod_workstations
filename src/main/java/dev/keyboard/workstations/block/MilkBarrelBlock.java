@@ -22,7 +22,7 @@ import net.minecraft.state.property.IntProperty;
 import net.minecraft.text.Text;
 import net.minecraft.util.ActionResult;
 import net.minecraft.util.Hand;
-//? if >=1.21 {
+//? if >=1.21 && <26.1 {
 /* import net.minecraft.util.ItemActionResult; */
 //?}
 import net.minecraft.util.hit.BlockHitResult;
@@ -49,7 +49,7 @@ public class MilkBarrelBlock extends BlockWithEntity {
 
 	public MilkBarrelBlock(AbstractBlock.Settings settings) {
 		super(settings);
-		setDefaultState(getStateManager().getDefaultState().with(LEVEL, 0));
+		setDefaultState(getDefaultState().with(LEVEL, 0));
 	}
 
 	//? if >=1.21 {
@@ -175,7 +175,7 @@ public class MilkBarrelBlock extends BlockWithEntity {
 			return ActionResult.PASS;
 		}
 
-		player.sendMessage(level(barrel), true);
+		Mc.tell(player, level(barrel), true);
 		return ActionResult.CONSUME;
 	}
 	*/
@@ -205,7 +205,7 @@ public class MilkBarrelBlock extends BlockWithEntity {
 		}
 
 		// Nothing changed hands, but saying how full it is still answers what the player asked.
-		player.sendMessage(level(barrel), true);
+		Mc.tell(player, level(barrel), true);
 		return ActionResult.CONSUME;
 	}
 	//?}
@@ -233,7 +233,7 @@ public class MilkBarrelBlock extends BlockWithEntity {
 	private static void announce(World world, BlockPos pos, PlayerEntity player,
 			MilkBarrelBlockEntity barrel, SoundEvent sound) {
 		world.playSound(null, pos, sound, SoundCategory.BLOCKS, 1.0F, 1.0F);
-		player.sendMessage(level(barrel), true);
+		Mc.tell(player, level(barrel), true);
 	}
 
 	private static Text level(MilkBarrelBlockEntity barrel) {

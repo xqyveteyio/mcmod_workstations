@@ -907,7 +907,7 @@ public class FarmerBrain {
 		for (int index = 0; index < Math.min(queue.size(), MAX_PATH_CHECKS); index++) {
 			ItemEntity drop = queue.get(index);
 
-			if (WorkerMovement.isFarOff(farmer, drop.getPos())) {
+			if (WorkerMovement.isFarOff(farmer, Mc.vec(drop))) {
 				return drop;
 			}
 
@@ -1123,7 +1123,7 @@ public class FarmerBrain {
 
 	private void navigate(FarmerEntity farmer) {
 		if (job == Job.COLLECT) {
-			if (target == null || WorkerMovement.approach(farmer, target.getPos(), WALK_SPEED)) {
+			if (target == null || WorkerMovement.approach(farmer, Mc.vec(target), WALK_SPEED)) {
 				return;
 			}
 

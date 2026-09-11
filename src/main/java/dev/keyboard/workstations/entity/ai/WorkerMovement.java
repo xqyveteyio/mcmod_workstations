@@ -66,8 +66,8 @@ public final class WorkerMovement {
 			return false;
 		}
 
-		Vec3d hop = worker.getPos()
-				.add(destination.subtract(worker.getPos()).normalize().multiply(APPROACH_STEP));
+		Vec3d hop = Mc.vec(worker)
+				.add(destination.subtract(Mc.vec(worker)).normalize().multiply(APPROACH_STEP));
 		worker.getNavigation().startMovingTo(hop.x, hop.y, hop.z, speed);
 		return true;
 	}

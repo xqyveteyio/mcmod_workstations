@@ -5,12 +5,16 @@ import dev.keyboard.workstations.Mc;
 import dev.keyboard.workstations.WorkstationsMod;
 import dev.keyboard.workstations.client.network.StationNetworkingClient;
 import net.fabricmc.api.ClientModInitializer;
+//? if <26.1 {
 import net.fabricmc.fabric.api.blockrenderlayer.v1.BlockRenderLayerMap;
+//?}
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
 //? if >=1.17 {
 import net.fabricmc.fabric.api.client.rendering.v1.BlockEntityRendererRegistry;
+//? if <26.1 {
 import net.fabricmc.fabric.api.client.rendering.v1.BuiltinItemRendererRegistry;
+//?}
 import net.fabricmc.fabric.api.client.rendering.v1.EntityRendererRegistry;
 //?} else {
 /* import net.fabricmc.fabric.api.client.rendereregistry.v1.BlockEntityRendererRegistry;
@@ -18,9 +22,10 @@ import net.fabricmc.fabric.api.client.rendering.v1.BuiltinItemRendererRegistry;
 import net.fabricmc.fabric.api.client.rendereregistry.v1.EntityRendererRegistry; */
 //?}
 import net.minecraft.client.option.KeyBinding;
+//? if <26.1 {
 import net.minecraft.client.render.RenderLayer;
+//?}
 import net.minecraft.client.util.InputUtil;
-import net.minecraft.text.Text;
 import org.lwjgl.glfw.GLFW;
 
 public class WorkstationsClient implements ClientModInitializer {
@@ -28,13 +33,29 @@ public class WorkstationsClient implements ClientModInitializer {
 			"key.keyboard_workstations.toggle_highlight",
 			InputUtil.Type.KEYSYM,
 			GLFW.GLFW_KEY_G,
-			"category.keyboard_workstations"));
+			//? if >=26.1 {
+			/* new KeyBinding.Category(WorkstationsMod.id("highlight")) */
+			//?} else {
+			"category.keyboard_workstations"
+			//?}
+			));
 
 	@Override
 	public void onInitializeClient() {
 		StationNetworkingClient.registerClientReceivers();
 
-		//? if >=1.17 {
+		//? if >=26.1 {
+		/* BlockEntityRendererRegistry.register(WorkstationsMod.RANCH_BLOCK_ENTITY, StationBlockEntityRenderer::new);
+		EntityRendererRegistry.register(WorkstationsMod.RANCHER, RancherEntityRenderer::new);
+		BlockEntityRendererRegistry.register(WorkstationsMod.FARM_BLOCK_ENTITY, FarmBlockEntityRenderer::new);
+		EntityRendererRegistry.register(WorkstationsMod.FARMER, FarmerEntityRenderer::new);
+		BlockEntityRendererRegistry.register(WorkstationsMod.LUMBER_BLOCK_ENTITY, LumberBlockEntityRenderer::new);
+		EntityRendererRegistry.register(WorkstationsMod.LUMBERJACK, LumberjackEntityRenderer::new);
+		BlockEntityRendererRegistry.register(WorkstationsMod.SEED_BOX_BLOCK_ENTITY,
+				ctx -> new StationChestBlockEntityRenderer<>(ctx, WorkstationsMod.id("textures/entity/seed_box.png")));
+		BlockEntityRendererRegistry.register(WorkstationsMod.FEED_BARREL_BLOCK_ENTITY,
+				ctx -> new StationChestBlockEntityRenderer<>(ctx, WorkstationsMod.id("textures/entity/feed_barrel.png"))); */
+		//?} elif >=1.17 {
 		BlockEntityRendererRegistry.register(WorkstationsMod.RANCH_BLOCK_ENTITY, StationBlockEntityRenderer::new);
 		BuiltinItemRendererRegistry.INSTANCE.register(WorkstationsMod.RANCH_ITEM, new StationItemRenderer());
 		EntityRendererRegistry.register(WorkstationsMod.RANCHER, RancherEntityRenderer::new);
@@ -92,7 +113,7 @@ public class WorkstationsClient implements ClientModInitializer {
 				boolean enabled = HighlightState.toggle();
 
 				if (client.player != null) {
-					client.player.sendMessage(Mc.translatable(enabled
+					Mc.tell(client.player, Mc.translatable(enabled
 							? "message.keyboard_workstations.highlight_on"
 							: "message.keyboard_workstations.highlight_off"), true);
 				}

@@ -142,6 +142,16 @@ public class RancherEntity extends PathAwareEntity implements StationWorker, Wor
 	 * <p>Damage types that bypass invulnerability still land, which keeps {@code /kill} working.
 	 */
 	@Override
+	//? if >=26.1 {
+	/* public boolean isInvulnerableTo(net.minecraft.server.level.ServerLevel world, DamageSource source) {
+		if (super.isInvulnerableTo(world, source)) {
+			return true;
+		}
+
+		return ModConfig.get().invulnerable && !source.isIn(DamageTypeTags.BYPASSES_INVULNERABILITY);
+	}
+	*/
+	//?} else {
 	public boolean isInvulnerableTo(DamageSource source) {
 		if (super.isInvulnerableTo(source)) {
 			return true;
@@ -153,6 +163,7 @@ public class RancherEntity extends PathAwareEntity implements StationWorker, Wor
 		/* return ModConfig.get().invulnerable && !source.isOutOfWorld(); */
 		//?}
 	}
+	//?}
 
 	/**
 	 * Nothing shoves a rancher. It shoves.
@@ -197,9 +208,20 @@ public class RancherEntity extends PathAwareEntity implements StationWorker, Wor
 	}
 
 	@Override
+	//? if >=26.1 {
+	/* protected void customServerAiStep(net.minecraft.server.level.ServerLevel world) {
+		super.customServerAiStep(world);
+		workTick();
+	}
+	*/
+	//?} else {
 	protected void mobTick() {
 		super.mobTick();
+		workTick();
+	}
+	//?}
 
+	private void workTick() {
 		// Setting tracked data it already holds costs nothing, so this needs no change detection.
 		// Kept up before the entrance is checked, so the rancher is dressed on the way down.
 		dataTracker.set(SKIN, getSettings().workerSkin);
@@ -272,10 +294,18 @@ public class RancherEntity extends PathAwareEntity implements StationWorker, Wor
 	 * rancher shears, feeds and butchers its way around the pen without ever moving.
 	 */
 	@Override
+	//? if >=26.1 {
+	/* public void aiStep() {
+		updateSwingTime();
+		super.aiStep();
+	}
+	*/
+	//?} else {
 	public void tickMovement() {
 		tickHandSwing();
 		super.tickMovement();
 	}
+	//?}
 
 	@Override
 	public void arriveBy(WorkerEntrance.Style style) {
@@ -283,11 +313,20 @@ public class RancherEntity extends PathAwareEntity implements StationWorker, Wor
 	}
 
 	@Override
+	//? if >=26.1 {
+	/* public void handleEntityEvent(byte status) {
+		if (!entrance.handleStatus(this, status)) {
+			super.handleEntityEvent(status);
+		}
+	}
+	*/
+	//?} else {
 	public void handleStatus(byte status) {
 		if (!entrance.handleStatus(this, status)) {
 			super.handleStatus(status);
 		}
 	}
+	//?}
 
 	/** How the rancher is arriving or leaving, which is the renderer's business as well as its own. */
 	public WorkerEntrance getEntrance() {
@@ -447,10 +486,18 @@ public class RancherEntity extends PathAwareEntity implements StationWorker, Wor
 	}
 
 	@Override
+	//? if >=26.1 {
+	/* protected void dropEquipment(net.minecraft.server.level.ServerLevel world) {
+		super.dropEquipment(world);
+		ItemScatterer.spawn(world, this, carried);
+	}
+	*/
+	//?} else {
 	protected void dropInventory() {
 		super.dropInventory();
 		ItemScatterer.spawn(Mc.world(this), this, carried);
 	}
+	//?}
 
 	@Nullable
 	@Override

@@ -1,5 +1,7 @@
 package dev.keyboard.workstations.client;
 
+import dev.keyboard.workstations.Mc;
+
 import dev.keyboard.workstations.block.LumberBlockEntity;
 import net.minecraft.client.render.RenderLayer;
 import net.minecraft.client.render.VertexConsumer;
@@ -85,7 +87,7 @@ public class LumberBlockEntityRenderer
 		//?} else {
 		/* Matrix4f matrix = matrices.peek().getModel(); */
 		//?}
-		BlockPos origin = station.getPos();
+		BlockPos origin = Mc.pos(station);
 
 		for (BlockPos stump : station.getStumps()) {
 			tile(buffer, matrix, origin, stump);

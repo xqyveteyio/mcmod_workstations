@@ -403,9 +403,9 @@ public class WorkstationsMod implements ModInitializer {
 
 		ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
 			//? if >=1.17 {
-			handler.getPlayer().sendMessage(notice, false);
+			Mc.tell(handler.getPlayer(), notice, false);
 			//?} else {
-			/* handler.player.sendMessage(notice, false); */
+			/* Mc.tell(handler.player, notice, false); */
 			//?}
 		});
 	}

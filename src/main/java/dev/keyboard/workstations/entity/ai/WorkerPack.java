@@ -125,7 +125,7 @@ public final class WorkerPack {
 		Box reach = dropBox(area);
 
 		for (ItemEntity drop : looseIn(world, worker.getBoundingBox().expand(UNDERFOOT_RADIUS), pack)) {
-			if (worker.squaredDistanceTo(drop) <= UNDERFOOT_RADIUS_SQUARED && reach.contains(drop.getPos())) {
+			if (worker.squaredDistanceTo(drop) <= UNDERFOOT_RADIUS_SQUARED && reach.contains(Mc.vec(drop))) {
 				nearby.add(drop);
 			}
 		}

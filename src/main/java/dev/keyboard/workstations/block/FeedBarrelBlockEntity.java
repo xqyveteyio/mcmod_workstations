@@ -146,7 +146,7 @@ public class FeedBarrelBlockEntity extends LootableContainerBlockEntity implemen
 	//?} else {
 	/* @Override
 	public void tick() {
-		BlockPos here = getPos();
+		BlockPos here = Mc.pos(this);
 		ticksOpen++;
 		viewerCount = ChestBlockEntity.tickViewerCount(world, this, ticksOpen,
 				here.getX(), here.getY(), here.getZ(), viewerCount);
