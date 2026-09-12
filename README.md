@@ -1,26 +1,19 @@
-# Workstations - 1.16.5 Fabric port
+# Workstations - 1.16.5 Fabric and Forge
 
-Fabric port of the 1.20.1 Workstations mod to Minecraft 1.16.5.
+Architectury port of Workstations to Minecraft 1.16.5. Two jars, one per loader. Architectury API is required.
 
 - Minecraft: 1.16.5
-- Fabric Loader: 0.14.21
-- Fabric API: 0.42.0+1.16
-- Java: 16+ (the code uses modern Java features from the 1.20.1 source)
-- Minecraft Comes Alive (MCA) integration has been removed for this port.
+- Fabric Loader: 0.14.23 + Fabric API 0.42.0+1.16 + Architectury API 1.32.68 (Fabric)
+- Forge: 36.2.39 + Architectury API 1.32.68 (Forge)
+- Java: 16+
+- Mod ID / namespace: `villager_workstations`
+- Minecraft Comes Alive (MCA) integration is not included on this line
 
-Stations:
+Install **one** of:
 
-- Ranch station: breeds, culls, shears and milks livestock in its work area
-- Farm station: tills, sows and harvests registered plots
-- Lumber station: fells trees, replants saplings, and force-grows with bone meal
-- Seed box and feed box: extra storage the farm/lumber and ranch stations draw from first
+- Fabric: Fabric Loader + Fabric API + Architectury API (Fabric) + `villager-workstations-1.16.5-fabric-2.0.0.jar`
+- Forge: Forge + Architectury API (Forge) + `villager-workstations-1.16.5-forge-2.0.0.jar`
 
-Build with `./gradlew build`.
+Do not install `-dev-shadow` or `-raw` jars. Worlds that used `keyboard_workstations:` IDs will not carry over.
 
-Headless server smoke test has been run successfully with:
-
-```bash
-./gradlew runServer --no-daemon
-```
-
-sdk use java 17.0.16-tem
+Build with JDK 17 (`sdk use java 17.0.16-tem`) and `./gradlew build`. Player jars land in `fabric/build/libs/` and `forge/build/libs/`. The compiled mod still needs Java 16+ at runtime.

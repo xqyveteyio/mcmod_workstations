@@ -1,77 +1,60 @@
 plugins {
-id 'fabric-loom' version '0.12.53'
-id 'maven-publish'
+	id 'architectury-plugin' version '3.4-SNAPSHOT'
+	id 'dev.architectury.loom' version '1.3-SNAPSHOT' apply false
 }
 
-version = project.mod_version
-group = project.maven_group
-
-base {
-archivesName = project.archives_base_name
+architectury {
+	minecraft = rootProject.minecraft_version
 }
 
-loom {
-accessWidenerPath = file("src/main/resources/keyboard_workstations.accesswidener")
+subprojects {
+	apply plugin: 'dev.architectury.loom'
+
+	loom {
+		silentMojangMappingsLicense()
+	}
+
+	repositories {
+		maven { url = 'https://maven.architectury.dev/' }
+	}
+
+	dependencies {
+		minecraft "com.mojang:minecraft:${rootProject.minecraft_version}"
+		mappings "net.fabricmc:yarn:${rootProject.yarn_mappings}:v2"
+	}
 }
 
-repositories {
-maven {
-name = 'Aliyun'
-url = 'https://maven.aliyun.com/repository/public'
-}
-mavenCentral()
-}
+allprojects {
+	apply plugin: 'java'
+	apply plugin: 'architectury-plugin'
+	apply plugin: 'maven-publish'
 
-dependencies {
-minecraft "com.mojang:minecraft:${project.minecraft_version}"
-mappings "net.fabricmc:yarn:${project.yarn_mappings}:v2"
-modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
-modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
-modRuntimeOnly "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
+	base {
+		archivesName = "${rootProject.archives_base_name}-${rootProject.minecraft_version}-${project.name}"
+	}
 
-// Minecraft Comes Alive integration is intentionally removed for 1.16.5.
-// Workers always use their own textures and are not dressed as MCA villagers.
-}
+	version = rootProject.mod_version
+	group = rootProject.maven_group
 
-processResources {
-inputs.property "version", project.version
+	repositories {
+		mavenCentral()
+	}
 
-filesMatching("fabric.mod.json") {
-expand "version": inputs.properties.version
-}
-}
+	tasks.withType(JavaCompile).configureEach {
+		it.options.encoding = 'UTF-8'
+		it.options.release = 16
+	}
 
-tasks.withType(JavaCompile).configureEach {
-it.options.encoding = "UTF-8"
-it.options.release = 16
-}
+	tasks.withType(JavaExec).configureEach {
+		javaLauncher = javaToolchains.launcherFor {
+			languageVersion = JavaLanguageVersion.of(17)
+		}
+	}
 
-java {
-withSourcesJar()
-
-sourceCompatibility = JavaVersion.VERSION_16
-targetCompatibility = JavaVersion.VERSION_16
-
-toolchain {
-languageVersion = JavaLanguageVersion.of(17)
-}
-}
-
-jar {
-manifest {
-attributes 'Implementation-Title': project.archives_base_name,
-'Implementation-Version': project.version
-}
-}
-
-publishing {
-publications {
-create("mavenJava", MavenPublication) {
-artifactId = project.archives_base_name
-from components.java
-}
-}
-
-repositories {
-}
+	java {
+		toolchain {
+			languageVersion = JavaLanguageVersion.of(17)
+		}
+		withSourcesJar()
+	}
 }
