@@ -8,3 +8,7 @@ accessible	method	net/minecraft/world/level/block/grower/TreeGrower	getConfigure
 
 # Item models look up special renderers from this map when the JSON is read.
 accessible	field	net/minecraft/client/renderer/special/SpecialModelRenderers	ID_MAPPER	Lnet/minecraft/util/ExtraCodecs$LateBoundIdMapper;
+
+# 26.1 dropped BlockEntityType.Builder; the constructor and supplier are package-private.
+accessible	class	net/minecraft/world/level/block/entity/BlockEntityType$BlockEntitySupplier
+accessible	method	net/minecraft/world/level/block/entity/BlockEntityType	<init>	(Lnet/minecraft/world/level/block/entity/BlockEntityType$BlockEntitySupplier;Ljava/util/Set;)V

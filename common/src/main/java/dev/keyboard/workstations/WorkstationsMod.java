@@ -37,6 +37,7 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.SoundType;
+import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockBehaviour;
 import net.minecraft.world.level.block.state.BlockState;
@@ -44,6 +45,8 @@ import net.minecraft.world.level.material.MapColor;
 import net.minecraft.world.level.material.PushReaction;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.util.Set;
 
 public class WorkstationsMod {
 	public static final String MOD_ID = "villager_workstations";
@@ -115,29 +118,23 @@ public class WorkstationsMod {
 					})));
 
 	public static final RegistrySupplier<BlockEntityType<RanchBlockEntity>> RANCH_BLOCK_ENTITY =
-			BLOCK_ENTITY_TYPES.register(RANCH_ID.getPath(), () ->
-					BlockEntityType.Builder.of(RanchBlockEntity::new, RANCH_BLOCK.get())
-							.build(ResourceKey.create(Registries.BLOCK_ENTITY_TYPE, RANCH_ID)));
+			BLOCK_ENTITY_TYPES.register(RANCH_ID.getPath(),
+					() -> blockEntityType(RanchBlockEntity::new, RANCH_BLOCK.get()));
 	public static final RegistrySupplier<BlockEntityType<FarmBlockEntity>> FARM_BLOCK_ENTITY =
-			BLOCK_ENTITY_TYPES.register(FARM_ID.getPath(), () ->
-					BlockEntityType.Builder.of(FarmBlockEntity::new, FARM_BLOCK.get())
-							.build(ResourceKey.create(Registries.BLOCK_ENTITY_TYPE, FARM_ID)));
+			BLOCK_ENTITY_TYPES.register(FARM_ID.getPath(),
+					() -> blockEntityType(FarmBlockEntity::new, FARM_BLOCK.get()));
 	public static final RegistrySupplier<BlockEntityType<LumberBlockEntity>> LUMBER_BLOCK_ENTITY =
-			BLOCK_ENTITY_TYPES.register(LUMBER_ID.getPath(), () ->
-					BlockEntityType.Builder.of(LumberBlockEntity::new, LUMBER_BLOCK.get())
-							.build(ResourceKey.create(Registries.BLOCK_ENTITY_TYPE, LUMBER_ID)));
+			BLOCK_ENTITY_TYPES.register(LUMBER_ID.getPath(),
+					() -> blockEntityType(LumberBlockEntity::new, LUMBER_BLOCK.get()));
 	public static final RegistrySupplier<BlockEntityType<MilkBarrelBlockEntity>> MILK_BARREL_BLOCK_ENTITY =
-			BLOCK_ENTITY_TYPES.register(MILK_BARREL_ID.getPath(), () ->
-					BlockEntityType.Builder.of(MilkBarrelBlockEntity::new, MILK_BARREL_BLOCK.get())
-							.build(ResourceKey.create(Registries.BLOCK_ENTITY_TYPE, MILK_BARREL_ID)));
+			BLOCK_ENTITY_TYPES.register(MILK_BARREL_ID.getPath(),
+					() -> blockEntityType(MilkBarrelBlockEntity::new, MILK_BARREL_BLOCK.get()));
 	public static final RegistrySupplier<BlockEntityType<FeedBarrelBlockEntity>> FEED_BARREL_BLOCK_ENTITY =
-			BLOCK_ENTITY_TYPES.register(FEED_BARREL_ID.getPath(), () ->
-					BlockEntityType.Builder.of(FeedBarrelBlockEntity::new, FEED_BARREL_BLOCK.get())
-							.build(ResourceKey.create(Registries.BLOCK_ENTITY_TYPE, FEED_BARREL_ID)));
+			BLOCK_ENTITY_TYPES.register(FEED_BARREL_ID.getPath(),
+					() -> blockEntityType(FeedBarrelBlockEntity::new, FEED_BARREL_BLOCK.get()));
 	public static final RegistrySupplier<BlockEntityType<SeedBoxBlockEntity>> SEED_BOX_BLOCK_ENTITY =
-			BLOCK_ENTITY_TYPES.register(SEED_BOX_ID.getPath(), () ->
-					BlockEntityType.Builder.of(SeedBoxBlockEntity::new, SEED_BOX_BLOCK.get())
-							.build(ResourceKey.create(Registries.BLOCK_ENTITY_TYPE, SEED_BOX_ID)));
+			BLOCK_ENTITY_TYPES.register(SEED_BOX_ID.getPath(),
+					() -> blockEntityType(SeedBoxBlockEntity::new, SEED_BOX_BLOCK.get()));
 
 	public static final RegistrySupplier<EntityType<RancherEntity>> RANCHER = ENTITY_TYPES.register(RANCHER_ID.getPath(),
 			() -> EntityType.Builder.<RancherEntity>of(RancherEntity::new, MobCategory.MISC)
@@ -199,6 +196,11 @@ public class WorkstationsMod {
 
 	private static Item.Properties blockItemSettings(Identifier id) {
 		return itemSettings(id).useBlockDescriptionPrefix();
+	}
+
+	private static <T extends BlockEntity> BlockEntityType<T> blockEntityType(
+			BlockEntityType.BlockEntitySupplier<T> factory, Block block) {
+		return new BlockEntityType<>(factory, Set.of(block));
 	}
 
 	public static void init() {
