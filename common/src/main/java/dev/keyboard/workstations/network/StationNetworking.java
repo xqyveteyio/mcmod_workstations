@@ -11,6 +11,8 @@ import dev.keyboard.workstations.work.LumberSettings;
 import dev.keyboard.workstations.work.StationSettings;
 import dev.keyboard.workstations.work.Woods;
 import dev.architectury.networking.NetworkManager;
+import dev.architectury.platform.Platform;
+import dev.architectury.utils.Env;
 import net.minecraft.block.entity.BlockEntity;
 import net.minecraft.item.Item;
 import net.minecraft.nbt.NbtCompound;
@@ -38,8 +40,9 @@ import java.util.List;
  * <p>Settings themselves travel as NBT, the same shape they are saved in. That way a new setting is
  * one entry in a station's option list and needs nothing here.
  *
- * <p>Payload types for both directions are registered here so a dedicated server knows the packets
- * it is about to send, not only the ones it is prepared to receive.
+ * <p>The open-screen packet is registered as a type on a dedicated server here, so that process
+ * can send it. The client registers the same type when it attaches the receiver; doing both in
+ * one Fabric client process would throw that the id is already registered.
  */
 public final class StationNetworking {
 	/**
@@ -104,7 +107,9 @@ public final class StationNetworking {
 	}
 
 	public static void registerServerReceivers() {
-		NetworkManager.registerS2CPayloadType(OpenScreenPayload.ID, OpenScreenPayload.CODEC);
+		if (Platform.getEnvironment() == Env.SERVER) {
+			NetworkManager.registerS2CPayloadType(OpenScreenPayload.ID, OpenScreenPayload.CODEC);
+		}
 
 		NetworkManager.registerReceiver(NetworkManager.c2s(), SaveSettingsPayload.ID, SaveSettingsPayload.CODEC,
 				(payload, context) -> context.queue(() -> {
