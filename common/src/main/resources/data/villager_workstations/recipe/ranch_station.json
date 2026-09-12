@@ -1,0 +1,18 @@
+{
+	"type": "minecraft:crafting_shaped",
+	"pattern": [
+		" A ",
+		"BCB",
+		"BDB"
+	],
+	"key": {
+		"A": "minecraft:hay_block",
+		"B": "#minecraft:wooden_fences",
+		"C": "minecraft:emerald_block",
+		"D": "minecraft:chest"
+	},
+	"result": {
+		"id": "villager_workstations:ranch_station",
+		"count": 1
+	}
+}

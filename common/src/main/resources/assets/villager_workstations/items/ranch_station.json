@@ -1,0 +1,18 @@
+{
+	"model": {
+		"type": "minecraft:composite",
+		"models": [
+			{
+				"type": "minecraft:model",
+				"model": "villager_workstations:block/ranch_station"
+			},
+			{
+				"type": "minecraft:special",
+				"base": "villager_workstations:block/ranch_station",
+				"model": {
+					"type": "villager_workstations:ranch_tabletop"
+				}
+			}
+		]
+	}
+}

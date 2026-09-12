@@ -1,0 +1,65 @@
+plugins {
+	id 'com.gradleup.shadow' version '9.6.1'
+}
+
+architectury {
+	platformSetupLoomIde()
+	fabric()
+}
+
+loom {
+	accessWidenerPath = project(':common').loom.accessWidenerPath
+	injectAccessWidener(tasks.named('jar'))
+}
+
+configurations {
+	common
+	shadowCommon
+	compileClasspath.extendsFrom common
+	runtimeClasspath.extendsFrom common
+	developmentFabric.extendsFrom common
+}
+
+dependencies {
+	api "net.fabricmc:fabric-loader:${rootProject.fabric_loader_version}"
+	api "net.fabricmc.fabric-api:fabric-api:${rootProject.fabric_api_version}"
+	implementation "dev.architectury:architectury-fabric:${rootProject.architectury_version}"
+
+	common(project(path: ':common')) { transitive false }
+	shadowCommon(project(path: ':common', configuration: 'transformProductionFabric')) { transitive false }
+}
+
+processResources {
+	inputs.property 'version', project.version
+
+	from(project(':common').sourceSets.main.resources) {
+		include 'villager_workstations.accesswidener'
+	}
+
+	filesMatching('fabric.mod.json') {
+		expand 'version': project.version
+	}
+}
+
+jar {
+	archiveClassifier = 'raw'
+}
+
+shadowJar {
+	exclude 'architectury.common.json'
+	dependsOn jar
+	mainSpec.sourcePaths.clear()
+	from zipTree(jar.archiveFile)
+	configurations = [project.configurations.shadowCommon]
+	archiveClassifier = null
+}
+
+assemble.dependsOn shadowJar
+
+sourcesJar {
+	def commonSources = project(':common').sourcesJar
+	dependsOn commonSources
+	from commonSources.archiveFile.map { zipTree(it) }
+}
+
+shadow.addShadowVariantIntoJavaComponent = false

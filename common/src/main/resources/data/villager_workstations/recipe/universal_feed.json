@@ -1,0 +1,13 @@
+{
+	"type": "minecraft:crafting_shapeless",
+	"ingredients": [
+		"minecraft:wheat",
+		"minecraft:wheat",
+		"minecraft:wheat_seeds",
+		"minecraft:carrot"
+	],
+	"result": {
+		"id": "villager_workstations:universal_feed",
+		"count": 4
+	}
+}

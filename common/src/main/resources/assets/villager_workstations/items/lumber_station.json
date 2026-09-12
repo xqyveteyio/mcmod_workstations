@@ -1,0 +1,18 @@
+{
+	"model": {
+		"type": "minecraft:composite",
+		"models": [
+			{
+				"type": "minecraft:model",
+				"model": "villager_workstations:block/lumber_station"
+			},
+			{
+				"type": "minecraft:special",
+				"base": "villager_workstations:block/lumber_station",
+				"model": {
+					"type": "villager_workstations:lumber_axe"
+				}
+			}
+		]
+	}
+}

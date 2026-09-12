@@ -1,0 +1,6 @@
+{
+	"model": {
+		"type": "minecraft:model",
+		"model": "villager_workstations:block/milk_barrel"
+	}
+}

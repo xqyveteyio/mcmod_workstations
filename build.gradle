@@ -1,64 +1,56 @@
 plugins {
-	id 'net.fabricmc.fabric-loom' version "${loom_version}"
-	id 'maven-publish'
+	id 'architectury-plugin' version '3.5-SNAPSHOT'
+	id 'dev.architectury.loom-no-remap' version '1.17-SNAPSHOT' apply false
 }
 
-version = project.mod_version
-group = project.maven_group
-
-base {
-	archivesName = project.archives_base_name
+architectury {
+	minecraft = rootProject.minecraft_version
 }
 
-loom {
-	accessWidenerPath = file("src/main/resources/keyboard_workstations.accesswidener")
-}
+subprojects {
+	apply plugin: 'dev.architectury.loom-no-remap'
 
-repositories {
-}
+	repositories {
+		maven { url = 'https://maven.architectury.dev/' }
+		maven { url = 'https://maven.neoforged.net/releases/' }
+	}
 
-dependencies {
-	minecraft "com.mojang:minecraft:${project.minecraft_version}"
-	implementation "net.fabricmc:fabric-loader:${project.loader_version}"
-	implementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
-}
-
-processResources {
-	def version = project.version
-	inputs.property "version", version
-
-	filesMatching("fabric.mod.json") {
-		expand "version": version
+	dependencies {
+		minecraft "com.mojang:minecraft:${rootProject.minecraft_version}"
 	}
 }
 
-tasks.withType(JavaCompile).configureEach {
-	it.options.encoding = "UTF-8"
-	it.options.release = 25
-}
+allprojects {
+	apply plugin: 'java'
+	apply plugin: 'architectury-plugin'
+	apply plugin: 'maven-publish'
 
-java {
-	withSourcesJar()
-
-	sourceCompatibility = JavaVersion.VERSION_25
-	targetCompatibility = JavaVersion.VERSION_25
-}
-
-jar {
-	manifest {
-		attributes 'Implementation-Title': project.archives_base_name,
-				'Implementation-Version': project.version
+	base {
+		archivesName = "${rootProject.archives_base_name}-${rootProject.minecraft_version}-${project.name}"
 	}
-}
 
-publishing {
-	publications {
-		create("mavenJava", MavenPublication) {
-			artifactId = project.archives_base_name
-			from components.java
+	version = rootProject.mod_version
+	group = rootProject.maven_group
+
+	repositories {
+		mavenCentral()
+	}
+
+	tasks.withType(JavaCompile).configureEach {
+		it.options.encoding = 'UTF-8'
+		it.options.release = 25
+	}
+
+	tasks.withType(JavaExec).configureEach {
+		javaLauncher = javaToolchains.launcherFor {
+			languageVersion = JavaLanguageVersion.of(25)
 		}
 	}
 
-	repositories {
+	java {
+		toolchain {
+			languageVersion = JavaLanguageVersion.of(25)
+		}
+		withSourcesJar()
 	}
 }

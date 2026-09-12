@@ -1,0 +1,16 @@
+{
+	"type": "minecraft:crafting_shaped",
+	"pattern": [
+		"PPP",
+		"PWP",
+		"PPP"
+	],
+	"key": {
+		"P": "#minecraft:planks",
+		"W": "minecraft:wheat"
+	},
+	"result": {
+		"id": "villager_workstations:feed_barrel",
+		"count": 1
+	}
+}

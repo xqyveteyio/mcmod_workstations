@@ -1,0 +1,16 @@
+{
+	"type": "minecraft:crafting_shaped",
+	"pattern": [
+		"PPP",
+		"PSP",
+		"PPP"
+	],
+	"key": {
+		"P": "#minecraft:planks",
+		"S": "minecraft:wheat_seeds"
+	},
+	"result": {
+		"id": "villager_workstations:seed_box",
+		"count": 1
+	}
+}

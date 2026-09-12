@@ -1,0 +1,18 @@
+{
+	"type": "minecraft:crafting_shaped",
+	"pattern": [
+		" A ",
+		"BCB",
+		"BDB"
+	],
+	"key": {
+		"A": "minecraft:iron_axe",
+		"B": "#minecraft:wooden_fences",
+		"C": "minecraft:emerald_block",
+		"D": "minecraft:chest"
+	},
+	"result": {
+		"id": "villager_workstations:lumber_station",
+		"count": 1
+	}
+}
