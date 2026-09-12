@@ -1,0 +1,11 @@
+{
+	"replace": false,
+	"values": [
+		"villager_workstations:ranch_station",
+		"villager_workstations:farm_station",
+		"villager_workstations:lumber_station",
+		"villager_workstations:milk_barrel",
+		"villager_workstations:feed_barrel",
+		"villager_workstations:seed_box"
+	]
+}

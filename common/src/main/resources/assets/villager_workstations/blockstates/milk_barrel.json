@@ -1,0 +1,19 @@
+{
+	"variants": {
+		"level=0": {
+			"model": "villager_workstations:block/milk_barrel"
+		},
+		"level=1": {
+			"model": "villager_workstations:block/milk_barrel_1"
+		},
+		"level=2": {
+			"model": "villager_workstations:block/milk_barrel_2"
+		},
+		"level=3": {
+			"model": "villager_workstations:block/milk_barrel_3"
+		},
+		"level=4": {
+			"model": "villager_workstations:block/milk_barrel_4"
+		}
+	}
+}

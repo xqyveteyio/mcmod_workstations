@@ -1,0 +1,18 @@
+{
+	"type": "minecraft:crafting_shaped",
+	"pattern": [
+		" A ",
+		"BCB",
+		"BDB"
+	],
+	"key": {
+		"A": { "item": "minecraft:wheat_seeds" },
+		"B": { "tag": "minecraft:wooden_fences" },
+		"C": { "item": "minecraft:emerald_block" },
+		"D": { "item": "minecraft:chest" }
+	},
+	"result": {
+		"id": "villager_workstations:farm_station",
+		"count": 1
+	}
+}
