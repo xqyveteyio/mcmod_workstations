@@ -126,7 +126,7 @@ public class MilkBarrelBlock extends BlockWithEntity {
 	}
 
 	private static Text level(MilkBarrelBlockEntity barrel) {
-		return Text.translatable("message.keyboard_workstations.milk_barrel_level",
+		return Text.translatable("message.villager_workstations.milk_barrel_level",
 				barrel.getStored(), MilkBarrelBlockEntity.CAPACITY);
 	}
 

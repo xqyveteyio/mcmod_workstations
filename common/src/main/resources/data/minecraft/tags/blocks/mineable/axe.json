@@ -1,11 +1,11 @@
 {
 	"replace": false,
 	"values": [
-		"keyboard_workstations:ranch_station",
-		"keyboard_workstations:farm_station",
-		"keyboard_workstations:lumber_station",
-		"keyboard_workstations:milk_barrel",
-		"keyboard_workstations:feed_barrel",
-		"keyboard_workstations:seed_box"
+		"villager_workstations:ranch_station",
+		"villager_workstations:farm_station",
+		"villager_workstations:lumber_station",
+		"villager_workstations:milk_barrel",
+		"villager_workstations:feed_barrel",
+		"villager_workstations:seed_box"
 	]
 }

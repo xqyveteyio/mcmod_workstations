@@ -108,7 +108,7 @@ public class RanchBlockEntity extends WorkStationBlockEntity<RancherEntity, Stat
 
 	@Override
 	protected Text getContainerName() {
-		return Text.translatable("container.keyboard_workstations.ranch_station");
+		return Text.translatable("container.villager_workstations.ranch_station");
 	}
 
 	@Override

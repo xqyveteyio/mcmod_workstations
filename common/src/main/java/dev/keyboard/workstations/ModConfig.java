@@ -9,7 +9,7 @@ import java.nio.file.Path;
 
 /**
  * Starting values for newly placed stations, and the values the settings screen's reset button
- * restores, stored in {@code config/keyboard_workstations.json}.
+ * restores, stored in {@code config/villager_workstations.json}.
  *
  * <p>Ranchers do not read this, with three exceptions noted below. Each station keeps its own
  * {@link dev.keyboard.workstations.work.StationSettings}, copied from here when the block is

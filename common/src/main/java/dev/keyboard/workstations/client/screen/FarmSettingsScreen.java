@@ -50,19 +50,19 @@ public class FarmSettingsScreen extends WorkerSettingsScreen<FarmSettings> {
 	@Override
 	protected void addExtraRows(String category, Consumer<Row> add) {
 		if (FarmSettings.FIELD.equals(category)) {
-			add.accept(new Row(Text.translatable("config.keyboard_workstations.rescan_plots"),
-					ButtonWidget.builder(Text.translatable("config.keyboard_workstations.rescan_plots.action"),
+			add.accept(new Row(Text.translatable("config.villager_workstations.rescan_plots"),
+					ButtonWidget.builder(Text.translatable("config.villager_workstations.rescan_plots.action"),
 									button -> surveyAndLeave())
 							.dimensions(0, 0, CONTROL_WIDTH, CONTROL_HEIGHT)
 							.build(),
-					Text.translatable("config.keyboard_workstations.rescan_plots.tooltip")));
+					Text.translatable("config.villager_workstations.rescan_plots.tooltip")));
 			return;
 		}
 
 		if (FarmSettings.SEEDS.equals(category)) {
 			addMixRows(settings.seedMix, palette,
-					"config.keyboard_workstations.no_seeds",
-					"config.keyboard_workstations.seed_weight.tooltip", add);
+					"config.villager_workstations.no_seeds",
+					"config.villager_workstations.seed_weight.tooltip", add);
 		}
 	}
 }

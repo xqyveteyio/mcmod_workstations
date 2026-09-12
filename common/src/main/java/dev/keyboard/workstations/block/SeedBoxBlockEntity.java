@@ -129,7 +129,7 @@ public class SeedBoxBlockEntity extends LootableContainerBlockEntity implements 
 
 	@Override
 	protected Text getContainerName() {
-		return Text.translatable("container.keyboard_workstations.seed_box");
+		return Text.translatable("container.villager_workstations.seed_box");
 	}
 
 	@Override

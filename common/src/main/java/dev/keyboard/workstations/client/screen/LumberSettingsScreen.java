@@ -32,8 +32,8 @@ public class LumberSettingsScreen extends WorkerSettingsScreen<LumberSettings> {
 	protected void addExtraRows(String category, Consumer<Row> add) {
 		if (LumberSettings.SAPLINGS.equals(category)) {
 			addMixRows(settings.saplingMix, palette,
-					"config.keyboard_workstations.no_saplings",
-					"config.keyboard_workstations.sapling_weight.tooltip", add);
+					"config.villager_workstations.no_saplings",
+					"config.villager_workstations.sapling_weight.tooltip", add);
 		}
 	}
 }

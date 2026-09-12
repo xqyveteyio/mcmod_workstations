@@ -3,7 +3,7 @@ architectury {
 }
 
 loom {
-	accessWidenerPath = file('src/main/resources/keyboard_workstations.accesswidener')
+	accessWidenerPath = file('src/main/resources/villager_workstations.accesswidener')
 }
 
 dependencies {

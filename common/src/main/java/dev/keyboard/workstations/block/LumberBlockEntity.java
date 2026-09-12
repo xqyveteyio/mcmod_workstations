@@ -72,7 +72,7 @@ public class LumberBlockEntity extends WorkStationBlockEntity<LumberjackEntity, 
 
 	@Override
 	protected Text getContainerName() {
-		return Text.translatable("container.keyboard_workstations.lumber");
+		return Text.translatable("container.villager_workstations.lumber");
 	}
 
 	/**

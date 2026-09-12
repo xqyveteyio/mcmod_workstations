@@ -132,7 +132,7 @@ public class FeedBarrelBlockEntity extends LootableContainerBlockEntity implemen
 
 	@Override
 	protected Text getContainerName() {
-		return Text.translatable("container.keyboard_workstations.feed_barrel");
+		return Text.translatable("container.villager_workstations.feed_barrel");
 	}
 
 	@Override

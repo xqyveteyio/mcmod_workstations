@@ -89,7 +89,7 @@ public class FarmBlockEntity extends WorkStationBlockEntity<FarmerEntity, FarmSe
 
 	@Override
 	protected Text getContainerName() {
-		return Text.translatable("container.keyboard_workstations.farm");
+		return Text.translatable("container.villager_workstations.farm");
 	}
 
 	/**

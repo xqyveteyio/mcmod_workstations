@@ -40,7 +40,7 @@ public final class LumberSettings implements WorkerSettings<LumberSettings> {
 
 	private static final String MIX_KEY = "SaplingMix";
 
-	/** Groups for the settings screen, in tab order. Keys are {@code config.keyboard_workstations.*}. */
+	/** Groups for the settings screen, in tab order. Keys are {@code config.villager_workstations.*}. */
 	public static final String WOODS = "category.lumber";
 	/** The tab the sapling ratio rows are built onto, which has no fixed options of its own. */
 	public static final String SAPLINGS = "category.saplings";

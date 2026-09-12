@@ -15,10 +15,10 @@ import org.lwjgl.glfw.GLFW;
 
 public class WorkstationsClient {
 	public static final KeyBinding TOGGLE_HIGHLIGHT = new KeyBinding(
-			"key.keyboard_workstations.toggle_highlight",
+			"key.villager_workstations.toggle_highlight",
 			InputUtil.Type.KEYSYM,
 			GLFW.GLFW_KEY_G,
-			"category.keyboard_workstations");
+			"category.villager_workstations");
 
 	public static void registerKeyMappings() {
 		KeyMappingRegistry.register(TOGGLE_HIGHLIGHT);
@@ -63,8 +63,8 @@ public class WorkstationsClient {
 
 				if (client.player != null) {
 					client.player.sendMessage(Text.translatable(enabled
-							? "message.keyboard_workstations.highlight_on"
-							: "message.keyboard_workstations.highlight_off"), true);
+							? "message.villager_workstations.highlight_on"
+							: "message.villager_workstations.highlight_off"), true);
 				}
 			}
 		});

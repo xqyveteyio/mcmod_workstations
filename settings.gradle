@@ -15,4 +15,4 @@ include 'common'
 include 'fabric'
 include 'forge'
 
-rootProject.name = 'keyboard_workstations'
+rootProject.name = 'villager-workstations'

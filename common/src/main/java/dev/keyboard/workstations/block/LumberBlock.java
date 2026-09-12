@@ -126,7 +126,7 @@ public class LumberBlock extends BlockWithEntity {
 		station.summonWorker(serverWorld);
 
 		if (placer instanceof PlayerEntity player) {
-			player.sendMessage(Text.translatable("message.keyboard_workstations.lumber_placed", trees), true);
+			player.sendMessage(Text.translatable("message.villager_workstations.lumber_placed", trees), true);
 		}
 	}
 

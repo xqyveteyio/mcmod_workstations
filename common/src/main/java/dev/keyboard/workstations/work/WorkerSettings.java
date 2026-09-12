@@ -31,7 +31,7 @@ public interface WorkerSettings<S extends WorkerSettings<S>> {
 	S copy();
 
 	/**
-	 * The values from {@code config/keyboard_workstations.json}, so the reset button restores what
+	 * The values from {@code config/villager_workstations.json}, so the reset button restores what
 	 * a newly placed station would start with.
 	 */
 	S shippedDefaults();

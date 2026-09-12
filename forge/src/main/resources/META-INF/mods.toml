@@ -3,7 +3,7 @@ loaderVersion = "[47,)"
 license = "MIT"
 
 [[mods]]
-modId = "keyboard_workstations"
+modId = "villager_workstations"
 version = "${version}"
 displayName = "Workstations"
 authors = "keyboard"
@@ -11,21 +11,21 @@ description = '''
 Work stations that each summon a worker to run the ground around them. The ranch station's rancher breeds, culls, shears and milks the animals in its pen; the farm station's farmer tills, sows and harvests its plots; the lumber station's lumberjack fells trees and plants saplings. Every station is configured in place and highlights the area it works.
 '''
 
-[[dependencies.keyboard_workstations]]
+[[dependencies.villager_workstations]]
 modId = "forge"
 mandatory = true
 versionRange = "[47,)"
 ordering = "NONE"
 side = "BOTH"
 
-[[dependencies.keyboard_workstations]]
+[[dependencies.villager_workstations]]
 modId = "minecraft"
 mandatory = true
 versionRange = "[1.20.1,1.20.2)"
 ordering = "NONE"
 side = "BOTH"
 
-[[dependencies.keyboard_workstations]]
+[[dependencies.villager_workstations]]
 modId = "architectury"
 mandatory = true
 versionRange = "[9.2.0,)"

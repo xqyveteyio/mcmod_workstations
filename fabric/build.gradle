@@ -32,7 +32,7 @@ processResources {
 	inputs.property 'version', project.version
 
 	from(project(':common').sourceSets.main.resources) {
-		include 'keyboard_workstations.accesswidener'
+		include 'villager_workstations.accesswidener'
 	}
 
 	filesMatching('fabric.mod.json') {

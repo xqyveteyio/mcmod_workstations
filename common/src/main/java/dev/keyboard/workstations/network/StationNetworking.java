@@ -106,9 +106,9 @@ public final class StationNetworking {
 
 				// Over the hotbar rather than in the screen, so the answer survives closing it.
 				player.sendMessage(Text.translatable(switch (station.recallWorker(world)) {
-					case SUMMONED -> "message.keyboard_workstations.worker_summoned";
-					case MOVED -> "message.keyboard_workstations.worker_recalled";
-					case NO_ROOM -> "message.keyboard_workstations.worker_no_room";
+					case SUMMONED -> "message.villager_workstations.worker_summoned";
+					case MOVED -> "message.villager_workstations.worker_recalled";
+					case NO_ROOM -> "message.villager_workstations.worker_no_room";
 				}), true);
 			});
 		});
@@ -123,7 +123,7 @@ public final class StationNetworking {
 					return;
 				}
 
-				player.sendMessage(Text.translatable("message.keyboard_workstations.plots_registered",
+				player.sendMessage(Text.translatable("message.villager_workstations.plots_registered",
 						farm.registerPlots(world)), true);
 			});
 		});

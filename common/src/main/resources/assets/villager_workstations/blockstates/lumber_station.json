@@ -1,0 +1,19 @@
+{
+	"variants": {
+		"facing=north": {
+			"model": "villager_workstations:block/lumber_station"
+		},
+		"facing=east": {
+			"model": "villager_workstations:block/lumber_station",
+			"y": 90
+		},
+		"facing=south": {
+			"model": "villager_workstations:block/lumber_station",
+			"y": 180
+		},
+		"facing=west": {
+			"model": "villager_workstations:block/lumber_station",
+			"y": 270
+		}
+	}
+}
